@@ -24,6 +24,7 @@
  * mode preservation — concurrent processes never lose each other's keys.
  */
 
+import { renameAtomicSync } from "./storage/atomic-rename.ts";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -1080,7 +1081,7 @@ function atomicWriteJson(target: string, value: unknown, options: { defaultMode:
 		fs.fsyncSync(fd);
 		fs.closeSync(fd);
 		fd = undefined;
-		fs.renameSync(temp, target);
+		renameAtomicSync(temp, target);
 	} catch (error) {
 		if (fd !== undefined) {
 			try {

@@ -1,4 +1,5 @@
 import { goalStoragePath, goalPoolSnapshotPath, isExternalGoalStorage, ensureGoalStorageDirectory, type GoalStorageContext } from "./goal-root.ts";
+import { renameAtomicAsync, renameAtomicSync } from "./atomic-rename.ts";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -156,7 +157,7 @@ function writePoolSnapshotSync(ctx: GoalFileContext, root: string, goals: GoalRe
 		const target = goalPoolSnapshotPath(ctx);
 		const tempPath = `${target}.${process.pid}.${Date.now()}.tmp`;
 		fs.writeFileSync(tempPath, JSON.stringify(snapshot), "utf8");
-		fs.renameSync(tempPath, target);
+		renameAtomicSync(tempPath, target);
 		removeLegacyPoolSnapshot(root);
 	} catch {
 		// best-effort: a missing/stale snapshot just costs a full scan next cold read
@@ -171,7 +172,7 @@ async function writePoolSnapshotAsync(ctx: GoalFileContext, root: string, goals:
 		const target = goalPoolSnapshotPath(ctx);
 		const tempPath = `${target}.${process.pid}.${Date.now()}.tmp`;
 		await fs.promises.writeFile(tempPath, JSON.stringify(snapshot), "utf8");
-		await fs.promises.rename(tempPath, target);
+		await renameAtomicAsync(tempPath, target);
 		removeLegacyPoolSnapshot(root);
 	} catch {
 		// best-effort
@@ -190,7 +191,7 @@ function updatePoolSnapshotSync(ctx: GoalFileContext, root: string, mutate: (goa
 		const target = goalPoolSnapshotPath(ctx);
 		const tempPath = `${target}.${process.pid}.${Date.now()}.tmp`;
 		fs.writeFileSync(tempPath, JSON.stringify(snapshot), "utf8");
-		fs.renameSync(tempPath, target);
+		renameAtomicSync(tempPath, target);
 		removeLegacyPoolSnapshot(root);
 	} catch {
 		// best-effort
@@ -275,7 +276,7 @@ export function atomicWriteGoalFile(ctx: GoalFileContext, rootRel: string, relPa
 	}
 	const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
 	fs.writeFileSync(tempPath, content, "utf8");
-	fs.renameSync(tempPath, filePath);
+	renameAtomicSync(tempPath, filePath);
 	invalidateGoalPathCaches(filePath);
 	invalidateGoalDirCache(goalStoragePath(ctx, rootRel));
 }
