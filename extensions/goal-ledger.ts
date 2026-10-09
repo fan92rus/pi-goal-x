@@ -1,8 +1,8 @@
 import { goalStoragePath, ensureGoalStorageDirectory, isExternalGoalStorage, type GoalStorageContext } from "./storage/goal-root.ts";
 import { indexedActivityEvents } from "./goal-activity.ts";
 import { buildLedgerIndex, indexLedgerEvent, type GoalLedgerIndex } from "./goal-ledger-index.ts";
-import * as fs from "node:fs";
 import * as path from "node:path";
+import { fs } from "./storage/fs.ts";
 import { nowIso, safeIdPart, type GoalRecord } from "./goal-record.ts";
 
 export const GOAL_LEDGER_FILE = ".pi/goals/goal_events.jsonl";
