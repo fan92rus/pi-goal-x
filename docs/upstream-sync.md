@@ -1,9 +1,30 @@
 # Upstream sync: форк fan92rus/pi-goal-x ← tmonk/pi-goal-x
 
 Форк поддерживает фичи поверх апстрима и автоматически подтягивает его релизы,
-не теряя их. Паттерн повторяет livecraft-форк pi, но синк выполняется
-**локально** (задача планировщика), чтобы конфликт-задачи могли уходить в
-SelfHeal-оркестратор на localhost — GitHub-раннеры в LAN не заходят.
+не теряя их.
+
+## Архитектура (с 2026-10-13): GitHub — основной, локальная задача — резерв
+
+**`.github/workflows/upstream-sync.yml`** — основной пайплайн:
+- cron ежечасно + workflow_dispatch + push в main;
+- job `sync`: merge новейшего невлитого релизного тега upstream в main;
+  гейт = `npm run check` + `npm run test:all` (ubuntu: штатный раннер работает,
+  windows-базлайн не нужен); push main;
+- конфликт → merge abort, красный ран, авто-issue `upstream conflict: vX.Y.Z`;
+- job `publish`: `@fan92rus/pi-goal-x <вер>-fan.<N>` под dist-tag `fan`
+  (секрет `NPM_TOKEN`, Automation-токен — обходит 2FA-OTP);
+  дедуп: HEAD уже опубликован (gitHead-совпадение) → skip.
+
+**Локальная задача `pi-goal-x Upstream Sync`** (`scripts/upstream-sync.mjs`):
+- резервный синкер и РАЗРЕШИТЕЛЬ КОНФЛИКТОВ ( enqueue в SelfHeal, см. ниже);
+- гвард от гонок: если upstream-sync-ран в GitHub ещё идёт — локальный запуск
+  выходит (fail-open при недоступном gh);
+- npm зовётся через `node npm-cli.js` (spawnSync не исполняет .cmd-шиммы,
+  CVE-2024-27980; локальная публикация требует Automation-токен в ~/.npmrc).
+
+Готово к расхождениям: GitHub авто-отключает cron-workflow на форках после
+60 дней неактивности репо — тогда локальная задача остаётся единственным
+синкером (перевключить в Actions-табе).
 
 ## Ремоуты и ветки
 

@@ -130,6 +130,18 @@ log(`=== upstream-sync start (repo ${REPO}, publish=${PUBLISH}) ===`);
 if (shOut("git", ["branch", "--show-current"]) !== BRANCH) die(2, `must run on ${BRANCH}`);
 if (shOut("git", ["status", "--porcelain"]).length > 0) die(2, "worktree not clean — refusing to sync");
 
+// GitHub workflow upstream-sync.yml — основной мерджер; не гоняемся с ним.
+// (gh отсутствует/упал → продолжаем: fail-open, локальная задача всё ещё резерв.)
+try {
+	const gh = spawnSync("gh", ["run", "list", "--workflow=upstream-sync.yml", "--status", "in-progress", "--json", "databaseId"],
+		{ encoding: "utf8", shell: false, timeout: 30_000 });
+	if (gh.status === 0 && JSON.parse(gh.stdout || "[]").length > 0) {
+		log("GitHub upstream-sync run in progress — exiting to avoid a race");
+		logStream.end();
+		process.exit(0);
+	}
+} catch { /* gh not available — continue */ }
+
 // ── fetch + latest tag ───────────────────────────────────────────────────────
 sh("git", ["fetch", UPSTREAM, "--tags"]);
 sh("git", ["fetch", ORIGIN]);

@@ -1,0 +1,200 @@
+# Fork pipeline: auto-merge upstream releases + publish @fan92rus/pi-goal-x.
+#
+# Architecture (fork-only file; upstream never ships this):
+#   - sync job (hourly cron + manual): merge latest unmerged upstream release
+#     tag into main, gate = npm run check + full test suite (ubuntu: the
+#     native `npm test` runner works; the Windows env-baseline is not needed).
+#     Conflict → merge aborted, red run, a "conflict" issue is filed; the
+#     local SelfHeal resolver (scripts/upstream-sync.mjs on the dev machine)
+#     picks conflicts up on its next run — it is guarded against racing this
+#     workflow and no-ops when CI merged cleanly first.
+#   - publish job (after a merged sync, or on any push to main): publish
+#     @fan92rus/pi-goal-x <upstream-ver>-fan.<N> under the `fan` dist-tag.
+#     Requires the NPM_TOKEN repo secret (Automation-type token — bypasses
+#     2FA OTP). Skips when the current HEAD is already published (gitHead
+#     match) — dedupes the push-trigger against the sync-triggered publish.
+#
+# Note: GitHub auto-disables scheduled workflows on forks after 60 days of
+# repository inactivity — re-enable in the Actions tab, or rely on the local
+# task as the backup syncer.
+
+name: upstream-sync
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+    inputs:
+      force_publish:
+        description: "Publish fan.N+1 even if nothing was merged"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      merged: ${{ steps.merge.outputs.merged }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Resolve latest upstream release tag
+        id: tag
+        run: |
+          git remote add upstream https://github.com/tmonk/pi-goal-x.git
+          git fetch upstream --tags
+          TAG=$(git tag --list 'v*' --merged upstream/main --sort=-v:refname | head -1)
+          test -n "$TAG" || { echo "no upstream release tags"; exit 1; }
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "latest upstream tag: $TAG"
+          if git merge-base --is-ancestor "$TAG" HEAD; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Merge upstream release (no-commit)
+        id: merge
+        if: steps.tag.outputs.new == 'true'
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          if git merge --no-commit --no-ff "$TAG"; then
+            echo "merged=true" >> "$GITHUB_OUTPUT"
+          else
+            git merge --abort
+            echo "conflict_tag=$TAG" >> "$GITHUB_OUTPUT"
+            echo "::error::merge conflict with $TAG — local SelfHeal resolver will pick this up"
+            exit 1
+          fi
+
+      - name: File conflict issue
+        if: failure() && steps.merge.outputs.conflict_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.merge.outputs.conflict_tag }}
+        run: |
+          TITLE="upstream conflict: $TAG"
+          if gh issue list --state open --search "$TITLE in:title" --json number | grep -q number; then
+            gh issue comment "$(gh issue list --state open --search "$TITLE in:title" --json number -q '.[0].number')" \
+              --body "Still conflicting after run $GITHUB_RUN_ID."
+          else
+            gh issue create --title "$TITLE" --label upstream-conflict --body "$(cat <<EOF
+          Merging $TAG into main conflicts (run ${{ github.run_id }}).
+
+          Automatic resolution: the local SelfHeal resolver enqueues this on its
+          next hourly run — or trigger it now on the dev machine:
+              node scripts/upstream-sync.mjs
+
+          The resolver keeps fork features per the rules in docs/upstream-sync.md
+          (extensions/goal-*, specs/ ours; lock files and untouched paths upstream).
+          EOF
+          )"
+          fi
+
+      - name: Install dependencies
+        if: steps.merge.outputs.merged == 'true'
+        run: npm ci
+
+      - name: Type check
+        if: steps.merge.outputs.merged == 'true'
+        run: npm run check
+
+      - name: Full test suite
+        if: steps.merge.outputs.merged == 'true'
+        run: npm run test:all
+
+      - name: Commit and push merge
+        if: steps.merge.outputs.merged == 'true'
+        run: |
+          git config user.name "fan-sync-bot"
+          git config user.email "fan-sync-bot@users.noreply.github.com"
+          git commit --no-edit
+          git push origin main
+
+  publish:
+    needs: [sync]
+    if: >-
+      !cancelled() &&
+      needs.sync.result != 'failure' &&
+      (
+        github.event_name == 'push' ||
+        needs.sync.outputs.merged == 'true' ||
+        inputs.force_publish == true
+      )
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.pub.outputs.published }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Skip if HEAD already published (gitHead match)
+        id: skip
+        run: |
+          HEAD_SHA=$(git rev-parse HEAD)
+          PUB_HEAD=$(npm view "@fan92rus/pi-goal-x@fan" gitHead 2>/dev/null || echo none)
+          if [ "$PUB_HEAD" = "$HEAD_SHA" ]; then
+            echo "HEAD $HEAD_SHA already published — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute fork version and rename package
+        if: steps.skip.outputs.skip == 'false'
+        run: |
+          BASE=$(node -p "require('./package.json').version")
+          V=""
+          for N in $(seq 0 99); do
+            if ! npm view "@fan92rus/pi-goal-x@$BASE-fan.$N" version >/dev/null 2>&1; then
+              V="$BASE-fan.$N"; break
+            fi
+          done
+          test -n "$V" || { echo "no free -fan.N after 100 attempts"; exit 1; }
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
+            p.name = '@fan92rus/pi-goal-x';
+            p.version = '$V';
+            fs.writeFileSync('./package.json', JSON.stringify(p, null, 2) + '\n');
+          "
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "publishing @fan92rus/pi-goal-x@$V"
+        id: ver
+
+      - name: Publish
+        id: pub
+        if: steps.skip.outputs.skip == 'false'
+        run: |
+          npm publish --access public --tag fan
+          echo "published=true" >> "$GITHUB_OUTPUT"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        if: steps.skip.outputs.skip == 'false'
+        run: echo "**Published** @fan92rus/pi-goal-x@${{ steps.ver.outputs.version }} (tag fan) from $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
