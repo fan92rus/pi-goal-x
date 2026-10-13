@@ -4,7 +4,18 @@ import type { GoalCore } from "./goal-state.ts";
 import { asRecord, type GoalRecord } from "./goal-record.ts";
 import { budgetReached } from "./goal-accounting.ts";
 import { loadGoalSettings, invalidateGoalSettingsCache } from "./goal-settings.ts";
+import { probeSubagentActivity } from "./goal-subagent-probe.ts";
 import { newGoalScheduler, schedulerSummary, type GoalContinuation, type GoalSchedulerState } from "./goal-scheduler-state.ts";
+
+/**
+ * Layer-2 guard (2026-10-13): defer ready-phase continuation delivery while
+ * async subagents of this session are alive, so waiting never becomes empty
+ * turns («Жду агента» спам). Fail-open: probe absent → deliver as before.
+ * The fuse guarantees delivery even when a subagent hangs or its completion
+ * wake is lost (bridge restart, reaped runner).
+ */
+export const SUBAGENT_DEFER_RECHECK_MS = 30_000;
+export const SUBAGENT_DEFER_FUSE_MS = 10 * 60_000;
 
 /** Scheduling intent is durable; timers only arrange an opportunity to claim it. */
 export class GoalScheduler {
@@ -16,6 +27,15 @@ export class GoalScheduler {
 	private runGoalId: string | undefined;
 	private denied = false;
 	private unsubscribe: (() => void) | undefined;
+	private unsubscribeAsyncComplete: (() => void) | undefined;
+	private unsubscribeRpcReady: (() => void) | undefined;
+	/** Cached probe verdict for the layer-2 guard: undefined = unknown, re-probe. */
+	private subagentActivity: boolean | undefined;
+	/** First deferral timestamp of the current ready-phase delivery attempt. */
+	private subagentDeferredAt: number | undefined;
+	private subagentProbeInFlight = false;
+	/** Guard is armed only when pi-subagents is actually loaded (RPC ready seen). */
+	private subagentRpcReady = false;
 	private core: GoalCore;
 	constructor(core: GoalCore) { this.core = core; }
 
@@ -72,6 +92,7 @@ export class GoalScheduler {
 	private pause(ctx: ExtensionContext, reason: string): void {
 		this.cancelTimer();
 		this.core.runtime.clearContinuationState();
+		this.subagentDeferredAt = undefined; this.subagentActivity = undefined;
 		this.write(ctx, g => {
 			if (g.scheduler && g.scheduler.owner !== this.owner(ctx)) throw new Error("Scheduling ownership changed; no pause was applied.");
 			return { ...g, status: "paused", autoContinue: false, stopReason: "agent", pauseReason: reason,
@@ -88,12 +109,24 @@ export class GoalScheduler {
 	attach(ctx: ExtensionContext): void {
 		this.ctx = ctx;
 		this.unsubscribe?.();
+		this.unsubscribeAsyncComplete?.();
+		this.unsubscribeRpcReady?.();
 		this.unsubscribe = this.core.pi.events?.on("pi-goal:wake", (event: unknown) => {
 			const raw = asRecord(event);
 			if (raw && this.ctx) this.signal(this.ctx, raw.goalId, raw.waitToken);
 		});
+		// Layer-2 guard: a completed async subagent ends the wait — resume the
+		// deferred continuation immediately instead of at the next recheck.
+		this.unsubscribeAsyncComplete = this.core.pi.events?.on("subagent:async-complete", () => {
+			if (this.subagentDeferredAt === undefined) return;
+			this.subagentDeferredAt = undefined;
+			this.subagentActivity = undefined; // re-probe: a run just finished
+			if (this.ctx && !this.inRun) { this.cancelTimer(); this.safe(this.ctx, () => this.schedule(this.ctx!)); }
+		});
+		// pi-subagents (re)loaded → arm the guard and re-evaluate activity instead of trusting a stale "absent" cache.
+		this.unsubscribeRpcReady = this.core.pi.events?.on("subagents:rpc:v1:ready", () => { this.subagentRpcReady = true; this.subagentActivity = undefined; });
 	}
-	shutdown(): void { this.cancelTimer(); this.unsubscribe?.(); this.unsubscribe = undefined; this.ctx = undefined; }
+	shutdown(): void { this.cancelTimer(); this.unsubscribe?.(); this.unsubscribeAsyncComplete?.(); this.unsubscribeRpcReady?.(); this.unsubscribe = this.unsubscribeAsyncComplete = this.unsubscribeRpcReady = undefined; this.ctx = undefined; }
 
 	restore(ctx: ExtensionContext): void {
 		this.attach(ctx);
@@ -221,6 +254,7 @@ export class GoalScheduler {
 	takeover(ctx: ExtensionContext): void {
 		this.cancelTimer(); this.core.runtime.clearContinuationState();
 		this.declared = false;
+		this.subagentDeferredAt = undefined; this.subagentActivity = undefined;
 		const s = this.core.state.goal?.scheduler;
 		if (!s || s.owner !== this.owner(ctx)) return;
 		this.safe(ctx, () => this.update(ctx, state => {
@@ -292,11 +326,39 @@ export class GoalScheduler {
 					this.later(ctx, due - Date.now(), () => this.schedule(ctx)); return;
 				}
 			}
+			if (s.phase === "ready" && this.subagentRpcReady && this.core.pi?.events) {
+				if (this.subagentActivity === undefined && !this.subagentProbeInFlight) {
+					// Layer-2 guard: activity unknown — probe first; the decision re-enters schedule().
+					void this.probeAndDecideSubagents(ctx);
+					return;
+				}
+				if (this.subagentActivity === true) {
+					const started = this.subagentDeferredAt ?? Date.now();
+					this.subagentDeferredAt = started;
+					if (Date.now() - started < SUBAGENT_DEFER_FUSE_MS) {
+						this.later(ctx, SUBAGENT_DEFER_RECHECK_MS, () => this.schedule(ctx));
+						return;
+					}
+					this.subagentDeferredAt = undefined; // fuse expired: deliver anyway
+				}
+			}
 			this.cancelTimer();
 			// Runtime readiness polling cannot authorize: claim() is called again at delivery.
 			this.armedGeneration = s.generation;
 			this.core.runtime.queueContinuation(ctx, g, true);
 		});
+	}
+
+	/** Fire the async probe; re-enter schedule() with the cached verdict. */
+	private async probeAndDecideSubagents(ctx: ExtensionContext): Promise<void> {
+		this.subagentProbeInFlight = true;
+		let result;
+		try {
+			result = await probeSubagentActivity(this.core.pi?.events);
+		} finally { this.subagentProbeInFlight = false; }
+		if (!this.ctx) return;
+		this.subagentActivity = result.available ? result.active > 0 : false;
+		this.safe(this.ctx, () => this.schedule(this.ctx!));
 	}
 	claim(ctx: ExtensionContext): Record<string, unknown> | null {
 		const generation = this.armedGeneration;

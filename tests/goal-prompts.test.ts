@@ -212,6 +212,17 @@ test("goalPrompt omits taskListBlock when no taskList", () => {
 	assert.equal(prompt.includes("[TASK LIST"), false);
 });
 
+test("goalPrompt carries the bg_wait subagent-wait guidance in the per-turn policy block", () => {
+	const prompt = goalPrompt(goal());
+	assert.match(prompt, /Hold the turn open with bg_wait/, "policy line tells the agent to hold the turn instead of replying 'waiting'");
+	assert.match(prompt, /re-arm bg_wait on timeout/);
+	assert.match(prompt, /Your message still interrupts the wait/);
+	// The guidance is in the fixed policy block: present in both autonomous and strict wording variants.
+	const g = goal();
+	g.scheduler = { owner: "s", phase: "idle", used: 0 } as never;
+	assert.match(goalPrompt(g, { strictExecutionContract: true } as GoalSettings), /Hold the turn open with bg_wait/);
+});
+
 test("continuation checkpoint never embeds the task list (issue #30)", () => {
 	// Task-like substrings are valid in goal ids; a random id made this test flaky.
 	const g = goal({ id: "goal-t1" });
