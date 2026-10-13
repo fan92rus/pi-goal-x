@@ -44,6 +44,9 @@ const FORK_PACKAGE = "@fan92rus/pi-goal-x";
 const PUBLISH_TAG = "fan";
 const BASELINE = JSON.parse(fs.readFileSync(path.join(REPO, "scripts", "upstream-sync-test-baseline.json"), "utf8"));
 const SELFHEAL_URL = process.env.SELFHEAL_URL ?? "http://localhost:5080";
+// Windows: npm — это npm.cmd; spawnSync без shell не исполняет .cmd
+// (Node ≥18.20 блокирует) — поэтому явное имя с расширением.
+const NPM = process.platform === "win32" ? "npm.cmd" : "npm";
 const LOG_DIR = "D:/tmp";
 const PUBLISH = process.argv.includes("--publish");
 
@@ -144,9 +147,9 @@ if (sh("git", ["merge-base", "--is-ancestor", tag, BRANCH], { allowFail: true })
 
 	// ── checks on the merged tree ──────────────────────────────────────────
 	log("checks: npm install");
-	sh("npm", ["install", "--no-audit", "--no-fund"]);
+	sh(NPM, ["install", "--no-audit", "--no-fund"], { timeout: 5 * 60_000 });
 	log("checks: npm run check (tsc)");
-	sh("npm", ["run", "check"]);
+	sh(NPM, ["run", "check"], { timeout: 3 * 60_000 });
 
 	log("checks: unit + integration (adapter-hook invocation)");
 	const unit = runTests("unit", ["tests/*.test.ts"], path.join(LOG_DIR, "pi-goalx-sync-after-unit.log"));
@@ -161,7 +164,7 @@ if (sh("git", ["merge-base", "--is-ancestor", tag, BRANCH], { allowFail: true })
 		log(`unknown failures: ${unknown.map(([n]) => n).join(" | ")} — reproducing on pre-merge HEAD`);
 		const files = [...new Set(unknown.map(([, f]) => f))];
 		sh("git", ["merge", "--abort"], { allowFail: true });
-		sh("npm", ["install", "--no-audit", "--no-fund"]);
+		sh(NPM, ["install", "--no-audit", "--no-fund"], { timeout: 5 * 60_000 });
 		const still = [];
 		for (const f of files) {
 			const kind = f.includes("integration") ? "integration" : "unit";
@@ -197,7 +200,7 @@ if (sh("git", ["merge-base", "--is-ancestor", tag, BRANCH], { allowFail: true })
 // ── publish (optional) ───────────────────────────────────────────────────────
 if (PUBLISH) {
 	const head = shOut("git", ["rev-parse", "HEAD"]);
-	const who = spawnSync("npm", ["whoami"], { encoding: "utf8", shell: false });
+	const who = spawnSync(NPM, ["whoami"], { encoding: "utf8", shell: false, timeout: 60_000 });
 	if (who.status !== 0) {
 		log("publish SKIPPED: npm not authenticated (npm whoami failed). Run `npm login` or set a token in ~/.npmrc.");
 	} else if (state.lastPublishedSha === head && !merged) {
@@ -210,14 +213,14 @@ if (PUBLISH) {
 		let version = null;
 		for (let n = 0; n < 100; n++) {
 			const candidate = `${base}-fan.${n}`;
-			const view = spawnSync("npm", ["view", `${FORK_PACKAGE}@${candidate}`, "version"], { encoding: "utf8", shell: false });
+			const view = spawnSync(NPM, ["view", `${FORK_PACKAGE}@${candidate}`, "version"], { encoding: "utf8", shell: false, timeout: 60_000 });
 			if (view.status !== 0) { version = candidate; break; }
 		}
 		if (!version) die(5, "could not find a free -fan.N version after 100 attempts");
 		pkg.name = FORK_PACKAGE;
 		pkg.version = version;
 		fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-		const pub = spawnSync("npm", ["publish", "--access", `public`, `--tag`, PUBLISH_TAG], { cwd: REPO, encoding: "utf8", shell: false });
+		const pub = spawnSync(NPM, ["publish", "--access", `public`, `--tag`, PUBLISH_TAG], { cwd: REPO, encoding: "utf8", shell: false, timeout: 5 * 60_000 });
 		fs.writeFileSync(pkgPath, pkgRaw); // restore the upstream-shaped package.json
 		if (pub.status !== 0) {
 			log(`publish FAILED: ${(pub.stderr || pub.stdout || "").slice(0, 500)}`);
