@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createGoal, type GoalTaskList } from "../extensions/goal-record.ts";
+import type { GoalSettings } from "../extensions/goal-settings.ts";
 import {
 	CHECKPOINT_TRIGGER_MAX_CHARS,
 	checkpointTriggerPrompt,
@@ -152,6 +153,46 @@ test("taskListBlock returns empty string when no taskList", () => {
 	const g = goal();
 	const block = taskListBlock(g);
 	assert.equal(block, "");
+});
+
+test("taskListBlock appends the autonomousTasks operational line when enabled", () => {
+	const g = goal();
+	g.taskList = {
+		tasks: [{ id: "t1", title: "Task 1", status: "pending" }],
+		blockCompletion: false,
+		proposedAt: "2026-05-27T00:00:00.000Z",
+	};
+	const block = taskListBlock(g, { autonomousTasks: true } as GoalSettings);
+	assert.match(block, /autonomousTasks/);
+	assert.match(block, /apply immediately/);
+	assert.match(block, /decompose proactively/);
+	// Off or unset → byte-identical output without the line.
+	assert.equal(taskListBlock(g).includes("autonomousTasks"), false);
+	assert.equal(taskListBlock(g, { autonomousTasks: false } as GoalSettings).includes("autonomousTasks"), false);
+});
+
+test("taskListBlock surfaces the autonomy line even without a task list", () => {
+	const g = goal();
+	const block = taskListBlock(g, { autonomousTasks: true } as GoalSettings);
+	assert.match(block, /autonomousTasks/);
+	assert.match(block, /decompose proactively/);
+	assert.equal(taskListBlock(g), "");
+});
+
+test("goalPrompt fragment cache keys on autonomousTasks (mid-session toggle refreshes the line)", () => {
+	// Regression (review 2026-10-13): cachedPrompt's key omitted the setting,
+	// so a mid-session toggle left the stale cached block until the next
+	// tree/goal mutation. The key must include the setting.
+	const g = goal();
+	g.taskList = {
+		tasks: [{ id: "t1", title: "Task 1", status: "pending" }],
+		blockCompletion: false,
+		proposedAt: "2026-05-27T00:00:00.000Z",
+	};
+	const before = goalPrompt(g, { autonomousTasks: false } as GoalSettings);
+	assert.equal(before.includes("autonomousTasks:"), false, "off → no operational line");
+	const after = goalPrompt(g, { autonomousTasks: true } as GoalSettings);
+	assert.match(after, /autonomousTasks: task-tree changes apply immediately/, "toggle on → line appears immediately");
 });
 
 test("goalPrompt includes taskListBlock when taskList is present", () => {

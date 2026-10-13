@@ -92,6 +92,13 @@ export function formatGoalKeybinding(key: string): string {
 export interface GoalSettingsResolvedShape {
 	disableTasks?: boolean;
 	disableContracts?: boolean;
+	/**
+	 * Autonomous task mutations: when true, set_goal_tasks applies structural
+	 * task-tree changes immediately — no confirmation dialog, no turn stop.
+	 * The setting is the user's standing approval; agent-facing guidance and
+	 * the per-turn operational line key off it (specs/2026-10-13-autonomous-task-mutations).
+	 */
+	autonomousTasks?: boolean;
 	subtaskDepth?: number;
 	provider?: string;
 	model?: string;
@@ -331,6 +338,7 @@ function asThinkingLevel(value: unknown): ThinkingLevel | undefined {
 const ALLOWED_SETTINGS_KEYS = new Set([
 	"disableTasks",
 	"disableContracts",
+	"autonomousTasks",
 	"subtaskDepth",
 	"provider",
 	"model",
@@ -397,6 +405,7 @@ export function parseSettingsLayer(
 			case "strictExecutionContract":
 			case "disableTasks":
 			case "disableContracts":
+			case "autonomousTasks":
 			case "disabled":
 			case "autoSelectSingleGoal":
 			case "auditorProjectResources":
@@ -700,7 +709,7 @@ function pathKey(...parts: Array<string | undefined>): string {
  * Resolve both layers + env into one snapshot with per-leaf provenance.
  * Nested keybindings resolve leaf-by-leaf from the SPARSE layers.
  */
-const resolutionEnvKeys = ["PI_GOAL_ROOT", "PI_GOAL_DISABLE_TASKS", "PI_GOAL_DISABLE_CONTRACTS", "PI_GOAL_OBJECTIVE_MAX_CHARS", "PI_GOAL_NETWORK_RECOVERY_MAX_ATTEMPTS", "PI_GOAL_NETWORK_RECOVERY_MAX_DELAY_MS"] as const;
+const resolutionEnvKeys = ["PI_GOAL_ROOT", "PI_GOAL_DISABLE_TASKS", "PI_GOAL_DISABLE_CONTRACTS", "PI_GOAL_AUTONOMOUS_TASKS", "PI_GOAL_OBJECTIVE_MAX_CHARS", "PI_GOAL_NETWORK_RECOVERY_MAX_ATTEMPTS", "PI_GOAL_NETWORK_RECOVERY_MAX_DELAY_MS"] as const;
 const resolvedSettingsCache: Array<{global: SettingsLayerRead; project: SettingsLayerRead; environment: Array<string | undefined>; snapshot: SettingsSnapshot}> = [];
 
 function resolvedSettingsSnapshot(cwd: string, env: NodeJS.ProcessEnv): SettingsSnapshot {
@@ -736,6 +745,13 @@ function resolvedSettingsSnapshot(cwd: string, env: NodeJS.ProcessEnv): Settings
 		globalValue: global.layer.disableContracts,
 		defaultValue: false,
 		envVar: "PI_GOAL_DISABLE_CONTRACTS",
+	}));
+	const autonomousTasks = track("autonomousTasks", resolveLeaf<boolean>({
+		envValue: envBool("PI_GOAL_AUTONOMOUS_TASKS"),
+		projectValue: project.layer.autonomousTasks,
+		globalValue: global.layer.autonomousTasks,
+		defaultValue: false,
+		envVar: "PI_GOAL_AUTONOMOUS_TASKS",
 	}));
 	const subtaskDepth = track("subtaskDepth", resolveLeaf<number>({
 		projectValue: project.layer.subtaskDepth,
@@ -882,6 +898,7 @@ function resolvedSettingsSnapshot(cwd: string, env: NodeJS.ProcessEnv): Settings
 	const value: ResolvedGoalSettings = {
 		disableTasks,
 		disableContracts,
+		autonomousTasks,
 		subtaskDepth,
 		...(provider ? { provider } : {}),
 		...(model ? { model } : {}),
@@ -1223,6 +1240,7 @@ function buildPersistedLayer(settings: GoalSettings): Record<string, unknown> {
 	if (settings.disabled !== undefined) persisted.disabled = settings.disabled;
 	if (settings.disableTasks !== undefined) persisted.disableTasks = settings.disableTasks;
 	if (settings.disableContracts !== undefined) persisted.disableContracts = settings.disableContracts;
+	if (settings.autonomousTasks !== undefined) persisted.autonomousTasks = settings.autonomousTasks;
 	if (settings.subtaskDepth !== undefined) persisted.subtaskDepth = settings.subtaskDepth;
 	if (settings.autoSelectSingleGoal !== undefined) persisted.autoSelectSingleGoal = settings.autoSelectSingleGoal;
 	if (settings.auditorProjectResources !== undefined) persisted.auditorProjectResources = settings.auditorProjectResources;
@@ -1267,6 +1285,7 @@ export function envOverrideFor(key: keyof GoalSettings | "settingsFile", env: No
 	if (key === "goalsRoot" && env.PI_GOAL_ROOT !== undefined) return "PI_GOAL_ROOT";
 	if (key === "disableTasks" && env.PI_GOAL_DISABLE_TASKS !== undefined) return "PI_GOAL_DISABLE_TASKS";
 	if (key === "disableContracts" && env.PI_GOAL_DISABLE_CONTRACTS !== undefined) return "PI_GOAL_DISABLE_CONTRACTS";
+	if (key === "autonomousTasks" && env.PI_GOAL_AUTONOMOUS_TASKS !== undefined) return "PI_GOAL_AUTONOMOUS_TASKS";
 	if (key === "objectiveMaxChars" && env.PI_GOAL_OBJECTIVE_MAX_CHARS !== undefined) return "PI_GOAL_OBJECTIVE_MAX_CHARS";
 	if (key === "networkRecovery") {
 		if (env.PI_GOAL_NETWORK_RECOVERY_MAX_ATTEMPTS !== undefined) return "PI_GOAL_NETWORK_RECOVERY_MAX_ATTEMPTS";
@@ -1287,6 +1306,7 @@ export function effectiveSettingsReport(cwd: string, env: NodeJS.ProcessEnv = pr
 		{ key: "autoSelectSingleGoal", label: "autoSelectSingleGoal", format: () => String(snapshot.value.autoSelectSingleGoal) },
 		{ key: "disableContracts", label: "disableContracts", format: () => String(snapshot.value.disableContracts) },
 		{ key: "disableTasks", label: "disableTasks", format: () => String(snapshot.value.disableTasks) },
+		{ key: "autonomousTasks", label: "autonomousTasks", format: () => String(snapshot.value.autonomousTasks) },
 		{ key: "subtaskDepth", label: "subtaskDepth", format: () => String(snapshot.value.subtaskDepth) },
 		{ key: "disabled", label: "auditor disabled", format: () => String(snapshot.value.disabled) },
 		{ key: "provider", label: "provider", format: () => snapshot.value.provider ?? "(default)" },

@@ -72,6 +72,21 @@ test("parseGoalSettings: autoSelectSingleGoal accepted as bool or string; explic
 	assert.deepEqual(parseGoalSettings({ autoSelectSingleGoal: "false" }), { autoSelectSingleGoal: false });
 });
 
+test("parseGoalSettings: autonomousTasks accepted as bool or string; explicit false preserved (layering)", () => {
+	assert.deepEqual(parseGoalSettings({ autonomousTasks: true }), { autonomousTasks: true });
+	assert.deepEqual(parseGoalSettings({ autonomousTasks: "true" }), { autonomousTasks: true });
+	// Layering requirement: explicit false must survive parsing so a project
+	// can override a global true (same rule as autoSelectSingleGoal).
+	assert.deepEqual(parseGoalSettings({ autonomousTasks: false }), { autonomousTasks: false });
+	assert.deepEqual(parseGoalSettings({ autonomousTasks: "false" }), { autonomousTasks: false });
+});
+
+test("parseGoalSettings: invalid autonomousTasks value becomes a diagnostic, not a crash", () => {
+	const result = parseSettingsLayer({ autonomousTasks: "yes" }, "project", "t.json");
+	assert.equal(result.layer.autonomousTasks, undefined);
+	assert.ok(result.diagnostics.some((d) => d.code === "invalid_value" && d.settingPath === "autonomousTasks"));
+});
+
 test("parseGoalSettings: unknown keys rejected", () => {
 	assert.throws(
 		() => parseGoalSettings({ disableTasks: true, disableContracts: false, foo: "bar" }),

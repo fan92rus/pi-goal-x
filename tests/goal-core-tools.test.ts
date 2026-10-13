@@ -179,7 +179,49 @@ test("create_goal creates, focuses, and reports other open goals", async () => {
 	}
 });
 
-test("create_goal accepts token_budget and sisyphus mode", async () => {
+test("create_goal bootstrap line is mode-aware about autonomousTasks", async () => {
+	// With autonomousTasks on, the derived-steps nudge states immediate application.
+	{
+		const cwd = mkdtempSync(path.join(tmpdir(), "goal-core-autotasks-"));
+		mkdirSync(path.join(cwd, ".pi", "goals", "archived"), { recursive: true });
+		writeFileSync(path.join(cwd, ".pi", "pi-goal-x-settings.json"), JSON.stringify({ autonomousTasks: true }));
+		try {
+			const h = createHarness({ cwd, sessionEntries: [] });
+			await start(h);
+			const create = h.tools.get("create_goal")!;
+			const result = await (create.execute as any)("create-auto-1", {
+				objective: "Ship it:\n1. Step one\n2. Step two",
+				mode: "regular",
+			}, undefined, undefined, h.ctx);
+			const text = String(result.content?.[0]?.text ?? "");
+			assert.match(text, /ordered steps/);
+			assert.match(text, /applies immediately without confirmation/);
+		} finally {
+			try { rmSync(cwd, { recursive: true, force: true }); } catch {}
+		}
+	}
+	// Default mode keeps the user-gated wording.
+	{
+		const cwd = mkdtempSync(path.join(tmpdir(), "goal-core-autotasks-off-"));
+		mkdirSync(path.join(cwd, ".pi", "goals", "archived"), { recursive: true });
+		try {
+			const h = createHarness({ cwd, sessionEntries: [] });
+			await start(h);
+			const create = h.tools.get("create_goal")!;
+			const result = await (create.execute as any)("create-auto-2", {
+				objective: "Ship it:\n1. Step one\n2. Step two",
+				mode: "regular",
+			}, undefined, undefined, h.ctx);
+			const text = String(result.content?.[0]?.text ?? "");
+			assert.match(text, /if the user wants tracked milestones/);
+			assert.equal(text.includes("applies immediately"), false);
+		} finally {
+			try { rmSync(cwd, { recursive: true, force: true }); } catch {}
+		}
+	}
+});
+
+ test("create_goal accepts token_budget and sisyphus mode", async () => {
 	const cwd = mkdtempSync(path.join(tmpdir(), "goal-core-budget-"));
 	mkdirSync(path.join(cwd, ".pi", "goals", "archived"), { recursive: true });
 	try {

@@ -4,6 +4,10 @@ All notable changes to pi-goal-x are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- `autonomousTasks` setting (env `PI_GOAL_AUTONOMOUS_TASKS`, default off): when enabled, `set_goal_tasks` applies task-tree restructures immediately — no confirmation dialog, no turn stop; the report and ledger stay. The agent's guidance becomes trigger-based, so it decomposes objectives into stages and adds newly discovered work as subtasks without asking. Default behavior is unchanged.
+
 ## [0.32.3] — 2026-10-02
 
 ### Fixed

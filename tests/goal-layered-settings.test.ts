@@ -22,6 +22,8 @@ import {
 	mutateSettingsLayer,
 	SettingsMutationError,
 	invalidateGoalSettingsCache,
+	effectiveSettingsReport,
+	envOverrideFor,
 	type SettingsScope,
 } from "../extensions/goal-settings.ts";
 
@@ -137,6 +139,46 @@ describe("layering matrix", () => {
 			assert.equal(snap.provenance.get("subtaskDepth")?.source, "project");
 			assert.equal(snap.provenance.get("autoSelectSingleGoal")?.source, "default");
 			assert.equal(snap.provenance.get("keybindings.dashboard.toggleExpand")?.source, "default");
+		});
+	});
+});
+
+describe("autonomousTasks", () => {
+	it("defaults to false with no layers or env", () => {
+		withTempDir((dir) => {
+			const env = { PI_GOAL_GLOBAL_SETTINGS_FILE: path.join(dir, "g.json") };
+			invalidateGoalSettingsCache();
+			assert.equal(loadGoalSettings(dir, env).autonomousTasks, false);
+		});
+	});
+
+	it("project overrides global; env overrides both, with provenance and envOverrideFor", () => {
+		withTempDir((dir) => {
+			const env = { PI_GOAL_GLOBAL_SETTINGS_FILE: path.join(dir, "g.json") };
+			writeJson(path.join(dir, "g.json"), { autonomousTasks: true });
+			writeJson(path.join(dir, ".pi", "pi-goal-x-settings.json"), { autonomousTasks: false });
+			invalidateGoalSettingsCache();
+			assert.equal(loadGoalSettings(dir, env).autonomousTasks, false, "explicit project false overrides global true");
+
+			const envOverride = { ...env, PI_GOAL_AUTONOMOUS_TASKS: "true" };
+			invalidateGoalSettingsCache();
+			const snap = loadSettingsSnapshot(dir, envOverride);
+			assert.equal(snap.value.autonomousTasks, true, "env overrides both layers");
+			const provenance = snap.provenance.get("autonomousTasks");
+			assert.equal(provenance?.source, "environment");
+			assert.equal(provenance?.envVar, "PI_GOAL_AUTONOMOUS_TASKS");
+			assert.equal(envOverrideFor("autonomousTasks", envOverride), "PI_GOAL_AUTONOMOUS_TASKS");
+		});
+	});
+
+	it("settings report includes the autonomousTasks row", () => {
+		withTempDir((dir) => {
+			const env = { PI_GOAL_GLOBAL_SETTINGS_FILE: path.join(dir, "g.json") };
+			invalidateGoalSettingsCache();
+			const lines = effectiveSettingsReport(dir, env);
+			const row = lines.find((l) => l.includes("autonomousTasks"));
+			assert.ok(row, "report must carry an autonomousTasks row");
+			assert.match(row!, /autonomousTasks: false \(default\)/);
 		});
 	});
 });

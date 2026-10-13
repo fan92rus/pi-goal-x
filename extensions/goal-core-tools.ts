@@ -217,10 +217,12 @@ pi.registerTool(defineTool({
 			? `\n${otherCount} other open goal${otherCount === 1 ? "" : "s"} remain in .pi/goals — this goal is now the session focus.`
 			: "";
 		// F2: the agent path stays tool-driven — surface the derivable task plan
-		// as guidance so the agent proposes it via set_goal_tasks.
+		// as guidance so the agent proposes it via set_goal_tasks. With
+		// autonomousTasks on, the nudge states the proposal applies immediately.
+		const autonomousTasks = loadGoalSettings(ctx.cwd).autonomousTasks === true;
 		const derived = !created?.taskList ? deriveTasksFromObjective(cleanedObjective) : null;
 		const bootstrapLine = derived && derived.length > 0
-			? `\n\nThe objective contains ${derived.length} ordered step${derived.length === 1 ? "" : "s"}; propose them as the task tree with set_goal_tasks if the user wants tracked milestones.`
+			? `\n\nThe objective contains ${derived.length} ordered step${derived.length === 1 ? "" : "s"}; propose them as the task tree with set_goal_tasks${autonomousTasks ? " — autonomousTasks is enabled, so the proposal applies immediately without confirmation" : " if the user wants tracked milestones"}.`
 			: "";
 		return {
 			content: [{ type: "text", text: `${buildGoalCreatedReport({ objective: created?.objective ?? objective, detailedSummary: detailedSummary(created), tokenBudget: created?.tokenBudget })}${bootstrapLine}${otherLine}` }],

@@ -255,9 +255,13 @@ export function registerTaskTools(core: import("./goal-state.ts").GoalCore): voi
 pi.registerTool(defineTool({
 	name: SET_GOAL_TASKS_TOOL_NAME,
 	label: "Set Goal Tasks",
-	description: "Set or restructure the task tree with user confirmation. Matching IDs retain progress; removed IDs are deleted. Confirmation stops the turn; continuation follows.",
+	description: "Set or restructure the goal's task tree. Matching IDs retain progress; removed IDs are deleted. In projects with autonomousTasks enabled this applies immediately without stopping the turn; otherwise a user confirmation dialog is shown first.",
 	promptSnippet: "Set the goal task tree with confirmation.",
-	promptGuidelines: ["Use tasks only for useful milestones. Restructure an existing tree only when the user asks or requirements structurally change. Input is a flat parent-linked tree, at most 50 tasks, within configured depth. lightweight_subtasks is valid only on parents."],
+	promptGuidelines: [
+		"Use tasks for useful milestones: when the objective clearly decomposes into trackable work (discovery work such as finding/fixing bugs, audits, investigations, or multi-part objectives), create or extend the task tree rather than working without one.",
+		"When the user asks for a restructure, call this tool immediately — the confirmation dialog (when enabled) is the user's protection, not a reason to hesitate. In autonomousTasks projects, apply structural changes proactively as new work is discovered, without asking.",
+		"Input is a flat parent-linked tree, at most 50 tasks, within configured depth. lightweight_subtasks is valid only on parents.",
+	],
 	parameters: Type.Object({
 		tasks: Type.Array(Type.Object({
 			id: Type.String({ description: "Short stable slug e.g. 'task-1'" }),
@@ -278,7 +282,8 @@ pi.registerTool(defineTool({
 				details: goalDetails(core.state.goal),
 			};
 		}
-		if (loadGoalSettings(ctx.cwd).disableTasks) {
+		const settings = loadGoalSettings(ctx.cwd);
+		if (settings.disableTasks) {
 			return {
 				content: [{ type: "text", text: "set_goal_tasks is disabled by settings (disableTasks: true)." }],
 				details: goalDetails(core.state.goal),
@@ -290,7 +295,6 @@ pi.registerTool(defineTool({
 				details: goalDetails(core.state.goal),
 			};
 		}
-		const settings = loadGoalSettings(ctx.cwd);
 		const converted = convertFlatTasks(params.tasks as FlatTaskInput[], { maxSubtaskDepth: settings.subtaskDepth });
 		if (!converted.ok) {
 			return {
@@ -317,18 +321,25 @@ pi.registerTool(defineTool({
 			}
 			return lines;
 		}
-		const taskLines = renderTaskLines(converted.tasks);
+		const autonomous = settings.autonomousTasks === true;
 		const gateLabel = blockCompletion ? " (blockCompletion enabled)" : "";
-		const proposalText = [`Proposed task list${gateLabel}:`, "", ...taskLines].join("\n");
 		const taskListFocus = core.focusedOperationToken(core.state.goal.id);
 		// Task-only confirmation: the complete result is the user's decision.
 		// No auditor toggle and no goal-state mutation happen here.
-		core.enterGoalModal();
+		// autonomousTasks is the user's standing approval: apply immediately —
+		// no modal, no dialog, no turn stop; report and ledger stay.
 		let dialogResult: TaskConfirmationResult;
-		try {
-			dialogResult = await showTaskConfirmation(ctx, proposalText);
-		} finally {
-			core.exitGoalModal();
+		if (autonomous) {
+			dialogResult = { decision: "confirm" };
+		} else {
+			const taskLines = renderTaskLines(converted.tasks);
+			const proposalText = [`Proposed task list${gateLabel}:`, "", ...taskLines].join("\n");
+			core.enterGoalModal();
+			try {
+				dialogResult = await showTaskConfirmation(ctx, proposalText);
+			} finally {
+				core.exitGoalModal();
+			}
 		}
 		if (!core.isFocusedOperationCurrent(taskListFocus)) {
 			return core.focusedOperationCancelledResult("Task list proposal", taskListFocus);
@@ -371,13 +382,16 @@ pi.registerTool(defineTool({
 				details: goalDetails(core.state.goal),
 			};
 		}
-		core.runtime.markTurnStopped(core.state.goal.id);
+		if (!autonomous) core.runtime.markTurnStopped(core.state.goal.id);
 		core.updateUI(ctx);
 		const confirmedCount = countTasks(core.state.goal.taskList?.tasks);
+		const countText = `${confirmedCount} task${confirmedCount === 1 ? "" : "s"}.${gateLabel}`;
 		return {
-			content: [{ type: "text", text: `Task list set and confirmed. ${confirmedCount} task${confirmedCount === 1 ? "" : "s"}.${gateLabel}` }],
+			content: [{ type: "text", text: autonomous
+				? `Task list updated without confirmation (autonomousTasks). ${countText}`
+				: `Task list set and confirmed. ${countText}` }],
 			details: goalDetails(core.state.goal),
-			terminate: true,
+			...(autonomous ? {} : { terminate: true }),
 		};
 	},
 	renderCall(args, theme) {

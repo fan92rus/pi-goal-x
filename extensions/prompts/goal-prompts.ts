@@ -102,7 +102,13 @@ function renderPendingTasks(tasks: GoalTask[], indent: number, rendered: { count
  */
 export function taskListBlock(goal: GoalRecord, settings?: GoalSettings): string {
 	if (settings?.disableTasks) return "";
-	if (!goal.taskList || goal.taskList.tasks.length === 0) return "";
+	// Autonomous task mutations: a single bounded operational line, present even
+	// when the tree is still empty (decomposition starts from no tasks). Off →
+	// output is byte-identical to the pre-feature block.
+	const autonomyLine = settings?.autonomousTasks === true
+		? "  autonomousTasks: task-tree changes apply immediately without confirmation — decompose proactively when the objective implies it; add newly discovered work as subtasks right away"
+		: "";
+	if (!goal.taskList || goal.taskList.tasks.length === 0) return autonomyLine;
 	const index = taskIndex(goal.taskList.tasks);
  const {complete, skipped, pending: pendingTasks} = index;
  const total = index.ordered.length;
@@ -147,6 +153,7 @@ export function taskListBlock(goal: GoalRecord, settings?: GoalSettings): string
 	if (goal.taskList.blockCompletion && pending! > 0) {
 		lines.push("  TASK GATE: do not request completion while tasks remain in [ ] pending state");
 	}
+	if (autonomyLine) lines.push(autonomyLine);
 	return lines.join("\n");
 }
 
@@ -208,7 +215,7 @@ let promptCacheChars = 0;
 function cachedPrompt(goal: GoalRecord, settings: GoalSettings | undefined, kind: "goal" | "continuation", build: () => string): string {
  const key = [kind, goal.id, goal.status, goal.autoContinue, goal.sisyphus, goal.objective,
   goal.verificationContract, settings?.disableTasks ? undefined : taskIndex(goal.taskList?.tasks),
-  goal.taskList?.blockCompletion, promptProfile(), goal.currentTaskId, settings?.disableTasks, settings?.disableContracts, settings?.maxAutonomousRuns !== 0, settings?.strictExecutionContract === true, !!goal.scheduler?.wait];
+  goal.taskList?.blockCompletion, promptProfile(), goal.currentTaskId, settings?.disableTasks, settings?.disableContracts, settings?.autonomousTasks === true, settings?.maxAutonomousRuns !== 0, settings?.strictExecutionContract === true, !!goal.scheduler?.wait];
  for (let i = promptFragmentCache.length - 1; i >= 0; i--) {
   const entry = promptFragmentCache[i]!;
   if (key.every((part, j) => part === entry.key[j])) return entry.value;

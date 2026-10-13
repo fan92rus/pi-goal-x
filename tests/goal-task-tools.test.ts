@@ -15,6 +15,7 @@ import { convertFlatTasks, countTasks, mergeTasksWithExisting, type FlatTaskInpu
 import { createGoal, goalFocusDetails, type GoalTask } from "../extensions/goal-record.ts";
 import { parseGoalFile, writeActiveGoalFile } from "../extensions/storage/goal-files.ts";
 import { goalLedgerPath } from "../extensions/goal-ledger.ts";
+import { invalidateGoalSettingsCache } from "../extensions/goal-settings.ts";
 
 import { showTaskConfirmation } from "../extensions/goal-task-confirmation.ts";
 
@@ -92,7 +93,8 @@ test("mergeTasksWithExisting preserves status and evidence for matching ids", ()
 
 // ── Tool execution harness ───────────────────────────────────────────────────
 
-function createHarness(cwd: string, sessionEntries: unknown[]) {
+function createHarness(cwd: string, sessionEntries: unknown[], opts: { hasUI?: boolean } = {}) {
+	const hasUI = opts.hasUI === true;
 	const handlers = new Map<string, Function>();
 	const tools = new Map<string, ToolDefinition>();
 	let activeTools = ["read", "bash", "edit", "write"];
@@ -105,11 +107,11 @@ function createHarness(cwd: string, sessionEntries: unknown[]) {
 		sendMessage: () => {},
 		getActiveTools: () => [...activeTools],
 		setActiveTools: (names: string[]) => { activeTools = [...names]; },
-		hasUI: false,
+		hasUI,
 	};
 	const ctx = {
 		cwd,
-		hasUI: false,
+		hasUI,
 		sessionManager: {
 			getBranch: () => sessionEntries,
 			getCwd: () => cwd,
@@ -185,7 +187,69 @@ test("set_goal_tasks sets a structural task tree (headless auto-confirm)", async
 	}
 });
 
-test("update_goal_task(complete) marks a task complete with evidence and ledger", async () => {
+test("set_goal_tasks with autonomousTasks applies immediately: no dialog, no turn stop", async () => {
+	const f = fixtureWithTasks([]);
+	try {
+		mkdirSync(path.join(f.cwd, ".pi"), { recursive: true });
+		writeFileSync(path.join(f.cwd, ".pi", "pi-goal-x-settings.json"), JSON.stringify({ autonomousTasks: true }));
+		invalidateGoalSettingsCache();
+		const h = createHarness(f.cwd, f.sessionEntries, { hasUI: true });
+		const dialogCalls: unknown[] = [];
+		(h.ctx as any).ui.custom = async (...args: unknown[]) => { dialogCalls.push(args); return undefined; };
+		(h.ctx as any).ui.select = async (...args: unknown[]) => { dialogCalls.push(args); return undefined; };
+		await h.handlers.get("session_start")?.({ reason: "start" }, h.ctx);
+		await h.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "go", systemPromptOptions: {} }, h.ctx);
+		const tool = h.tools.get("set_goal_tasks")!;
+		const result = await (tool.execute as any)("set-auto-1", {
+			tasks: [{ id: "t1", title: "Task one" }],
+		}, undefined, undefined, h.ctx);
+		assert.equal(dialogCalls.length, 0, "no confirmation dialog in autonomousTasks mode");
+		assert.equal(result.terminate, undefined, "autonomous application does not stop the turn");
+		const goal = activeGoal(f.cwd);
+		assert.equal(goal?.taskList?.tasks.length, 1, "task list applied immediately");
+		assert.ok(ledgerEvents(f.cwd).some((e) => e.type === "task_list_set"), "ledger entry stays");
+		assert.match(String(result.content?.[0]?.text ?? ""), /autonomousTasks/);
+	} finally {
+		f.cleanup();
+	}
+});
+
+test("set_goal_tasks default mode with UI still gates through the dialog (cancel keeps tasks)", async () => {
+	const f = fixtureWithTasks([]);
+	try {
+		const h = createHarness(f.cwd, f.sessionEntries, { hasUI: true });
+		await h.handlers.get("session_start")?.({ reason: "start" }, h.ctx);
+		await h.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "go", systemPromptOptions: {} }, h.ctx);
+		const tool = h.tools.get("set_goal_tasks")!;
+		const result = await (tool.execute as any)("set-ui-1", {
+			tasks: [{ id: "t1", title: "Task one" }],
+		}, undefined, undefined, h.ctx);
+		assert.match(String(result.content?.[0]?.text ?? ""), /kept unchanged/i);
+		const goal = activeGoal(f.cwd);
+		assert.equal(goal?.taskList, undefined, "task list unchanged after cancel");
+	} finally {
+		f.cleanup();
+	}
+});
+
+test("set_goal_tasks agent-facing text is permissive, mode-aware, and keeps the limits sentence", () => {
+	const f = fixtureWithTasks([]);
+	try {
+		const h = createHarness(f.cwd, f.sessionEntries);
+		const tool = h.tools.get("set_goal_tasks")!;
+		const description = String(tool.description ?? "");
+		const guidelines = (tool.promptGuidelines ?? []).join(" ");
+		assert.doesNotMatch(guidelines, /only when the user asks/i, "avoidance phrasing must be gone");
+		assert.match(guidelines, /50 tasks/, "limits sentence retained");
+		assert.match(guidelines, /decompos/i, "guidelines name decomposition triggers");
+		assert.match(description, /autonomousTasks/i, "description explains the autonomous mode");
+		assert.ok(!description.includes("Confirmation stops the turn"), "no unconditional turn-stop announcement");
+	} finally {
+		f.cleanup();
+	}
+});
+
+ test("update_goal_task(complete) marks a task complete with evidence and ledger", async () => {
 	const f = fixtureWithTasks([{ id: "t1", title: "Task one", status: "pending" }]);
 	try {
 		const h = createHarness(f.cwd, f.sessionEntries);

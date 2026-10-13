@@ -448,8 +448,9 @@ describe("five-tool handler integration", () => {
 				await start(h);
 				await h.commands.get("goal-settings").handler("", h.ctx);
 				const lines = firstOptions.filter((o) => o.startsWith("  ") && !o.startsWith("  ───"));
-				assert.equal(lines.length, 20, `all twenty rows rendered, got: ${lines.join(" | ")}`);
+				assert.equal(lines.length, 21, `all twenty-one rows rendered, got: ${lines.join(" | ")}`);
 				assert.ok(lines.some((l) => l === "  show autonomous runs line: true (default)"), "the runs-line setting is listed and defaults to on");
+				assert.ok(lines.some((l) => l === "  autonomousTasks (apply task-tree changes without asking): false (default)"), "the autonomousTasks setting is listed and defaults to off");
 				assert.ok(lines.some((l) => l === "  auditor disabled: true (project override)"));
 				assert.ok(lines.some((l) => l === "  provider: anthropic (project override)"));
 				assert.ok(lines.some((l) => l === "  model: (default) (default)"));
