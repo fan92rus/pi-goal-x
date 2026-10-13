@@ -89,18 +89,25 @@ fan92rus/pi-goal-x` запускает `pi -p "<контракт>"` в аген�
   `/health`; ручной requeue — `POST /requeue/<issue>`; enqueue вручную —
   `POST /enqueue-conflict {"repoTag":"fan92rus/pi-goal-x","tag":"vX.Y.Z"}`.
 
-## npm-публикация (`--publish`)
+## npm-публикация
 
 - Форк публикуется как **`@fan92rus/pi-goal-x`**, версия
   `<апстрим-версия>-fan.<N>` (N подбирается перебором до свободной), dist-tag
   **`fan`**: `npm i @fan92rus/pi-goal-x@fan`.
-- Репозиторный `package.json` **остаётся апстримовским** (`pi-goal-x`):
-  переименование/бамп делаются в рабочем дереве только на время публикации и
-  откатываются — merge'ы апстрима по package.json остаются чистыми.
-- Требуется авторизация npm: `npm login` (или токен в `~/.npmrc`). Без неё
-  шаг публикции пропускается с записью в лог, синк не считается ошибкой.
-- Повторная публикация того же HEAD пропускается (состояние в
-  `.git/upstream-sync-state.json`).
+- **Механизм — npm trusted publishing (OIDC)**, токены не используются:
+  publish-джоба имеет `id-token: write`, Trusted Publisher на пакете
+  (fan92rus / pi-goal-x / `upstream-sync.yml`, разрешён `npm publish`);
+  provenance-аттестация генерируется автоматически.
+- На время публикации в package.json переписываются `name`, `version` и
+  `repository.url` (npm валидирует repository.url против публикующего
+  GitHub-репо — должен быть форк); сам репо остаётся апстримовским —
+  merge'ы по package.json чистые.
+- Дедуп: HEAD уже опубликован (npm `gitHead` совпадает) → skip — поэтому
+  push-триггер и sync-триггер не задваивают публикацию.
+- Bootstrap 0.32.3-fan.0 сделан локально с 2FA-OTP (2026-10-13): пакет должен
+  существовать до настройки Trusted Publisher.
+- Секрет `NPM_TOKEN` больше не используется (гранулярные токены не публикуют
+  — EOTP; с янв 2027 2FA-bypass токены теряют publish вовсе).
 
 ## Exit-коды `upstream-sync.mjs`
 
