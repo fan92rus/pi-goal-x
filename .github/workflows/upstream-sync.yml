@@ -142,6 +142,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       published: ${{ steps.pub.outputs.published }}
+    permissions:
+      id-token: write   # npm trusted publishing (OIDC) — no long-lived tokens
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -180,6 +183,9 @@ jobs:
             const p = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
             p.name = '@fan92rus/pi-goal-x';
             p.version = '$V';
+            // npm trusted publishing validates repository.url against the
+            // publishing GitHub repo — must be the FORK, not upstream.
+            p.repository = { type: 'git', url: 'git+https://github.com/fan92rus/pi-goal-x.git' };
             fs.writeFileSync('./package.json', JSON.stringify(p, null, 2) + '\n');
           "
           echo "version=$V" >> "$GITHUB_OUTPUT"
@@ -190,10 +196,8 @@ jobs:
         id: pub
         if: steps.skip.outputs.skip == 'false'
         run: |
-          npm publish --access public --tag fan
+          npm publish --access public --tag fan   # OIDC trusted publishing; provenance is automatic
           echo "published=true" >> "$GITHUB_OUTPUT"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Summary
         if: steps.skip.outputs.skip == 'false'

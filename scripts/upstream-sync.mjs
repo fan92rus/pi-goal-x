@@ -238,6 +238,9 @@ if (PUBLISH) {
 		if (!version) die(5, "could not find a free -fan.N version after 100 attempts");
 		pkg.name = FORK_PACKAGE;
 		pkg.version = version;
+		// npm trusted publishing проверяет repository.url против публикующего
+		// GitHub-репо — должен быть форк, не upstream.
+		pkg.repository = { type: "git", url: `git+https://github.com/fan92rus/pi-goal-x.git` };
 		fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 		const pub = spawnSync(NPM.cmd, [...NPM.prefix, "publish", "--access", `public`, `--tag`, PUBLISH_TAG], { cwd: REPO, encoding: "utf8", shell: NPM.shell, timeout: 5 * 60_000 });
 		fs.writeFileSync(pkgPath, pkgRaw); // restore the upstream-shaped package.json
