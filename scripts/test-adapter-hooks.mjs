@@ -10,6 +10,10 @@ const adapters = new Map([
 	["@earendil-works/pi-tui", new URL("../tests/stubs/pi-tui.ts", import.meta.url).href],
 ]);
 
+// Deterministic UI language for tests: settings-row explanations are
+// locale-aware (PI_GOAL_LANG → LANG → Intl), pin English regardless of host.
+process.env.PI_GOAL_LANG = process.env.PI_GOAL_LANG ?? "en";
+
 nodeModule.registerHooks({
 	resolve(specifier, context, nextResolve) {
 		const url = adapters.get(specifier);

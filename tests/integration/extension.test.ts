@@ -381,7 +381,7 @@ describe("five-tool handler integration", () => {
 	it("goal-settings menu toggles the disabled switch through the registered handler", async () => {
 		const f = fixture();
 		try {
-			const selects: string[] = ["  auditor disabled: false (default)", "Set project override to true", "Done"];
+			const selects: string[] = ["  auditor disabled (disable the completion auditor): false (default)", "Set project override to true", "Done"];
 			const h = createHarness({
 				cwd: f.cwd,
 				sessionEntries: f.sessionEntries,
@@ -404,7 +404,7 @@ describe("five-tool handler integration", () => {
 		const f = fixture();
 		try {
 			writeFileSync(path.join(f.cwd, ".pi", "pi-goal-x-settings.json"), JSON.stringify({ disabled: true }));
-			const selects: string[] = ["  thinking_level: (default) (default)", "off", "Done"];
+			const selects: string[] = ["  thinking_level (auditor thinking level): (default) (default)", "off", "Done"];
 			const inputs: string[] = ["off"];
 			const h = createHarness({
 				cwd: f.cwd,
@@ -449,21 +449,21 @@ describe("five-tool handler integration", () => {
 				await h.commands.get("goal-settings").handler("", h.ctx);
 				const lines = firstOptions.filter((o) => o.startsWith("  ") && !o.startsWith("  ───"));
 				assert.equal(lines.length, 21, `all twenty-one rows rendered, got: ${lines.join(" | ")}`);
-				assert.ok(lines.some((l) => l === "  show autonomous runs line: true (default)"), "the runs-line setting is listed and defaults to on");
+				assert.ok(lines.some((l) => l === "  show autonomous runs line (show the autonomous runs line): true (default)"), "the runs-line setting is listed and defaults to on");
 				assert.ok(lines.some((l) => l === "  autonomousTasks (apply task-tree changes without asking): false (default)"), "the autonomousTasks setting is listed and defaults to off");
-				assert.ok(lines.some((l) => l === "  auditor disabled: true (project override)"));
-				assert.ok(lines.some((l) => l === "  provider: anthropic (project override)"));
-				assert.ok(lines.some((l) => l === "  model: (default) (default)"));
-				assert.ok(lines.some((l) => l === "  thinking_level: high (project override)"));
-				assert.ok(lines.some((l) => l === "  disableTasks: true (project override)"));
-				assert.ok(lines.some((l) => l === "  disableContracts: false (default)"));
-				assert.ok(lines.includes("  explicit execution contracts (opt-in): false (default)"));
-				assert.ok(lines.some((l) => l === "  subtaskDepth: 3 (project override)"));
-				assert.ok(lines.some((l) => l === "  autoSelectSingleGoal: false (default)"));
-				assert.ok(lines.some((l) => l === "  hideUnfocusedBanner: false (default)"));
-				assert.ok(lines.some((l) => l === "  hideUnfocusedPrompt: false (default)"));
-				assert.ok(lines.some((l) => l === "  stall timeout (minutes): 0 (default)"));
-				assert.ok(lines.some((l) => l === "  max objective length (0 = none): 0 (default)"), "objective length row defaults to 0");
+				assert.ok(lines.some((l) => l === "  auditor disabled (disable the completion auditor): true (project override)"));
+				assert.ok(lines.some((l) => l === "  provider (auditor model provider): anthropic (project override)"));
+				assert.ok(lines.some((l) => l === "  model (auditor model): (default) (default)"));
+				assert.ok(lines.some((l) => l === "  thinking_level (auditor thinking level): high (project override)"));
+				assert.ok(lines.some((l) => l === "  disableTasks (turn off the goal task tree): true (project override)"));
+				assert.ok(lines.some((l) => l === "  disableContracts (disable explicit execution contracts): false (default)"));
+				assert.ok(lines.includes("  explicit execution contracts (opt-in) (require an explicit execution contract for each run): false (default)"));
+				assert.ok(lines.some((l) => l === "  subtaskDepth (max subtask nesting depth): 3 (project override)"));
+				assert.ok(lines.some((l) => l === "  autoSelectSingleGoal (auto-focus when exactly one goal is active): false (default)"));
+				assert.ok(lines.some((l) => l === "  hideUnfocusedBanner (hide the unfocused-goal banner): false (default)"));
+				assert.ok(lines.some((l) => l === "  hideUnfocusedPrompt (hide the unfocused-goal prompt line): false (default)"));
+				assert.ok(lines.some((l) => l === "  stall timeout (minutes) (declare a run stalled after N minutes): 0 (default)"));
+				assert.ok(lines.some((l) => l === "  max objective length (0 = none) (cap objective length (0 = unlimited)): 0 (default)"), "objective length row defaults to 0");
 			} finally {
 				f.cleanup();
 			}
@@ -473,10 +473,10 @@ describe("five-tool handler integration", () => {
 			const f = fixture();
 			try {
 				const selects = [
-					"  disableTasks: false (default)", "Set project override to true",
-					"  disableContracts: false (default)", "Set project override to true",
-					"  auditor disabled: false (default)", "Set project override to true",
-					"  autoSelectSingleGoal: false (default)", "Set project override to true",
+					"  disableTasks (turn off the goal task tree): false (default)", "Set project override to true",
+					"  disableContracts (disable explicit execution contracts): false (default)", "Set project override to true",
+					"  auditor disabled (disable the completion auditor): false (default)", "Set project override to true",
+					"  autoSelectSingleGoal (auto-focus when exactly one goal is active): false (default)", "Set project override to true",
 					"Done",
 				];
 				const h = createHarness({
@@ -492,7 +492,7 @@ describe("five-tool handler integration", () => {
 				assert.equal(saved.autoSelectSingleGoal, true);
 				// Second pass removes the local overrides via the action menu's
 				// inherit choice; the file then omits both keys.
-				const selects2 = ["  disableTasks: true (project override)", "Use inherited value", "  autoSelectSingleGoal: true (project override)", "Use inherited value", "Done"];
+				const selects2 = ["  disableTasks (turn off the goal task tree): true (project override)", "Use inherited value", "  autoSelectSingleGoal (auto-focus when exactly one goal is active): true (project override)", "Use inherited value", "Done"];
 				const h2 = createHarness({
 					cwd: f.cwd, sessionEntries: f.sessionEntries, hasUI: true,
 					select: async () => selects2.shift(),
@@ -515,8 +515,8 @@ describe("five-tool handler integration", () => {
 				// Set both via the manual provider/model entry: filter first, then
 				// pick "✎ Enter provider/model manually (advanced)", then type the pair.
 				const selects = [
-					"  provider: (default) (default)", "✎ Enter provider/model manually (advanced)",
-					"  model: claude-sonnet-4 (project override)", "✎ Enter provider/model manually (advanced)",
+					"  provider (auditor model provider): (default) (default)", "✎ Enter provider/model manually (advanced)",
+					"  model (auditor model): claude-sonnet-4 (project override)", "✎ Enter provider/model manually (advanced)",
 					"Done",
 				];
 				const inputs = ["", "anthropic/claude-sonnet-4", "", "anthropic/claude-sonnet-4"];
@@ -532,7 +532,7 @@ describe("five-tool handler integration", () => {
 				assert.equal(saved.model, "claude-sonnet-4");
 				// Clear both by returning to the current-session/default choice from
 				// either row: the default choice deletes provider and model together.
-				const selects2 = ["  provider: anthropic (project override)", "  Current session / default (system default)", "Done"];
+				const selects2 = ["  provider (auditor model provider): anthropic (project override)", "  Current session / default (system default)", "Done"];
 				const inputs2 = [""];
 				const h2 = createHarness({
 					cwd: f.cwd, sessionEntries: f.sessionEntries, hasUI: true,
@@ -553,12 +553,12 @@ describe("five-tool handler integration", () => {
 			const f = fixture();
 			try {
 				const selects = [
-					"  thinking_level: (default) (default)", "off",
-					"  thinking_level: off (project override)", "minimal",
-					"  thinking_level: minimal (project override)", "low",
-					"  thinking_level: low (project override)", "medium",
-					"  thinking_level: medium (project override)", "high",
-					"  thinking_level: high (project override)", "xhigh",
+					"  thinking_level (auditor thinking level): (default) (default)", "off",
+					"  thinking_level (auditor thinking level): off (project override)", "minimal",
+					"  thinking_level (auditor thinking level): minimal (project override)", "low",
+					"  thinking_level (auditor thinking level): low (project override)", "medium",
+					"  thinking_level (auditor thinking level): medium (project override)", "high",
+					"  thinking_level (auditor thinking level): high (project override)", "xhigh",
 					"Done",
 				];
 				const inputs = ["off", "minimal", "low", "medium", "high", "xhigh"];
@@ -573,7 +573,7 @@ describe("five-tool handler integration", () => {
 				assert.equal(saved.thinking_level, "xhigh", "all six levels accepted in sequence");
 				// Unknown value is rejected with a warning and nothing is persisted.
 				const notifiesBefore = h.notifies.length;
-				const selects2 = ["  thinking_level: xhigh (project override)", "bogus", "Done"];
+				const selects2 = ["  thinking_level (auditor thinking level): xhigh (project override)", "bogus", "Done"];
 				const inputs2 = ["bogus"];
 				const h2 = createHarness({
 					cwd: f.cwd, sessionEntries: f.sessionEntries, hasUI: true,
@@ -597,7 +597,7 @@ describe("five-tool handler integration", () => {
 				const inputs = [...rejects];
 				const selects: string[] = [];
 				for (let i = 0; i < rejects.length; i++) {
-					selects.push("  subtaskDepth: 1 (default)", "Set project override...");
+					selects.push("  subtaskDepth (max subtask nesting depth): 1 (default)", "Set project override...");
 				}
 				selects.push("Done");
 				const h = createHarness({
@@ -619,9 +619,9 @@ describe("five-tool handler integration", () => {
 			const f = fixture();
 			try {
 				const selects = [
-					"  disableTasks: false (default)", "Set project override to true",
-					"  disableTasks: true (project override)", "Use inherited value",
-					"  disableTasks: false (default)", "Set project override to true",
+					"  disableTasks (turn off the goal task tree): false (default)", "Set project override to true",
+					"  disableTasks (turn off the goal task tree): true (project override)", "Use inherited value",
+					"  disableTasks (turn off the goal task tree): false (default)", "Set project override to true",
 					"Done",
 				];
 				const h = createHarness({
@@ -664,7 +664,7 @@ describe("five-tool handler integration", () => {
 
 				// Turn the setting on through the menu; the hide must be visible in
 				// captured UI state before the handler resolves.
-				let queue = ["  hideUnfocusedBanner: false (default)", "Set project override to true", "Done"];
+				let queue = ["  hideUnfocusedBanner (hide the unfocused-goal banner): false (default)", "Set project override to true", "Done"];
 				const h2 = createHarness({
 					cwd: f.cwd, sessionEntries: entries, hasUI: true,
 					select: async (_prompt: string, options: string[]) => {
@@ -684,7 +684,7 @@ describe("five-tool handler integration", () => {
 				assert.equal(saved.hideUnfocusedBanner, true);
 
 				// Restore via the action menu's inherit choice.
-				queue = ["  hideUnfocusedBanner: true (project override)", "Use inherited value", "Done"];
+				queue = ["  hideUnfocusedBanner (hide the unfocused-goal banner): true (project override)", "Use inherited value", "Done"];
 				const h3 = createHarness({
 					cwd: f.cwd, sessionEntries: entries, hasUI: true,
 					select: async (_prompt: string, options: string[]) => {
@@ -734,7 +734,7 @@ describe("five-tool handler integration", () => {
 				assert.ok(!h.activeToolsHistory[0]!.includes("set_goal_tasks"), "env override installs the core profile");
 				// The env override makes the disableTasks row read-only: selecting it
 				// warns and never mutates, so no reinstall may happen.
-				const selects = ["  disableTasks: false (environment; read-only)", "Done"];
+				const selects = ["  disableTasks (turn off the goal task tree): false (environment; read-only)", "Done"];
 				const h2 = createHarness({
 					cwd: f.cwd, sessionEntries: f.sessionEntries, hasUI: true,
 					select: async () => selects.shift(),

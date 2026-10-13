@@ -187,8 +187,8 @@ test("goal-settings renders sectioned rows with clearer auditor wording", async 
 		assert.ok(opts.includes("─── Goal behavior ───"), "Goal behavior section header");
 		assert.ok(opts.includes("─── Task tracking ───"), "Task tracking section header");
 		assert.ok(opts.includes("─── Completion auditor ───"), "Completion auditor section header");
-		assert.ok(opts.some((l) => l.includes("auditor disabled:")), "clearer auditor wording row");
-		assert.ok(opts.some((l) => l.includes("provider:")) && opts.some((l) => l.includes("model:")), "provider/model rows");
+		assert.ok(opts.some((l) => l.includes("auditor disabled (disable the completion auditor):")), "clearer auditor wording row");
+		assert.ok(opts.some((l) => l.includes("provider (auditor model provider):")) && opts.some((l) => l.includes("model (auditor model):")), "provider/model rows");
 		assert.equal(opts.filter((l) => l.startsWith("───")).length, 5, "editing header + exactly four sections (incl. Blocker Oracle)");
 		assert.ok(opts.includes("─── Blocker Oracle ───"), "Blocker Oracle section header");
 		assert.ok(opts.includes("Done"));
@@ -246,7 +246,7 @@ test("goal-settings: autonomous allowance accepts an explicit zero override", as
 				return row;
 			}
 			if (selectCalls === 2) return options.find(o => o === "Set project override...");
-			assert.ok(options.some(o => o.includes("autonomous run allowance: 0 (disabled) (project override)")));
+			assert.ok(options.some(o => o.includes("autonomous run allowance (max autonomous runs per goal): 0 (disabled) (project override)")));
 			return "Done";
 		};
 		h.ctx.ui.input = async () => "0";
@@ -356,7 +356,7 @@ test("goal-settings: execution-contract opt-in can be set and removed through th
    let step = 0;
    ui.select = async (_title, options) => {
     step++;
-    if (step === 1) return options.find(option => option.includes("explicit execution contracts (opt-in):"));
+    if (step === 1) return options.find(option => option.includes("explicit execution contracts (opt-in) (require"));
     if (step === 2) { assert.ok(options.includes(action)); return action; }
     return "Done";
    };

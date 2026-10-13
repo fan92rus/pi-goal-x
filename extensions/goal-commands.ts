@@ -367,6 +367,51 @@ export function registerGoalCommands(core: GoalCore): void {
 		path?: string[];
 	};
 
+	// Locale-aware parenthetical explanations for settings rows (user request
+	// 2026-10-13: “для каждой опции в скобках напиши, что она даёт, на языке
+	// системы”). Language: PI_GOAL_LANG (ru|en) → LANG/LC_ALL → Intl locale →
+	// en. Read lazily at render time so tests can force a locale via env.
+	type UiLang = "en" | "ru";
+	function uiLang(): UiLang {
+		const forced = process.env.PI_GOAL_LANG?.trim().toLowerCase();
+		if (forced?.startsWith("ru")) return "ru";
+		if (forced?.startsWith("en")) return "en";
+		const env = (process.env.LC_ALL ?? process.env.LANG ?? "").toLowerCase();
+		if (env.startsWith("ru")) return "ru";
+		if (env && env !== "c" && env !== "posix") return "en";
+		try {
+			if (Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase().startsWith("ru")) return "ru";
+		} catch { /* Intl unavailable — fall through */ }
+		return "en";
+	}
+	const SETTING_EXPLANATIONS: Record<string, { en: string; ru: string }> = {
+		autoSelectSingleGoal: { en: "auto-focus when exactly one goal is active", ru: "автофокус, когда активна ровно одна цель" },
+		hideUnfocusedBanner: { en: "hide the unfocused-goal banner", ru: "скрыть баннер о нефокусной цели" },
+		hideUnfocusedPrompt: { en: "hide the unfocused-goal prompt line", ru: "скрыть подсказку о нефокусной цели" },
+		disableContracts: { en: "disable explicit execution contracts", ru: "отключить явные execution-контракты" },
+		strictExecutionContract: { en: "require an explicit execution contract for each run", ru: "требовать явный execution-контракт на каждый запуск" },
+		maxAutonomousRuns: { en: "max autonomous runs per goal", ru: "лимит автономных запусков на цель" },
+		showAutonomousRuns: { en: "show the autonomous runs line", ru: "показывать строку автономных запусков" },
+		stallTimeoutMinutes: { en: "declare a run stalled after N minutes", ru: "считать запуск зависшим через N минут" },
+		objectiveMaxChars: { en: "cap objective length (0 = unlimited)", ru: "ограничить длину цели (0 = без лимита)" },
+		disableTasks: { en: "turn off the goal task tree", ru: "выключить дерево задач цели" },
+		autonomousTasks: { en: "apply task-tree changes without asking", ru: "менять дерево задач без подтверждения" },
+		subtaskDepth: { en: "max subtask nesting depth", ru: "макс. глубина вложенности подзадач" },
+		disabled: { en: "disable the completion auditor", ru: "отключить аудитора завершения" },
+		provider: { en: "auditor model provider", ru: "провайдер модели аудитора" },
+		model: { en: "auditor model", ru: "модель аудитора" },
+		thinkingLevel: { en: "auditor thinking level", ru: "уровень размышлений аудитора" },
+		oracleEnabled: { en: "enable the blocker oracle (opt-in)", ru: "включить оракул блокеров (opt-in)" },
+		oracleProviderModel: { en: "blocker oracle provider and model", ru: "провайдер и модель оракула блокеров" },
+		oracleThinkingLevel: { en: "blocker oracle thinking level", ru: "уровень размышлений оракула блокеров" },
+		oracleProjectResources: { en: "let the oracle read project resources", ru: "позволить оракулу читать ресурсы проекта" },
+		oracleMaxFailedAttemptsPerBlocker: { en: "failed attempts per blocker before handoff", ru: "неудачных попыток на блокер до эскалации" },
+	};
+	function settingRowLabel(row: SettingRow): string {
+		const t = SETTING_EXPLANATIONS[row.key];
+		return t ? `${row.label} (${t[uiLang()]})` : row.label;
+	}
+
 	const SETTING_ROWS: readonly SettingRow[] = [
 		{ key: "autoSelectSingleGoal", label: "autoSelectSingleGoal", section: "Goal behavior", kind: "boolean" },
 		{ key: "hideUnfocusedBanner", label: "hideUnfocusedBanner", section: "Goal behavior", kind: "boolean" },
@@ -378,7 +423,7 @@ export function registerGoalCommands(core: GoalCore): void {
 		{ key: "stallTimeoutMinutes", label: "stall timeout (minutes)", section: "Goal behavior", kind: "positiveInteger" },
 		{ key: "objectiveMaxChars", label: "max objective length (0 = none)", section: "Goal behavior", kind: "positiveInteger" },
 		{ key: "disableTasks", label: "disableTasks", section: "Task tracking", kind: "boolean" },
-		{ key: "autonomousTasks", label: "autonomousTasks (apply task-tree changes without asking)", section: "Task tracking", kind: "boolean" },
+		{ key: "autonomousTasks", label: "autonomousTasks", section: "Task tracking", kind: "boolean" },
 		{ key: "subtaskDepth", label: "subtaskDepth", section: "Task tracking", kind: "positiveInteger" },
 		{ key: "disabled", label: "auditor disabled", section: "Completion auditor", kind: "boolean" },
 		{ key: "provider", label: "provider", section: "Completion auditor", kind: "modelSelector" },
@@ -407,7 +452,7 @@ export function registerGoalCommands(core: GoalCore): void {
 	}
 
 	function settingsLines(config: GoalSettings): string[] {
-		return SETTING_ROWS.map((row) => `${row.label}: ${settingsValue(config, row.key)}`);
+		return SETTING_ROWS.map((row) => `${settingRowLabel(row)}: ${settingsValue(config, row.key)}`);
 	}
 
 	async function handleSettingsMenu(ctx: ExtensionContext): Promise<void> {
@@ -475,7 +520,7 @@ export function registerGoalCommands(core: GoalCore): void {
 					}
 					const envVar = typeof row.key === "string" ? envOverrideFor(row.key as keyof GoalSettings) : null;
 					if (envVar) {
-						options.push(`  ${row.label}: ${settingsValue(snapshot.value, row.key)} (environment; read-only)`);
+						options.push(`  ${settingRowLabel(row)}: ${settingsValue(snapshot.value, row.key)} (environment; read-only)`);
 						continue;
 					}
 					const rowPath = pathOf(row);
@@ -490,7 +535,7 @@ export function registerGoalCommands(core: GoalCore): void {
 					const displayValue = row.path
 						? String(valueAtPath(snapshot.value, rowPath) ?? "(default)")
 						: settingsValue(snapshot.value, row.key);
-					options.push(`  ${row.label}: ${displayValue} ${source}`);
+					options.push(`  ${settingRowLabel(row)}: ${displayValue} ${source}`);
 				}
 				options.push("Done");
 				const selected = await ctx.ui.select("Goal settings", options);
@@ -504,7 +549,7 @@ export function registerGoalCommands(core: GoalCore): void {
 				const colon = trimmed.indexOf(":");
 				if (colon === -1) continue;
 				const label = trimmed.slice(0, colon).trim();
-				const row = SETTING_ROWS.find((r) => r.label === label);
+				const row = SETTING_ROWS.find((r) => settingRowLabel(r) === label);
 				if (!row) continue;
 				const envVarForRow2 = envOverrideFor(row.key as keyof GoalSettings);
 				if (envVarForRow2) {
