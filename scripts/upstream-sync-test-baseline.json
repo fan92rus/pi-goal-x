@@ -1,0 +1,15 @@
+{
+  "_comment": "Known-failing tests on this Windows machine, independent of any merge (env: chmod no-op on dirs, POSIX /tmp paths, process-race semantics, broken npm test runner). upstream-sync.mjs fails the gate only on failures NOT in these lists. Maintain manually or via the script's auto-extend (a new failure that reproduces on pre-merge HEAD is env drift, not a regression).",
+  "unit": [
+    "experiment harness shell tests pass",
+    "goalLedgerPath resolves under .pi/goals",
+    "goalSettingsPath: resolves under .pi/ with new filename",
+    "golden: prompt body is authoritative over the JSON header objective",
+    "pi-goal-x-recover",
+    "scoped mutation",
+    "two concurrent processes editing different keys never lose an update"
+  ],
+  "integration": [
+    "completion transaction hardening (follow-up Stage 3)"
+  ]
+}
