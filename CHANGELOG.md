@@ -8,6 +8,14 @@ All notable changes to pi-goal-x are documented here.
 
 - `autonomousTasks` setting (env `PI_GOAL_AUTONOMOUS_TASKS`, default off): when enabled, `set_goal_tasks` applies task-tree restructures immediately — no confirmation dialog, no turn stop; the report and ledger stay. The agent's guidance becomes trigger-based, so it decomposes objectives into stages and adds newly discovered work as subtasks without asking. Default behavior is unchanged.
 
+### Changed
+
+- Every settings row in the goal settings menu now carries a short explanation, rendered in Russian or English (`PI_GOAL_LANG` forces the language; otherwise `LANG`/`LC_ALL`/`Intl` detection, English by default).
+
+### Fixed
+
+- Active goals no longer burn autonomous-run allowance on empty "waiting" turns while an async subagent is running. The goal prompt tells the agent to hold the turn open with `bg_wait` until the subagent completes, and the scheduler itself defers implicit-ready continuation delivery while subagents are alive (checked through the in-process pi-subagents RPC; absent pi-subagents fails open, a 10-minute max-deferral fuse guarantees delivery even if a subagent never finishes, and completion resumes the continuation immediately). Waiting-phase polling and user interjections are unaffected.
+
 ## [0.32.3] — 2026-10-02
 
 ### Fixed
