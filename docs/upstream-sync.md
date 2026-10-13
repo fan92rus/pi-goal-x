@@ -45,6 +45,12 @@ SelfHeal-оркестратор на localhost — GitHub-раннеры в LAN 
 fan92rus/pi-goal-x` запускает `pi -p "<контракт>"` в агентском checkout
 `D:\Documents\Repositories\goal-x\pi-goal-x-agent` (ветка `main`).
 
+- **Гейт неактуальности (в оркестраторе, до запуска агента)**: тег уже
+  содержится в ветке → задача мгновенно `Skipped: stale` — (1) предок
+  (`merge-base --is-ancestor`); (2) если нет (апстрим переписывал историю) —
+  новейший влитый релизный тег ветки semver-не-ниже запрошенного. Сбой
+  проверки → задача идёт агенту (fail-open).
+
 - **Контракт агента**:
   `selfheal/prompts/resolve-conflict-pi-goal-x.md` — правила слияния:
   * сохранять форк-фичи: `extensions/goal-*`, наши тесты, `specs/`;
