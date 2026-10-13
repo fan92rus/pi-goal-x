@@ -54,19 +54,22 @@ persisted settings round-trip like other booleans.
 
 - `set_goal_tasks` behavior is byte-identical to today: confirmation dialog,
   turn stop, id-stable merge.
-- The tool's guidance changes from avoidance wording to permissive-but-gated
-  wording: when the user asks for a restructure, call the tool immediately —
-  the dialog is the user's protection, not a reason to hesitate; when the
-  objective clearly requires decomposition, propose the tree rather than
-  working without one. No behavior change is implied by wording alone.
+- The tool's guidance changes from avoidance wording to permissive wording:
+  when the user asks for a restructure, call the tool immediately — the
+  dialog is the user's protection, not a reason to hesitate; when the work is
+  trackable in stages, propose the tree rather than working without one (the
+  objective's wording is not the trigger). No behavior change is implied by
+  wording alone.
 
 ### Mode on — immediate structural mutation
 
 - `set_goal_tasks` applies the validated tree immediately: no dialog, no modal,
   no turn stop. Report/ledger/dashboard unchanged.
 - Per-turn injected task-state context gains one operational line stating that
-  task-tree mutations apply immediately in this project and that proactive
-  decomposition is expected (see TECH.md for exact mechanism).
+  the task tree is the agent's to manage in this project — no permission is
+  needed in the objective or from the user; decompose when work emerges, add
+  discovered work immediately, restructure when priorities change (see
+  TECH.md for exact mechanism).
 - Agent policy in this mode is trigger-based, with examples:
   - Discovery objectives ("find bugs in X", audits, investigations): create
     stages per inspection area up front; add a subtask per finding as it

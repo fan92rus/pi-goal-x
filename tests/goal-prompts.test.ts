@@ -164,8 +164,10 @@ test("taskListBlock appends the autonomousTasks operational line when enabled", 
 	};
 	const block = taskListBlock(g, { autonomousTasks: true } as GoalSettings);
 	assert.match(block, /autonomousTasks/);
-	assert.match(block, /apply immediately/);
-	assert.match(block, /decompose proactively/);
+	assert.match(block, /apply without confirmation/);
+	assert.match(block, /no permission needed in the objective/);
+	assert.match(block, /Decompose into stages\/subtasks/);
+	assert.match(block, /restructure when priorities change/);
 	// Off or unset → byte-identical output without the line.
 	assert.equal(taskListBlock(g).includes("autonomousTasks"), false);
 	assert.equal(taskListBlock(g, { autonomousTasks: false } as GoalSettings).includes("autonomousTasks"), false);
@@ -175,7 +177,7 @@ test("taskListBlock surfaces the autonomy line even without a task list", () => 
 	const g = goal();
 	const block = taskListBlock(g, { autonomousTasks: true } as GoalSettings);
 	assert.match(block, /autonomousTasks/);
-	assert.match(block, /decompose proactively/);
+	assert.match(block, /no permission needed in the objective/);
 	assert.equal(taskListBlock(g), "");
 });
 
@@ -192,7 +194,7 @@ test("goalPrompt fragment cache keys on autonomousTasks (mid-session toggle refr
 	const before = goalPrompt(g, { autonomousTasks: false } as GoalSettings);
 	assert.equal(before.includes("autonomousTasks:"), false, "off → no operational line");
 	const after = goalPrompt(g, { autonomousTasks: true } as GoalSettings);
-	assert.match(after, /autonomousTasks: task-tree changes apply immediately/, "toggle on → line appears immediately");
+	assert.match(after, /autonomousTasks: the task tree is yours to manage/, "toggle on → line appears immediately");
 });
 
 test("goalPrompt includes taskListBlock when taskList is present", () => {

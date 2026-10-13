@@ -50,20 +50,24 @@ per settings. Two mechanisms:
     confirmation dialog (which stops the turn) is shown." Remove the absolute
     "Confirmation stops the turn" as unconditional fact.
   - `promptGuidelines`: replace "Restructure an existing tree only when the
-    user asks or requirements structurally change" with permissive-but-gated
-    wording: when the user asks, call it immediately (the dialog is the
-    user's protection); when the objective clearly decomposes into trackable
-    milestones, propose/maintain the tree rather than working without one.
-    Keep the existing limits sentence (flat parent-linked input, ≤50 tasks,
-    depth, lightweight placement).
+    user asks or requirements structurally change" with permissive wording:
+    when the user asks, call it immediately (the dialog is the user's
+    protection); when the work is trackable in milestones, propose/maintain
+    the tree rather than working without one. Keep the existing limits
+    sentence (flat parent-linked input, ≤50 tasks, depth, lightweight
+    placement).
 - **Dynamic per-turn line** in `extensions/prompts/goal-prompts.ts`
   (`taskListBlock`, and the no-task-list path so bootstrap goals see it too):
-  when `settings.autonomousTasks` is on, append one bounded line, e.g.
-  `Task-tree mutations apply immediately in this project (autonomousTasks):
-  decompose proactively when the objective implies it; add newly discovered
-  work as subtasks right away.` `taskListBlock` already receives `settings`;
-  the no-task-list early return needs the settings passed in or reloaded.
-  Cap added chars within `MAX_PROMPT_FRAGMENT_CHARS` discipline (one line).
+  when `settings.autonomousTasks` is on, append one bounded line (strengthened
+  2026-10-13 to standing authorization after user feedback — the objective
+  must not need to grant permission):
+  `autonomousTasks: the task tree is yours to manage — no permission needed in
+  the objective or from the user. Decompose into stages/subtasks when work
+  emerges, add discovered work immediately, restructure when priorities
+  change; changes apply without confirmation.` `taskListBlock` already
+  receives `settings`; the no-task-list early return needs the settings
+  passed in or reloaded. Cap added chars within `MAX_PROMPT_FRAGMENT_CHARS`
+  discipline (one line).
 - **`create_goal` bootstrap line** (`extensions/goal-core-tools.ts` ~line
   221–224): when autonomousTasks is on, reword the tail "propose them ... if
   the user wants tracked milestones" to state that the proposal applies

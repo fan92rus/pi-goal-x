@@ -258,7 +258,7 @@ pi.registerTool(defineTool({
 	description: "Set or restructure the goal's task tree. Matching IDs retain progress; removed IDs are deleted. In projects with autonomousTasks enabled this applies immediately without stopping the turn; otherwise a user confirmation dialog is shown first.",
 	promptSnippet: "Set the goal task tree with confirmation.",
 	promptGuidelines: [
-		"Use tasks for useful milestones: when the objective clearly decomposes into trackable work (discovery work such as finding/fixing bugs, audits, investigations, or multi-part objectives), create or extend the task tree rather than working without one.",
+		"Use tasks for useful milestones: when the work is trackable in stages, decompose it into a task tree rather than working without one — discovery work (finding/fixing bugs, audits, investigations) and multi-part objectives are typical.",
 		"When the user asks for a restructure, call this tool immediately — the confirmation dialog (when enabled) is the user's protection, not a reason to hesitate. In autonomousTasks projects, apply structural changes proactively as new work is discovered, without asking.",
 		"Input is a flat parent-linked tree, at most 50 tasks, within configured depth. lightweight_subtasks is valid only on parents.",
 	],

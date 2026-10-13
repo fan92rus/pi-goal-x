@@ -106,7 +106,7 @@ export function taskListBlock(goal: GoalRecord, settings?: GoalSettings): string
 	// when the tree is still empty (decomposition starts from no tasks). Off →
 	// output is byte-identical to the pre-feature block.
 	const autonomyLine = settings?.autonomousTasks === true
-		? "  autonomousTasks: task-tree changes apply immediately without confirmation — decompose proactively when the objective implies it; add newly discovered work as subtasks right away"
+		? "  autonomousTasks: the task tree is yours to manage — no permission needed in the objective or from the user. Decompose into stages/subtasks when work emerges, add discovered work immediately, restructure when priorities change; changes apply without confirmation"
 		: "";
 	if (!goal.taskList || goal.taskList.tasks.length === 0) return autonomyLine;
 	const index = taskIndex(goal.taskList.tasks);

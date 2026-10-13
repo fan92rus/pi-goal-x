@@ -69,3 +69,18 @@ Implementation not started. Next: tasks per TECH.md §1–§5.
   exact HEAD baseline); integration 30/31 (1 pre-existing); regression test
   green.
 - Committed as feat: autonomous goal task mutations (autonomousTasks).
+
+## 2026-10-13 (later): standing authorization wording
+
+- User feedback: with autonomousTasks on, the agent still hesitated unless the
+  objective itself granted permission — the shipped line gated decomposition
+  on "when the objective implies it".
+- Strengthened to standing authorization: the per-turn line now states the
+  task tree is the agent's to manage, no permission needed in the objective or
+  from the user; decompose when work emerges, add discovered work immediately,
+  restructure when priorities change. Tool guideline 1 no longer references
+  the objective's wording ("work trackable in stages" instead of "objective
+  clearly decomposes").
+- Files: extensions/prompts/goal-prompts.ts, extensions/goal-task-tools.ts,
+  tests/goal-prompts.test.ts; spec PRODUCT/TECH updated to the new wording.
+- Mode off stays byte-identical; tool description remains mode-neutral.
