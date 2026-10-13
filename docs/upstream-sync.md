@@ -11,7 +11,7 @@
   гейт = `npm run check` + `npm run test:all` (ubuntu: штатный раннер работает,
   windows-базлайн не нужен); push main;
 - конфликт → merge abort, красный ран, авто-issue `upstream conflict: vX.Y.Z`;
-- job `publish`: `@fan92rus/pi-goal-x <вер>-fan.<N>` под dist-tag `fan`
+- job `publish`: `@fan92rus/pi-goal-x <вер>-fan.<N>` под dist-tag `latest` (ставится просто `npm i -g @fan92rus/pi-goal-x`)
   (секрет `NPM_TOKEN`, Automation-токен — обходит 2FA-OTP);
   дедуп: HEAD уже опубликован (gitHead-совпадение) → skip.
 
@@ -93,7 +93,7 @@ fan92rus/pi-goal-x` запускает `pi -p "<контракт>"` в аген�
 
 - Форк публикуется как **`@fan92rus/pi-goal-x`**, версия
   `<апстрим-версия>-fan.<N>` (N подбирается перебором до свободной), dist-tag
-  **`fan`**: `npm i @fan92rus/pi-goal-x@fan`.
+  **`latest`**: `npm i -g @fan92rus/pi-goal-x`.
 - **Механизм — npm trusted publishing (OIDC)**, токены не используются:
   publish-джоба имеет `id-token: write`, Trusted Publisher на пакете
   (fan92rus / pi-goal-x / `upstream-sync.yml`, разрешён `npm publish`);

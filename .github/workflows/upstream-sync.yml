@@ -159,7 +159,7 @@ jobs:
         id: skip
         run: |
           HEAD_SHA=$(git rev-parse HEAD)
-          PUB_HEAD=$(npm view "@fan92rus/pi-goal-x@fan" gitHead 2>/dev/null || echo none)
+          PUB_HEAD=$(npm view "@fan92rus/pi-goal-x@latest" gitHead 2>/dev/null || echo none)
           if [ "$PUB_HEAD" = "$HEAD_SHA" ]; then
             echo "HEAD $HEAD_SHA already published — skipping"
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -196,9 +196,9 @@ jobs:
         id: pub
         if: steps.skip.outputs.skip == 'false'
         run: |
-          npm publish --access public --tag fan   # OIDC trusted publishing; provenance is automatic
+          npm publish --access public --tag latest   # OIDC trusted publishing; provenance is automatic
           echo "published=true" >> "$GITHUB_OUTPUT"
 
       - name: Summary
         if: steps.skip.outputs.skip == 'false'
-        run: echo "**Published** @fan92rus/pi-goal-x@${{ steps.ver.outputs.version }} (tag fan) from $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
+        run: echo "**Published** @fan92rus/pi-goal-x@${{ steps.ver.outputs.version }} (tag latest) from $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
