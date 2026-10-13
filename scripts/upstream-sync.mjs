@@ -44,9 +44,16 @@ const FORK_PACKAGE = "@fan92rus/pi-goal-x";
 const PUBLISH_TAG = "fan";
 const BASELINE = JSON.parse(fs.readFileSync(path.join(REPO, "scripts", "upstream-sync-test-baseline.json"), "utf8"));
 const SELFHEAL_URL = process.env.SELFHEAL_URL ?? "http://localhost:5080";
-// Windows: npm — это npm.cmd; spawnSync без shell не исполняет .cmd
-// (Node ≥18.20 блокирует) — поэтому явное имя с расширением.
-const NPM = process.platform === "win32" ? "npm.cmd" : "npm";
+// Windows: npm — это .cmd-шимм, который spawnSync без shell не исполняет
+// (Node ≥18.20, CVE-2024-27980, EINVAL), а с shell — ломает кавычки аргументов.
+// Надёжный способ — node npm-cli.js напрямую; фолбэки для нестандартных установок.
+function resolveNpm() {
+	if (process.platform !== "win32") return { cmd: "npm", prefix: [], shell: false };
+	const cli = path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+	if (fs.existsSync(cli)) return { cmd: process.execPath, prefix: [cli], shell: false };
+	return { cmd: "npm.cmd", prefix: [], shell: true };
+}
+const NPM = resolveNpm();
 const LOG_DIR = "D:/tmp";
 const PUBLISH = process.argv.includes("--publish");
 
@@ -147,9 +154,9 @@ if (sh("git", ["merge-base", "--is-ancestor", tag, BRANCH], { allowFail: true })
 
 	// ── checks on the merged tree ──────────────────────────────────────────
 	log("checks: npm install");
-	sh(NPM, ["install", "--no-audit", "--no-fund"], { timeout: 5 * 60_000 });
+	sh(NPM.cmd, [...NPM.prefix, "install", "--no-audit", "--no-fund"], { timeout: 5 * 60_000, shell: NPM.shell });
 	log("checks: npm run check (tsc)");
-	sh(NPM, ["run", "check"], { timeout: 3 * 60_000 });
+	sh(NPM.cmd, [...NPM.prefix, "run", "check"], { timeout: 3 * 60_000, shell: NPM.shell });
 
 	log("checks: unit + integration (adapter-hook invocation)");
 	const unit = runTests("unit", ["tests/*.test.ts"], path.join(LOG_DIR, "pi-goalx-sync-after-unit.log"));
@@ -164,7 +171,7 @@ if (sh("git", ["merge-base", "--is-ancestor", tag, BRANCH], { allowFail: true })
 		log(`unknown failures: ${unknown.map(([n]) => n).join(" | ")} — reproducing on pre-merge HEAD`);
 		const files = [...new Set(unknown.map(([, f]) => f))];
 		sh("git", ["merge", "--abort"], { allowFail: true });
-		sh(NPM, ["install", "--no-audit", "--no-fund"], { timeout: 5 * 60_000 });
+		sh(NPM.cmd, [...NPM.prefix, "install", "--no-audit", "--no-fund"], { timeout: 5 * 60_000, shell: NPM.shell });
 		const still = [];
 		for (const f of files) {
 			const kind = f.includes("integration") ? "integration" : "unit";
@@ -200,7 +207,7 @@ if (sh("git", ["merge-base", "--is-ancestor", tag, BRANCH], { allowFail: true })
 // ── publish (optional) ───────────────────────────────────────────────────────
 if (PUBLISH) {
 	const head = shOut("git", ["rev-parse", "HEAD"]);
-	const who = spawnSync(NPM, ["whoami"], { encoding: "utf8", shell: false, timeout: 60_000 });
+	const who = spawnSync(NPM.cmd, [...NPM.prefix, "whoami"], { encoding: "utf8", shell: NPM.shell, timeout: 60_000 });
 	if (who.status !== 0) {
 		log("publish SKIPPED: npm not authenticated (npm whoami failed). Run `npm login` or set a token in ~/.npmrc.");
 	} else if (state.lastPublishedSha === head && !merged) {
@@ -213,14 +220,14 @@ if (PUBLISH) {
 		let version = null;
 		for (let n = 0; n < 100; n++) {
 			const candidate = `${base}-fan.${n}`;
-			const view = spawnSync(NPM, ["view", `${FORK_PACKAGE}@${candidate}`, "version"], { encoding: "utf8", shell: false, timeout: 60_000 });
+			const view = spawnSync(NPM.cmd, [...NPM.prefix, "view", `${FORK_PACKAGE}@${candidate}`, "version"], { encoding: "utf8", shell: NPM.shell, timeout: 60_000 });
 			if (view.status !== 0) { version = candidate; break; }
 		}
 		if (!version) die(5, "could not find a free -fan.N version after 100 attempts");
 		pkg.name = FORK_PACKAGE;
 		pkg.version = version;
 		fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-		const pub = spawnSync(NPM, ["publish", "--access", `public`, `--tag`, PUBLISH_TAG], { cwd: REPO, encoding: "utf8", shell: false, timeout: 5 * 60_000 });
+		const pub = spawnSync(NPM.cmd, [...NPM.prefix, "publish", "--access", `public`, `--tag`, PUBLISH_TAG], { cwd: REPO, encoding: "utf8", shell: NPM.shell, timeout: 5 * 60_000 });
 		fs.writeFileSync(pkgPath, pkgRaw); // restore the upstream-shaped package.json
 		if (pub.status !== 0) {
 			log(`publish FAILED: ${(pub.stderr || pub.stdout || "").slice(0, 500)}`);
