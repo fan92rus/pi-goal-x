@@ -40,7 +40,16 @@
 ## Автосинк (задача `pi-goal-x Upstream Sync`)
 
 - Запуск: ежечасно + `StartWhenAvailable` (догоняет после простоя машины).
-  Действие: `node scripts/upstream-sync.mjs --publish` (cwd не важен).
+  Действие задачи: `wscript.exe //B //Nologo scripts\upstream-sync-hidden.vbs`
+  (cwd не важен) — скрытый лаунчер: VBS держит интерактивную сессию (нужны
+  git-креды/gh), а запускает `upstream-sync-hidden.cmd` с window style 0,
+  чтобы node.exe не всплывал консольным окном каждый час. Шим сохраняет
+  вывод последнего запуска в `%TEMP%\pi-goalx-sync-console.log` и
+  прокидывает exit-код синка в Last Task Result. Публикация (--publish)
+  удалена из задачи: npm trusted publishing работает только из GitHub
+  Actions; локальный флаг остался в скрипте для ручного запуска.
+- Ручной запуск: `node scripts/upstream-sync.mjs [--publish]` или
+  `cscript //nologo scripts/upstream-sync-hidden.vbs`.
 - Ручной запуск: `node scripts/upstream-sync.mjs [--publish]`.
 - Шаги: fetch тегов upstream → merge последнего релизного тега в `main`
   (`--no-commit`) → гейты → commit → push в `origin`.

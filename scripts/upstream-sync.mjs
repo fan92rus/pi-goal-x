@@ -58,8 +58,10 @@ const LOG_DIR = "D:/tmp";
 const PUBLISH = process.argv.includes("--publish");
 
 const now = new Date();
-const stamp = now.toISOString().replaceAll("[:TZ]", "-").slice(0, 19);
-const logFile = path.join(LOG_DIR, `pi-goalx-sync-${stamp.replaceAll(":", "").slice(0, 8)}.log`);
+// YYYYMMDD (digits only) — matches the documented pi-goalx-sync-YYYYMMDD.log
+// rotation. The previous replaceAll(":TZ"…) call passed a STRING where a
+// regex was meant, so every run appended to one misnamed file ("2026-10-").
+const logFile = path.join(LOG_DIR, `pi-goalx-sync-${now.toISOString().replace(/[^0-9]/g, "").slice(0, 8)}.log`);
 fs.mkdirSync(LOG_DIR, { recursive: true });
 const logStream = fs.createWriteStream(logFile, { flags: "a" });
 function log(msg) {
@@ -67,7 +69,10 @@ function log(msg) {
 	console.log(line);
 	logStream.write(line + "\n");
 }
-function die(code, msg) { log(`FATAL(${code}): ${msg}`); logStream.end(); process.exit(code); }
+// end(cb) flushes the buffered lines before exit; a bare end()+exit() races
+// the flush and silently loses the run's log lines (seen under the hidden
+// wscript launcher, 2026-10-14).
+function die(code, msg) { log(`FATAL(${code}): ${msg}`); logStream.end(() => process.exit(code)); }
 
 function sh(cmd, args, opts = {}) {
 	const r = spawnSync(cmd, args, { cwd: REPO, encoding: "utf8", shell: false, ...opts });
