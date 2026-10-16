@@ -384,7 +384,8 @@ test("active prompts no longer reference removed tools", () => {
 test("goalPrompt carries the ask-before-block guidance in the per-turn policy block", () => {
 	const prompt = goalPrompt(goal());
 	assert.match(prompt, /A blocker IS a question/, "policy frames asking as the block itself");
-	assert.match(prompt, /answer lifts the block/, "the user's answer unblocks in the same turn");
+	assert.match(prompt, /settles the point lifts the block/, "a settling answer unblocks in the same turn");
+	assert.match(prompt, /follow-up goal_question, never a guess/, "an unclear answer gets a follow-up question, not a guess");
 	assert.match(prompt, /no-answer fallback only/, "update_goal(blocked) is only the fallback");
 	assert.match(prompt, /went unanswered or no UI exists/, "fallback requires an unanswered ask or no UI");
 	// Fixed policy block: present in the strict wording variant too.
