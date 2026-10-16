@@ -30,6 +30,7 @@ interface Harness {
 	activeTools(): string[];
 	toolHistory(): string[][];
 	dialogResult(result: unknown): void;
+	core(): any;
 	hasDialog: () => boolean;
 	selectResult(result: string | undefined): void;
 	sessionStart(): Promise<void>;
@@ -95,6 +96,7 @@ function createHarness(cwd: string, opts: { hasUI?: boolean } = {}): Harness {
 		activeTools: () => [...activeTools],
 		toolHistory: () => toolHistory.map((t) => [...t]),
 		dialogResult: (result: unknown) => { hasDialogPending = false; dialogResolve?.(result); },
+	core: () => (pi as any)._goalCore,
 		hasDialog: () => hasDialogPending,
 		selectResult: (result: string | undefined) => { selectAnswer = result; },
 		sessionStart: async () => { await handlers.get("session_start")?.({ reason: "start" }, ctx); },
@@ -592,7 +594,7 @@ test("questionnaire tools require an active draft and return structured answers"
 		const questionnaire = h.tools.get("goal_questionnaire");
 		assert.ok(questionnaire, "goal_questionnaire registered");
 		const noDraft = await questionnaire.execute("q-1", { questions: [] }, new AbortController().signal, undefined, h.ctx);
-		assert.match(noDraft.content[0].text, /No guided goal draft is active/);
+		assert.match(noDraft.content[0].text, /No guided goal draft or active goal/);
 		await h.commands.get("goal")!.handler("Plan a migration", h.ctx);
 		const pending = questionnaire.execute("q-2", {
 			questions: [
@@ -1409,3 +1411,70 @@ for (const unavailable of [false, true]) {
 		} finally { rmSync(cwd, { recursive: true, force: true }); }
 	});
 }
+
+// ── goal_question outside drafting: ask before blocking / contested work ──
+
+test("applicableGoalTools exposes goal_question only for active goals", async () => {
+	const { applicableGoalTools } = await import("../extensions/goal-tool-names.ts");
+	const active = createGoal({ objective: "Active", autoContinue: true, sisyphus: false });
+	assert.ok(applicableGoalTools(active, true).includes("goal_question"), "active goal gets the ask tool");
+	assert.ok(!applicableGoalTools({ ...active, status: "paused" }, true).includes("goal_question"), "paused goal does not");
+	assert.ok(!applicableGoalTools(null, true).includes("goal_question"), "no goal does not");
+});
+
+test("goal_question refuses outside a draft when no goal is active", async () => {
+	const cwd = mkdtempSync(path.join(tmpdir(), "goal-ask-nogoal-"));
+	try {
+		const h = createHarness(cwd, { hasUI: true });
+		await h.sessionStart();
+		const res = await h.tools.get("goal_question")!.execute("t", { question: "How?", options: ["A", "B"] }, {}, {}, h.ctx);
+		assert.match(res.content[0].text, /No guided goal draft or active goal/);
+	} finally {
+		try { rmSync(cwd, { recursive: true, force: true }); } catch {}
+	}
+});
+
+test("goal_question in an active goal returns the picked option and never pauses the goal", async () => {
+	const cwd = mkdtempSync(path.join(tmpdir(), "goal-ask-pick-"));
+	try {
+		const h = createHarness(cwd, { hasUI: true });
+		h.core().replaceGoal({ objective: "Ask before blocking", autoContinue: true, sisyphus: false }, h.ctx);
+		assert.equal(firstGoal(cwd).status, "active");
+		const pending = h.tools.get("goal_question")!.execute("t", { question: "How should X be done?", options: ["Guess", "Ask the user first"], allow_custom: false }, {}, {}, h.ctx);
+		assert.ok(h.hasDialog(), "ask opens the dialog");
+		h.dialogResult({ questions: [{ id: "question", question: "How should X be done?", options: ["Guess", "Ask the user first"] }], answers: [{ id: "question", question: "How should X be done?", answer: "Ask the user first", wasCustom: false }], cancelled: false });
+		const res = await pending;
+		assert.match(res.content[0].text, /Ask the user first/);
+		assert.equal(firstGoal(cwd).status, "active", "asking must not pause the goal");
+	} finally {
+		try { rmSync(cwd, { recursive: true, force: true }); } catch {}
+	}
+});
+
+test("goal_question treats a cancelled dialog as no answer and keeps the goal running", async () => {
+	const cwd = mkdtempSync(path.join(tmpdir(), "goal-ask-cancel-"));
+	try {
+		const h = createHarness(cwd, { hasUI: true });
+		h.core().replaceGoal({ objective: "Ask before blocking", autoContinue: true, sisyphus: false }, h.ctx);
+		const pending = h.tools.get("goal_question")!.execute("t", { question: "How?", options: ["A", "B"] }, {}, {}, h.ctx);
+		h.dialogResult({ questions: [], answers: [], cancelled: true });
+		const res = await pending;
+		assert.match(res.content[0].text, /no answer/);
+		assert.equal(firstGoal(cwd).status, "active", "cancelled ask must not pause the goal");
+	} finally {
+		try { rmSync(cwd, { recursive: true, force: true }); } catch {}
+	}
+});
+
+test("goal_question without a UI reports no answer instead of pausing", async () => {
+	const cwd = mkdtempSync(path.join(tmpdir(), "goal-ask-noui-"));
+	try {
+		const h = createHarness(cwd, { hasUI: false });
+		h.core().replaceGoal({ objective: "Ask before blocking", autoContinue: true, sisyphus: false }, h.ctx);
+		const res = await h.tools.get("goal_question")!.execute("t", { question: "How?", options: ["A", "B"] }, {}, {}, h.ctx);
+		assert.match(res.content[0].text, /no answer/);
+		assert.equal(firstGoal(cwd).status, "active", "missing UI must not pause the goal");
+	} finally {
+		try { rmSync(cwd, { recursive: true, force: true }); } catch {}
+	}
+});

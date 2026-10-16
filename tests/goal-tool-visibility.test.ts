@@ -67,10 +67,14 @@ function testFixture() {
 }
 
 // Fixed profiles (Stage 2). Lifecycle state never changes these.
-const FIVE_GOAL_TOOLS = ["create_goal", "get_goal", "update_goal", "set_goal_tasks", "update_goal_task"];
+const FIVE_GOAL_TOOLS = ["create_goal", "get_goal", "update_goal", "goal_question", "set_goal_tasks", "update_goal_task"];
 const CORE_GOAL_TOOLS = ["create_goal", "get_goal", "update_goal"];
 const BASE = ["create_goal", "get_goal"];
-const ACTIVE_NO_TASKS = [...CORE_GOAL_TOOLS, "set_goal_tasks"];
+// Active goals advertise the ask tool (ask before blocking / contested work);
+// paused/blocked/budget_limited stay on CORE (the agent is not running there).
+const ACTIVE_NO_TASKS = [...CORE_GOAL_TOOLS, "goal_question", "set_goal_tasks"];
+// Paused goals keep outcome/task tools but not the ask tool (the agent is not running).
+const PAUSED_NO_TASKS = [...CORE_GOAL_TOOLS, "set_goal_tasks"];
 
 // Arbitrary host tool seeds: profile installation must never touch these.
 const HOST_SEED_A = ["read", "bash", "edit", "write"];
@@ -185,7 +189,7 @@ describe("Applicable tool profiles", () => {
 				activeToolNames = [...HOST_SEED_A];
 				apiCalls = [];
 				await runSession(f.cwd, entries);
-				expectGoalProfile(status === "paused" ? ACTIVE_NO_TASKS : status === "budget_limited" ? CORE_GOAL_TOOLS : BASE);
+				expectGoalProfile(status === "paused" ? PAUSED_NO_TASKS : status === "budget_limited" ? CORE_GOAL_TOOLS : BASE);
 				expectHostUntouched(HOST_SEED_A);
 			} finally {
 				f.cleanup();
@@ -213,7 +217,7 @@ describe("Applicable tool profiles", () => {
 				activeToolNames = [...HOST_SEED_B];
 				apiCalls = [];
 				await runSession(cwd, entries);
-				expectGoalProfile(status === "complete" ? BASE : CORE_GOAL_TOOLS);
+				expectGoalProfile(status === "complete" ? BASE : status === "active" ? [...CORE_GOAL_TOOLS, "goal_question"] : CORE_GOAL_TOOLS);
 				expectHostUntouched(HOST_SEED_B);
 			} finally {
 				try { rmSync(cwd, { recursive: true, force: true }); } catch {}
@@ -298,7 +302,7 @@ describe("Applicable tool profiles", () => {
 			assert.ok(text.includes("applies only to an active goal"),
 				`blocked from paused must be a state-aware failure, got: ${text.slice(0, 100)}`);
 			// The paused profile retains outcome and task-planning tools after rejection.
-			expectGoalProfile(ACTIVE_NO_TASKS);
+			expectGoalProfile(PAUSED_NO_TASKS);
 			expectHostUntouched(HOST_SEED_A);
 		} finally {
 			f.cleanup();

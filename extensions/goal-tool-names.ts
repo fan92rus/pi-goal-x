@@ -75,6 +75,7 @@ export function applicableGoalTools(goal: GoalRecord | null, tasksEnabled: boole
  const names: string[] = [CREATE_GOAL_TOOL_NAME, GET_GOAL_TOOL_NAME];
  if (!goal) return names;
  if (["active", "paused", "budget_limited"].includes(goal.status)) names.push(UPDATE_GOAL_TOOL_NAME);
+ if (goal.status === "active") names.push(QUESTION_TOOL_NAME);
  if (tasksEnabled && ["active", "paused"].includes(goal.status)) names.push(SET_GOAL_TASKS_TOOL_NAME);
  if (tasksEnabled && goal.status === "active" && goal.taskList?.tasks.length) names.push(UPDATE_GOAL_TASK_TOOL_NAME);
  return names;

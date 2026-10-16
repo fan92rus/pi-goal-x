@@ -240,9 +240,9 @@ export function registerDraftingTools(core: GoalCore): void {
 	const { pi } = core;
 	pi.registerTool(defineTool({
 		name: QUESTION_TOOL_NAME,
-		label: "Ask Drafting Question",
-		description: "Ask one structured question during a user-started goal draft.",
-		promptSnippet: "Ask the user one focused drafting question.",
+		label: "Ask Question",
+		description: "Ask the user one structured question with answer options or a custom answer. During a goal draft: clarify the topic. In an active goal: ask BEFORE update_goal(blocked) or before starting work you cannot decide alone — a cancelled dialog or missing UI means no answer, so fall back to the normal blocker ladder.",
+		promptSnippet: "Ask the user one focused structured question (options or custom).",
 		parameters: Type.Object({
 			question: Type.String({ description: "The question to ask." }),
 			options: Type.Optional(Type.Array(Type.String({ description: "A concise answer option." }))),
@@ -250,12 +250,12 @@ export function registerDraftingTools(core: GoalCore): void {
 			allow_custom: Type.Optional(Type.Boolean({ description: "Allow a custom answer; defaults to true." })),
 		}, { additionalProperties: false }),
 		async execute(_id, params, _signal, _update, ctx) {
-			if (!activeDraft(core)) return { content: [{ type: "text", text: "No guided goal draft is active. Ask the user to run /goal or /sisyphus." }], details: goalDetails(core.state.goal) };
+			if (!activeDraft(core) && core.state.goal?.status !== "active") return { content: [{ type: "text", text: "No guided goal draft or active goal to ask in. Ask the user in chat instead." }], details: goalDetails(core.state.goal) };
 			core.enterGoalModal();
 			try {
 				const result = await runGoalQuestionnaire(ctx, [{ id: "question", question: params.question, options: params.options ?? [], recommended: params.recommended, allowCustom: params.allow_custom }]);
-				if (result.unavailable === true) return { content: [{ type: "text", text: `${DIALOG_UNAVAILABLE_HINT} Ask the question in chat instead.` }], details: goalDetails(core.state.goal) };
-				return { content: [{ type: "text", text: result.cancelled ? "The user cancelled the question. Continue drafting conversationally." : formatQuestionnaireAnswers(result) }], details: goalDetails(core.state.goal) };
+				if (result.unavailable === true) return { content: [{ type: "text", text: `${DIALOG_UNAVAILABLE_HINT} No dialog — treat it as no answer: in an active goal continue on the normal blocker ladder; in a draft ask the question in chat instead.` }], details: goalDetails(core.state.goal) };
+				return { content: [{ type: "text", text: result.cancelled ? "The user cancelled the question — treat it as no answer. Continue with the normal blocker ladder." : formatQuestionnaireAnswers(result) }], details: goalDetails(core.state.goal) };
 			} catch (error) {
 				return { content: [{ type: "text", text: `Goal drafting dialog failed: ${error instanceof Error ? error.message : String(error)}. Drafting remains active; ask in chat instead of retrying the dialog.` }], details: goalDetails(core.state.goal) };
 			} finally {
@@ -268,8 +268,8 @@ export function registerDraftingTools(core: GoalCore): void {
 
 	pi.registerTool(defineTool({
 		name: QUESTIONNAIRE_TOOL_NAME,
-		label: "Run Drafting Questionnaire",
-		description: "Ask a short structured questionnaire during a user-started goal draft.",
+		label: "Run Questionnaire",
+		description: "Ask a short structured questionnaire. During a goal draft: make the goal and task plan concrete. In an active goal: gather a decision before contested work or blocking.",
 		promptSnippet: "Ask only the questions needed to make the goal and task plan concrete.",
 		parameters: Type.Object({
 			questions: Type.Array(Type.Object({
@@ -282,7 +282,7 @@ export function registerDraftingTools(core: GoalCore): void {
 			})),
 		}, { additionalProperties: false }),
 		async execute(_id, params, _signal, _update, ctx) {
-			if (!activeDraft(core)) return { content: [{ type: "text", text: "No guided goal draft is active." }], details: goalDetails(core.state.goal) };
+			if (!activeDraft(core) && core.state.goal?.status !== "active") return { content: [{ type: "text", text: "No guided goal draft or active goal to ask in. Ask the user in chat instead." }], details: goalDetails(core.state.goal) };
 			const questions: GoalQuestionnaireQuestion[] = params.questions.map((q: GoalQuestionnaireQuestion & { allow_custom?: boolean }) => ({ ...q, allowCustom: q.allow_custom }));
 			core.enterGoalModal();
 			try {
@@ -291,7 +291,7 @@ export function registerDraftingTools(core: GoalCore): void {
 					const active = activeDraft(core);
 					if (active) active.questionnaireEcho = formatQuestionnaireAnswers(result); // E5
 				}
-				if (result.unavailable === true) return { content: [{ type: "text", text: `${DIALOG_UNAVAILABLE_HINT} Ask the questions in chat instead.` }], details: goalDetails(core.state.goal) };
+				if (result.unavailable === true) return { content: [{ type: "text", text: `${DIALOG_UNAVAILABLE_HINT} No dialog — treat it as no answer: in an active goal continue on the normal blocker ladder; in a draft ask the questions in chat instead.` }], details: goalDetails(core.state.goal) };
 				return { content: [{ type: "text", text: result.cancelled ? "The user cancelled the questionnaire. Continue drafting conversationally." : formatQuestionnaireAnswers(result) }], details: goalDetails(core.state.goal) };
 			} catch (error) {
 				return { content: [{ type: "text", text: `Goal drafting dialog failed: ${error instanceof Error ? error.message : String(error)}. Drafting remains active; ask in chat instead of retrying the dialog.` }], details: goalDetails(core.state.goal) };

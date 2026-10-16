@@ -373,12 +373,23 @@ test("prompt fragments respect the 10k hard cap and escape untrusted tags", () =
 test("active prompts no longer reference removed tools", () => {
 	const g = createGoal({ objective: "Test", autoContinue: true, sisyphus: false }, Date.UTC(2026, 7, 6, 11, 0, 0));
 	for (const prompt of [goalPrompt(g), continuationPrompt(g)]) {
-		for (const removed of ["complete_goal", "pause_goal", "abort_goal", "propose_goal_draft", "propose_goal_tweak", "propose_task_list", "complete_task", "skip_task", "step_complete", "goal_question", "goal_questionnaire"]) {
+		for (const removed of ["complete_goal", "pause_goal", "abort_goal", "propose_goal_draft", "propose_goal_tweak", "propose_task_list", "complete_task", "skip_task", "step_complete", "goal_questionnaire"]) {
 			assert.equal(prompt.includes(removed), false, `prompt must not mention ${removed}`);
 		}
 	}
 	assert.ok(goalPrompt(g).includes("update_goal"), "active prompt must mention update_goal");
 	assert.ok(goalPrompt(g).includes('get_goal(section="tasks")'), "active prompt explains task-detail retrieval; tool-specific rules live in tool guidance");
+});
+
+test("goalPrompt carries the ask-before-block guidance in the per-turn policy block", () => {
+	const prompt = goalPrompt(goal());
+	assert.match(prompt, /Ask the user first with goal_question/, "policy line routes undecidable points through the ask tool");
+	assert.match(prompt, /A cancelled dialog or no UI means no answer/, "no-answer fallback keeps the blocker ladder");
+	assert.match(prompt, /only after you asked via goal_question first if a UI was available/, "blocked ladder mentions the ask-first step");
+	// Fixed policy block: present in the strict wording variant too.
+	const g = goal();
+	g.scheduler = { owner: "s", phase: "idle", used: 0 } as never;
+	assert.match(goalPrompt(g, { strictExecutionContract: true } as GoalSettings), /Ask the user first with goal_question/);
 });
 
 test("taskListBlock surfaces the persisted current task with its contract", () => {
