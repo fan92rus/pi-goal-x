@@ -7,7 +7,7 @@ All notable changes to pi-goal-x are documented here.
 ### Added
 
 - `autonomousTasks` setting (env `PI_GOAL_AUTONOMOUS_TASKS`, default off): when enabled, `set_goal_tasks` applies task-tree restructures immediately — no confirmation dialog, no turn stop; the report and ledger stay. The agent's guidance becomes trigger-based, so it decomposes objectives into stages and adds newly discovered work as subtasks without asking. Default behavior is unchanged.
-- Active goals can ask before blocking: `goal_question` (one structured question with answer options or a custom answer) is now available outside goal drafting. The per-turn policy tells the agent to ask the user BEFORE `update_goal(blocked)` or before starting contested work it cannot decide alone; a cancelled dialog or a headless session means no answer, and the three-consecutive-blocker ladder applies as before. Paused goals and non-goal sessions are unchanged.
+- Active goals turn blockers into questions: `goal_question` (one structured question with answer options or a custom answer) is available outside goal drafting, and the policy says the ask IS the block — the user's answer lifts it in the same turn, even for trivial blockers (a bare confirmation). `update_goal(blocked)` is only the fallback for an unanswered question or a headless session. Paused goals and non-goal sessions are unchanged.
 
 ### Changed
 

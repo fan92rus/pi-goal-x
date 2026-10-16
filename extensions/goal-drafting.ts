@@ -241,7 +241,7 @@ export function registerDraftingTools(core: GoalCore): void {
 	pi.registerTool(defineTool({
 		name: QUESTION_TOOL_NAME,
 		label: "Ask Question",
-		description: "Ask the user one structured question with answer options or a custom answer. During a goal draft: clarify the topic. In an active goal: ask BEFORE update_goal(blocked) or before starting work you cannot decide alone — a cancelled dialog or missing UI means no answer, so fall back to the normal blocker ladder.",
+		description: "Ask the user one structured question with answer options or a custom answer. During a goal draft: clarify the topic. In an active goal the question IS the block: asking at an undecidable point replaces update_goal(blocked), and the user's answer lifts the block — continue on it in the same turn. A cancelled dialog or missing UI means no answer, so fall back to the normal blocker ladder.",
 		promptSnippet: "Ask the user one focused structured question (options or custom).",
 		parameters: Type.Object({
 			question: Type.String({ description: "The question to ask." }),

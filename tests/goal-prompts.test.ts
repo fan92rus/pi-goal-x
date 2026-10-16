@@ -383,13 +383,14 @@ test("active prompts no longer reference removed tools", () => {
 
 test("goalPrompt carries the ask-before-block guidance in the per-turn policy block", () => {
 	const prompt = goalPrompt(goal());
-	assert.match(prompt, /Ask the user first with goal_question/, "policy line routes undecidable points through the ask tool");
-	assert.match(prompt, /A cancelled dialog or no UI means no answer/, "no-answer fallback keeps the blocker ladder");
-	assert.match(prompt, /only after you asked via goal_question first if a UI was available/, "blocked ladder mentions the ask-first step");
+	assert.match(prompt, /A blocker IS a question/, "policy frames asking as the block itself");
+	assert.match(prompt, /answer lifts the block/, "the user's answer unblocks in the same turn");
+	assert.match(prompt, /no-answer fallback only/, "update_goal(blocked) is only the fallback");
+	assert.match(prompt, /went unanswered or no UI exists/, "fallback requires an unanswered ask or no UI");
 	// Fixed policy block: present in the strict wording variant too.
 	const g = goal();
 	g.scheduler = { owner: "s", phase: "idle", used: 0 } as never;
-	assert.match(goalPrompt(g, { strictExecutionContract: true } as GoalSettings), /Ask the user first with goal_question/);
+	assert.match(goalPrompt(g, { strictExecutionContract: true } as GoalSettings), /A blocker IS a question/);
 });
 
 test("taskListBlock surfaces the persisted current task with its contract", () => {

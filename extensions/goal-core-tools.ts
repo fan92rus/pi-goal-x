@@ -117,7 +117,7 @@ pi.registerTool(defineTool({
 			if (view.archivedPath) lines.push(`Archive: ${view.archivedPath}`);
 			if (otherCount > 0) lines.push(`Other open goals: ${otherCount} (user can run /goal-list or /goal-focus)`);
 			lines.push("");
-			lines.push("Lifecycle: call update_goal({status: \"complete\"}) only when every requirement is satisfied — the independent auditor verifies from actual evidence. Before update_goal({status: \"blocked\"}) (and it still requires the same blocker recurring on three consecutive goal turns), ask the user first via goal_question when a UI is available; a cancelled dialog or no UI means no answer. User commands handle pause/resume/clear/focus.");
+			lines.push("Lifecycle: call update_goal({status: \"complete\"}) only when every requirement is satisfied — the independent auditor verifies from actual evidence. A blocker is expressed as a question: when a point cannot be decided alone, ask via goal_question when a UI is available — the ask IS the block and the user's answer lifts it (continue in the same turn). update_goal({status: \"blocked\"}) is the fallback for an unanswered question or no UI (plus the same blocker recurring on three consecutive goal turns). User commands handle pause/resume/clear/focus.");
 			// E1: goal history (last audit verdict + recent lifecycle events).
 			if (includeHistory) {
 				const history = buildGoalHistoryBlock(view, readGoalLedger(ctx).events);
