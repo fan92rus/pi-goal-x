@@ -17,7 +17,7 @@
 import * as nodeModule from "node:module";
 
 if (typeof nodeModule.registerHooks !== "function") {
-	throw new Error("Benchmarks require Node 22.15+ (registerHooks).");
+	throw new Error("Benchmarks require Node 22.19+ (registerHooks).");
 }
 
 const base = new URL("../../tests/stubs/", import.meta.url);

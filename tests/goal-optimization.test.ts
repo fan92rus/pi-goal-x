@@ -67,7 +67,7 @@ test("invalid batches reject all changes, including mixed forms and missing evid
    [{task_id:"next",status:"start"},{task_id:"child",status:"complete"}],
    [{task_id:"next",status:"start"},{task_id:"missing",status:"complete"}],
   ]) { await f.update({updates}); assert.equal(disk(),before); }
-  assert.match((await f.update({task_id:"next",status:"start",updates:[{task_id:"next",status:"start"}]})).content[0].text,/never both/);
+  assert.match((await f.update({task_id:"parent",status:"start",updates:[{task_id:"next",status:"start"}]})).content[0].text,/conflict/);
   assert.equal(readGoalLedger(f.h.ctx).events.filter(e=>e.type.startsWith("task_")).length,0);
  } finally {f.cleanup();}
 });

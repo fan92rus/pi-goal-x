@@ -32,7 +32,7 @@ jobs:
       - uses: actions/setup-node@v4
         if: steps.changes.outputs.runtime == 'true'
         with:
-          node-version: 24
+          node-version: 22.19.0
           cache: npm
       - name: Install dependencies
         if: steps.changes.outputs.runtime == 'true'
@@ -88,50 +88,5 @@ jobs:
           path: |
             ${{ runner.temp }}/pi-goal-validation/
             experiments/runs/goal-controls/
-          retention-days: 5
-          if-no-files-found: ignore
-
-  compatibility:
-    name: compatibility (${{ matrix.group }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - group: oldest
-            sdks: '0.83.0'
-            node: 22.15.0
-          - group: modern
-            sdks: '0.84.1 0.85.1 0.86.0 0.87.0 1.0.0 1.4.0'
-            node: 22.19.0
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-      - name: Determine affected checks
-        id: changes
-        run: node scripts/ci-scope.mjs
-      - uses: actions/setup-node@v4
-        if: steps.changes.outputs.runtime == 'true'
-        with:
-          node-version: ${{ matrix.node }}
-          cache: npm
-      - name: Install test tools
-        if: steps.changes.outputs.runtime == 'true'
-        run: npm ci --no-audit --no-fund
-      - name: Isolated host, type and provider regressions
-        if: steps.changes.outputs.runtime == 'true'
-        env:
-          HOST_VERSIONS: ${{ matrix.sdks }}
-        run: node experiments/continuation/compatibility.mjs $HOST_VERSIONS
-      - name: Save failure details
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: compatibility-failure-${{ matrix.group }}
-          path: |
-            experiments/runs/continuation-defaults/production-hosts/results.json
-            experiments/runs/continuation-defaults/production-hosts/*/*.log
           retention-days: 5
           if-no-files-found: ignore

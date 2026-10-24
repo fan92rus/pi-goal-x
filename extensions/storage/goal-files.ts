@@ -1,6 +1,7 @@
 import { goalStoragePath, goalPoolSnapshotPath, isExternalGoalStorage, ensureGoalStorageDirectory, type GoalStorageContext } from "./goal-root.ts";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { renameAtomic, renameAtomicSync } from "./atomic-rename.ts";
 
 import {
 	formatDuration,
@@ -156,7 +157,8 @@ function writePoolSnapshotSync(ctx: GoalFileContext, root: string, goals: GoalRe
 		const target = goalPoolSnapshotPath(ctx);
 		const tempPath = `${target}.${process.pid}.${Date.now()}.tmp`;
 		fs.writeFileSync(tempPath, JSON.stringify(snapshot), "utf8");
-		fs.renameSync(tempPath, target);
+		try { renameAtomicSync(tempPath, target); }
+		catch (error) { try { fs.unlinkSync(tempPath); } catch { /* best effort */ } throw error; }
 		removeLegacyPoolSnapshot(root);
 	} catch {
 		// best-effort: a missing/stale snapshot just costs a full scan next cold read
@@ -171,7 +173,8 @@ async function writePoolSnapshotAsync(ctx: GoalFileContext, root: string, goals:
 		const target = goalPoolSnapshotPath(ctx);
 		const tempPath = `${target}.${process.pid}.${Date.now()}.tmp`;
 		await fs.promises.writeFile(tempPath, JSON.stringify(snapshot), "utf8");
-		await fs.promises.rename(tempPath, target);
+		try { await renameAtomic(tempPath, target); }
+		catch (error) { try { await fs.promises.unlink(tempPath); } catch { /* best effort */ } throw error; }
 		removeLegacyPoolSnapshot(root);
 	} catch {
 		// best-effort
@@ -190,7 +193,8 @@ function updatePoolSnapshotSync(ctx: GoalFileContext, root: string, mutate: (goa
 		const target = goalPoolSnapshotPath(ctx);
 		const tempPath = `${target}.${process.pid}.${Date.now()}.tmp`;
 		fs.writeFileSync(tempPath, JSON.stringify(snapshot), "utf8");
-		fs.renameSync(tempPath, target);
+		try { renameAtomicSync(tempPath, target); }
+		catch (error) { try { fs.unlinkSync(tempPath); } catch { /* best effort */ } throw error; }
 		removeLegacyPoolSnapshot(root);
 	} catch {
 		// best-effort
@@ -270,12 +274,27 @@ export function resolveGoalPath(ctx: GoalFileContext, rootRel: string, relPath: 
 export function atomicWriteGoalFile(ctx: GoalFileContext, rootRel: string, relPath: string, content: string): void {
 	ensureDirectory(ctx, rootRel);
 	const filePath = resolveGoalPath(ctx, rootRel, relPath);
-	if (statIfPresent(filePath)?.isSymbolicLink()) {
+	const prior = statIfPresent(filePath);
+	if (prior?.isSymbolicLink()) {
 		throw new Error(`Refusing to write symlinked goal file: ${relPath}`);
 	}
 	const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-	fs.writeFileSync(tempPath, content, "utf8");
-	fs.renameSync(tempPath, filePath);
+	let fd: number | undefined;
+	let created = false;
+	try {
+		fd = fs.openSync(tempPath, "wx", prior ? prior.mode & 0o777 : 0o666);
+		created = true;
+		// open() applies the process umask even when replacing an existing file.
+		if (prior && process.platform !== "win32" && (prior.mode & 0o777 & process.umask())) fs.fchmodSync(fd, prior.mode & 0o777);
+		fs.writeFileSync(fd, content, "utf8");
+		fs.closeSync(fd);
+		fd = undefined;
+		renameAtomicSync(tempPath, filePath);
+	} catch (error) {
+		if (fd !== undefined) { try { fs.closeSync(fd); } catch { /* best effort */ } }
+		if (created) { try { fs.unlinkSync(tempPath); } catch { /* best effort */ } }
+		throw error;
+	}
 	invalidateGoalPathCaches(filePath);
 	invalidateGoalDirCache(goalStoragePath(ctx, rootRel));
 }

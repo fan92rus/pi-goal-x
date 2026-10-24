@@ -1,0 +1,42 @@
+{
+  "version": "0.33.0",
+  "latest": "0.33.0",
+  "releaseUrl": "https://github.com/tmonk/pi-goal-x/releases/tag/v0.33.0",
+  "releaseWorkflow": "https://github.com/tmonk/pi-goal-x/actions/runs/40088262019",
+  "ciWorkflow": "https://github.com/tmonk/pi-goal-x/actions/runs/40088259902",
+  "tagCommit": "6ca8906556b8c2b0a43231f3da74280e641e047a",
+  "tests": {
+    "passed": 1186,
+    "failed": 0,
+    "skipped": 0
+  },
+  "piVersions": [
+    "0.83.0",
+    "0.84.1",
+    "0.85.1",
+    "0.86.0",
+    "0.87.0",
+    "1.0.0",
+    "1.4.0"
+  ],
+  "terminalWorkflows": 10,
+  "integrity": "sha512-FJdd4Fz9gWNzTybovN/BJp83o5BdgOytHZIeddBxU21HNFciEpFV83yVLpJO2lFIEvOLbXLeNJtMhk138urPGA==",
+  "shasum": "32899a8991beda6cbce28ec236b32bb415202331",
+  "githubAssetSha256": "sha256:eb510fd3fc08256a01242e59fd1d4cec1db4496a874fec8f2d27110fc85547f4",
+  "registryBytesMatchWorkflowArtifact": true,
+  "publishedFilesMatchingTag": 74,
+  "rankingUpdatedPackageFiles": [
+    "README.md",
+    "assets/badge-light.svg",
+    "assets/badge-dark.svg"
+  ],
+  "recoveryCliHelp": "pass",
+  "mergedPrs": [
+    105,
+    106
+  ],
+  "supersededPrsCommentedAndClosed": [
+    98,
+    99
+  ]
+}

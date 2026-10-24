@@ -1,6 +1,5 @@
 import { commandHint, commandInstructions } from "./goal-controls.ts";
 import { cacheGoalHistory } from "./goal-prompt-cache.ts";
-import { registerGoalPromptProfile } from "./goal-prompt-profile.ts";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
 	GOAL_EVENT_ENTRY,
@@ -36,6 +35,7 @@ import { hasActiveDraft, rehydrateDraft } from "./goal-drafting.ts";
 import { syncTerminalInputPause } from "./goal-widget.ts";
 import type { GoalCore } from "./goal-state.ts";
 import { filterGoalSessionContext } from "./goal-session-safety.ts";
+import { registerGoalContext } from "./goal-context.ts";
 import type { GoalMutationOutcome } from "./goal-service.ts";
 
 /** Normalize checkpoints independently: deleting old markers shifts the cached prefix. */
@@ -64,12 +64,6 @@ export function compactGoalCheckpointContext(
  */
 export function registerGoalEvents(core: GoalCore): void {
 	const { pi } = core;
-	registerGoalPromptProfile(pi, ctx => {
-		const goal = core.state.goal;
-		const scheduler = goal?.scheduler;
-		return goal?.status === "active" && goal.autoContinue && !hasActiveDraft(core)
-			&& (!scheduler || scheduler.owner === ctx.sessionManager.getSessionId());
-	});
 	// Transients are keyed per session: the context hook of session B must never
 	// overwrite the set that session A's provider request will consume.
 	const liveRetention = new LiveTailRetention();
@@ -79,10 +73,13 @@ export function registerGoalEvents(core: GoalCore): void {
 	let continuationAfterSettleFor: string | null = null;
 	let networkErrorRecoveryAfterSettleFor: string | null = null;
 
-	pi.on("context", async (event, ctx) => {
-		const filtered = filterGoalSessionContext(event.messages);
-		const messages = compactGoalCheckpointContext(filtered ?? event.messages, core.state.goal) ?? filtered;
-		const base = messages ?? event.messages;
+	registerGoalContext(pi, (input, ctx) => {
+		// Reassert startup rejection at the awaited provider boundary, before
+		// any rejected run can send a request.
+		if (core.scheduler.isDenied()) ctx.abort?.();
+		const filtered = filterGoalSessionContext(input);
+		const messages = compactGoalCheckpointContext(filtered ?? input, core.state.goal) ?? filtered;
+		const base = messages ?? input;
 		const sessionKey = sessionKeyFor(ctx);
 		if (sessionKey === "unidentified") liveRetention.clear(sessionKey);
 		const parts = currentGoalContextParts(ctx);
@@ -91,15 +88,16 @@ export function registerGoalEvents(core: GoalCore): void {
 			// request extends the previous one instead of displacing its tail.
 			// Only genuinely new state/counters content is appended.
 			const { messages: retained } = liveRetention.apply(sessionKey, base, { state: parts.state, counters: parts.counters });
-			return { messages: retained as typeof event.messages };
+			return retained;
 		}
 		liveRetention.clear(sessionKey);
-		return messages === null ? undefined : { messages: messages as typeof event.messages };
+		return messages;
 	});
 
 	pi.on("agent_start", async (_event, ctx) => { core.scheduler.begin(ctx); });
 	pi.on("message_start", async (event, ctx) => { core.scheduler.message(ctx, event.message); });
 	pi.on("turn_start", async (_event, ctx) => {
+		if (core.scheduler.isDenied()) return;
 		core.scheduler.turn(ctx);
 		// Per-turn flag resets (#4 + C9 fix).
 		core.advanceTurnSeq();
@@ -166,11 +164,13 @@ export function registerGoalEvents(core: GoalCore): void {
 	});
 
 	pi.on("tool_execution_end", async (_event, ctx) => {
+		if (core.scheduler.isDenied()) return;
 		core.touchGoalActivity(); // F5
 		core.accountProgress(ctx);
 	});
 
 	pi.on("turn_end", async (event, ctx) => {
+		if (core.scheduler.isDenied()) return;
 		const message = event.message as AssistantMessageLike;
 		const tokens = assistantTurnTokens(message);
 		core.touchGoalActivity(); // F5
@@ -264,7 +264,7 @@ export function registerGoalEvents(core: GoalCore): void {
 	pi.on("message_end", async (event, ctx) => {
 		// Signal-aware: see turn_end — only user aborts pause; provider-side
 		// aborts are handled by agent_end's recovery path.
-		if (isAbortedAssistantMessage(event.message) && ctx.signal?.aborted && !core.interruption.ignoreAbort() && !core.interruption.isHeld()) core.pauseActiveGoal(ctx);
+		if (!core.scheduler.isDenied() && isAbortedAssistantMessage(event.message) && ctx.signal?.aborted && !core.interruption.ignoreAbort() && !core.interruption.isHeld()) core.pauseActiveGoal(ctx);
 		const raw = asRecord(event.message);
 		if (raw?.role === "custom" && raw.customType === GOAL_EVENT_ENTRY && raw.display !== false) {
 			return { message: { ...event.message, display: false } as typeof event.message };
@@ -335,13 +335,7 @@ export function registerGoalEvents(core: GoalCore): void {
 		core.queueContinuation(ctx, true);
 	});
 
-	type SessionCompactFailed = { reason: "manual" | "threshold" | "overflow"; errorMessage?: string; aborted: boolean; willRetry: boolean; fromExtension: boolean };
-	// session_compact_failed is new in pi 1.0.0. The supported peer range also
-	// includes 0.83 through 0.87, where this event does not exist and is never
-	// emitted, so the registration is typed loosely enough to compile against
-	// every supported host. On those hosts the handler is simply never called.
-	type CompactFailedOn = (event: "session_compact_failed", handler: (event: SessionCompactFailed, ctx: ExtensionContext) => unknown) => unknown;
-	(pi.on as unknown as CompactFailedOn)("session_compact_failed", async (event, ctx) => {
+	pi.on("session_compact_failed", async (event, ctx) => {
 		// `session_before_compact` already charged progress to the goal, so
 		// flush the buffered transaction and persist first. Otherwise the goal
 		// record and the ledger can disagree about a compaction that never
@@ -374,11 +368,9 @@ export function registerGoalEvents(core: GoalCore): void {
 	pi.on("before_agent_start", async (event, ctx) => {
 		core.advanceTurnSeq();
   if (!hasActiveDraft(core)) core.installGoalToolProfile(!loadGoalSettings(ctx.cwd).disableTasks);
-		// Pi 1.2+ distinguishes custom triggers from user prompts. Older hosts
-		// expose only prompt, so read the shared public trigger shapes here.
-		const trigger = event as unknown as { prompt?: string; message?: { customType?: string; details?: unknown; content?: unknown } };
-		const incomingGoalId = trigger.message ? goalEventMessageId(trigger.message) : extractGoalIdFromInjectedMessage(trigger.prompt ?? "");
-		if (!trigger.message && !incomingGoalId) core.interruption.continueWithUser(ctx);
+		const incomingGoalId = event.messageType === "custom"
+			? goalEventMessageId(event.message) : extractGoalIdFromInjectedMessage(event.prompt ?? "");
+		if (event.messageType !== "custom" && !incomingGoalId) core.interruption.continueWithUser(ctx);
 
 		// If this turn was triggered by a hidden goal checkpoint that no longer
 		// matches the active goal, abort the whole turn instead of letting the
@@ -394,7 +386,7 @@ export function registerGoalEvents(core: GoalCore): void {
 			core.clearContinuationState(false);
 			if (!core.isActionableContinuationGoal(incomingGoalId)) {
 				try {
-					ctx.abort?.();
+					core.scheduler.rejectCheckpoint(ctx);
 				} catch {}
 				core.updateUI(ctx);
 				return;
@@ -417,7 +409,7 @@ export function registerGoalEvents(core: GoalCore): void {
 	/** Request-only goal state split into a rarely-changing policy block and per-turn counters. Other branches are stable-only. */
 	function currentGoalContextParts(ctx: ExtensionContext): { state: string; counters?: string } | undefined {
 		const checkpoint = core.runtime.getCheckpointGoalId();
-		if (checkpoint !== null && !core.isActionableContinuationGoal(checkpoint)) {
+		if (checkpoint !== null && (core.scheduler.isDenied() || !core.isActionableContinuationGoal(checkpoint))) {
 			return { state: staleContinuationPrompt(checkpoint, core.state.goal) };
 		}
 		// Several prompt enrichments may need the same ledger snapshot. Keep one
@@ -522,6 +514,7 @@ export function registerGoalEvents(core: GoalCore): void {
 		core.runningGoalId = null;
 		continuationAfterSettleFor = null;
 		networkErrorRecoveryAfterSettleFor = null;
+		if (core.scheduler.isDenied()) return;
 
 		// Account for any tokens from aborted in-flight assistant messages so
 		// they are not silently lost (but charge them to the original goal).
@@ -567,9 +560,8 @@ export function registerGoalEvents(core: GoalCore): void {
 		core.updateUI(ctx);
 		// agent_end runs before pi finishes retries, compaction, terminating-tool
 		// settlement, and queued messages. Starting the continuation timer here
-		// can poll a stale busy context for minutes on pi 0.84. agent_settled is
-		// available in both supported SDK lines (0.83 and 0.84) and is the first
-		// point where pi guarantees no automatic work remains.
+		// can poll a stale busy context. agent_settled is the first point where
+		// Pi guarantees no automatic work remains.
 		continuationAfterSettleFor = core.state.goal.id;
 	});
 
@@ -579,10 +571,15 @@ export function registerGoalEvents(core: GoalCore): void {
 		continuationAfterSettleFor = null;
 		const networkErrorGoalId = networkErrorRecoveryAfterSettleFor;
 		networkErrorRecoveryAfterSettleFor = null;
+		if (core.scheduler.isDenied()) {
+			core.runningGoalId = null;
+			core.runtime.setCheckpoint(null);
+			core.scheduler.settled(ctx, false);
+			return;
+		}
 		const resumedInterruptedTurn = core.interruption.ignoreAbort() && !core.interruption.isHeld();
-		// Current Pi reports startup cancellation even when no assistant message
-		// or live request signal remains. Older hosts omit this field.
-		if ((event as unknown as { aborted?: boolean }).aborted === true) {
+		// Startup cancellation may leave no assistant message or request signal.
+		if (event.aborted) {
 			const abortedGoalId = goalId ?? networkErrorGoalId ?? core.runningGoalId;
 			core.runningGoalId = null;
 			if (abortedGoalId && !core.interruption.ignoreAbort(abortedGoalId) && !core.interruption.isHeld(abortedGoalId) && core.state.goal?.id === abortedGoalId && core.state.goal.status === "active") core.pauseActiveGoal(ctx);

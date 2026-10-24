@@ -157,7 +157,7 @@ for (const custom of [false, true]) test(`golden: stale ${custom ? "custom" : "p
 		}, h.ctx);
 
 		assert.equal(h.aborts, 1, "stale checkpoint must abort the turn");
-		const result = await h.handlers["context"]!({ messages: [] }, h.ctx);
+		const result = await h.handlers["context_with_system"]!({ messages: [] }, h.ctx);
 		const systemPrompt = (result as { messages?: {content: string}[] } | undefined)?.messages?.at(-1)?.content ?? "";
 		assert.match(systemPrompt, /\[GOAL STALE goalId=ghost-goal\]/);
 		assert.match(systemPrompt, /Do not perform task work for this stale checkpoint/);
@@ -183,7 +183,7 @@ for (const custom of [false, true]) test(`golden: matching ${custom ? "custom" :
 		}, h.ctx);
 
 		assert.equal(h.aborts, 0, "matching checkpoint must not abort");
-		const result = await h.handlers["context"]!({ messages: [] }, h.ctx);
+		const result = await h.handlers["context_with_system"]!({ messages: [] }, h.ctx);
 		const systemPrompt = (result as { messages?: {content: string}[] } | undefined)?.messages?.at(-1)?.content ?? "";
 		assert.doesNotMatch(systemPrompt, /GOAL STALE/);
 	} finally {

@@ -27,6 +27,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { renameAtomicSync } from "./storage/atomic-rename.ts";
 import { GOAL_COMMANDS, GOAL_KEY_ACTIONS, PAUSE_ORDERS, parseCommandPaths, parseGoalKeybinding, type GoalCommands, type GoalKeybinding, type PauseOrder } from "./goal-controls.ts";
 
 export const GOAL_THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
@@ -1118,7 +1119,7 @@ function atomicWriteJson(target: string, value: unknown, options: { defaultMode:
 		fs.fsyncSync(fd);
 		fs.closeSync(fd);
 		fd = undefined;
-		fs.renameSync(temp, target);
+		renameAtomicSync(temp, target);
 	} catch (error) {
 		if (fd !== undefined) {
 			try {

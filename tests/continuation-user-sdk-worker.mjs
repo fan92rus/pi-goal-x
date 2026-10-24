@@ -52,7 +52,7 @@ try{
  const loader=new DefaultResourceLoader({cwd,agentDir:path.join(cwd,'agent'),noExtensions:true,noSkills:true,noThemes:true,noPromptTemplates:true,noContextFiles:true,extensionFactories:[pi=>{
   piApi=pi;goalExtension(pi);core=pi._goalCore;
   pi.on('before_agent_start',async event=>{
-   if(!event.messageType)return;
+   assert.ok(['user','custom'].includes(event.messageType),'Pi 1.4 prepares every trigger');
    nativePromptPreparation=true;
    event.systemPromptOptions.sections.external_goal_guard=externalGuard;
    if(startupAbort&&event.messageType==='custom'&&!held){held=true;await new Promise(resolve=>{releaseHold=resolve;});}
@@ -80,12 +80,10 @@ try{
    await session.prompt('/goal-resume');resumed=true;
    releaseSettlement?.();releaseHold();await start;
   }else{
-  // Older hosts have no cancellable custom-start hook; use their ordinary pause
-  // control. Current hosts must honor abort before making any provider request.
-  if(!startupAbort||!nativePromptPreparation)await session.prompt('/goal-pause');
+  if(!startupAbort)await session.prompt('/goal-pause');
   const aborting=session.abort();if(startupAbort)releaseHold();await aborting;
   paused=core.state.goal?.status==='paused';assert.equal(paused,true);
-  if(startupAbort&&nativePromptPreparation){pausedBeforeAnyRequest=requests.length===0;assert.equal(pausedBeforeAnyRequest,true);}
+  if(startupAbort){pausedBeforeAnyRequest=requests.length===0;assert.equal(pausedBeforeAnyRequest,true);}
   const count=requests.length;await delay(150);assert.equal(requests.length,count);assert.equal(fs.existsSync(path.join(cwd,'result.txt')),false);
   releaseHold();await start;
   if(mode==='reload'){await session.reload();await bind();core=piApi._goalCore;assert.equal(core.state.goal?.status,'paused');}
@@ -98,7 +96,8 @@ try{
  assert.deepEqual(errors,[]);
  const execution=requests.filter(r=>r.phase==='execution');
  for(const request of execution){assert.ok(request.system.includes('expert coding assistant'));assert.ok(request.system.includes('create_goal'));assert.ok(!request.system.includes('propose_goal_draft'));assert.ok(request.tools.includes('update_goal'));}
- if(nativePromptPreparation)for(const request of execution)assert.ok(request.system.includes(externalGuard),'native prompt preparation preserves another extension instruction');
+ assert.equal(nativePromptPreparation,true);
+ for(const request of execution)assert.ok(request.system.includes(externalGuard),'native prompt preparation preserves another extension instruction');
  assert.equal(new Set(execution.map(r=>r.hash)).size,1,'initial and subsequent executor system prefixes match');
  assert.equal(requests.filter(r=>r.phase==='audit'&&r.action==='read').length,1,'actual auditor reads the artifact');
  const result={passed:true,mode,command,choices,requests:requests.map(({system:_system,...r})=>r),initialExecutionPromptCorrect:true,executorPrefixStable:true,nativePromptPreparation,externalPromptInstructionPreserved:nativePromptPreparation?true:undefined,artifact:'verified result\n',report:!lifecycle?'section 1\n':undefined,paused,pausedBeforeAnyRequest,heldBeforeResume:turnFirst?heldBeforeResume:undefined,reloadedWhilePaused:mode==='reload',errors};

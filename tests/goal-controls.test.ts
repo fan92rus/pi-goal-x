@@ -229,8 +229,8 @@ test("late cancellation after a held turn cannot pause a replacement goal", asyn
 	} finally { h.close(); }
 });
 
-test("Resume during abort settlement starts its saved continuation on current and older host events", async () => {
-	for (const settled of [{ aborted: true }, {}]) {
+test("Resume during settlement starts its saved continuation for both Pi outcomes", async () => {
+	for (const settled of [{ aborted: true }, { aborted: false }]) {
 		const h = fixture({ pauseOrder: "turn-first" });
 		try {
 			await h.start(); await h.emit("agent_start"); h.press(ESC);

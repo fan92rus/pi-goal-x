@@ -1,7 +1,7 @@
 import * as nodeModule from "node:module";
 
 if (typeof nodeModule.registerHooks !== "function") {
-	throw new Error("Fast tests require Node 22.15+; use npm run test:serial with older Node versions.");
+	throw new Error("Tests require Node 22.19 or newer.");
 }
 
 const adapters = new Map([

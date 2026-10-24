@@ -568,11 +568,10 @@ test("lifecycle: a successful turn resets the recovery counter and clears pendin
 		delete process.env.PI_GOAL_NETWORK_RECOVERY_MAX_DELAY_MS;
 	}
 });
-// ── pi 1.0.0 session_compact_failed ─────────────────────────────────────────
+// ── Failed compaction ─────────────────────────────────────────────────────
 
-test("session_compact_failed warns the user instead of failing silently (pi 1.0.0)", async () => {
-	// pi 1.0.0 added `session_compact_failed`. The extension already charges
-	// progress to the goal at `session_before_compact`, so a failed compaction
+test("session_compact_failed warns the user instead of failing silently", async () => {
+	// The extension charges progress at `session_before_compact`, so a failure
 	// must not leave the goal silently uncompacted — that is how a long-running
 	// goal walks into the same context overflow on the next turn.
 	const { cwd, goal } = fixtureCwd();

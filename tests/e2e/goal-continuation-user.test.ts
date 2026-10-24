@@ -10,9 +10,11 @@ for (const mode of ["draft", "direct", "pause", "reload", "abort", "turn-first"]
 	assert.equal(result.passed, true);
 	assert.equal(result.initialExecutionPromptCorrect, true);
 	assert.equal(result.executorPrefixStable, true);
+	assert.equal(result.nativePromptPreparation, true);
+	assert.equal(result.externalPromptInstructionPreserved, true);
 	assert.equal(result.artifact, "verified result\n");
 	if (mode === "pause" || mode === "reload") assert.equal(result.paused, true);
 	if (mode === "reload") assert.equal(result.reloadedWhilePaused, true);
-	if (mode === "abort" && result.nativePromptPreparation) assert.equal(result.pausedBeforeAnyRequest, true);
+	if (mode === "abort") assert.equal(result.pausedBeforeAnyRequest, true);
 	if (mode === "turn-first") assert.equal(result.heldBeforeResume, true);
 });

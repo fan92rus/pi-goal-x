@@ -1,6 +1,6 @@
 {
   "name": "pi-goal-x",
-  "version": "0.33.0",
+  "version": "0.34.0",
   "description": "Adds /goal to pi: conversational goal planning, flexible or ordered goals, persistent progress, and an independent completion auditor.",
   "license": "MIT",
   "author": "pi-goal-x contributors",
@@ -76,9 +76,9 @@
     "test:controls-cli": "node experiments/controls/cli-walkthrough.mjs"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": ">=0.83.0 <2.0.0",
-    "@earendil-works/pi-coding-agent": ">=0.83.0 <2.0.0",
-    "@earendil-works/pi-tui": ">=0.83.0 <2.0.0",
+    "@earendil-works/pi-ai": ">=1.4.0 <2.0.0",
+    "@earendil-works/pi-coding-agent": ">=1.4.0 <2.0.0",
+    "@earendil-works/pi-tui": ">=1.4.0 <2.0.0",
     "typebox": "^1.3.11"
   },
   "devDependencies": {
@@ -112,6 +112,6 @@
     }
   },
   "engines": {
-    "node": ">=22.15.0"
+    "node": ">=22.19.0"
   }
 }

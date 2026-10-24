@@ -142,13 +142,13 @@ export function syncTerminalInputPause(core: GoalCore, ctx: ExtensionContext): v
 				// Preserve Pi's ordinary Escape handling for the default combined stop.
 				return matchesKey(data, "escape") && settings.pauseOrder === "together" ? undefined : { consume: true };
 			}
-			// Follow Pi's configured interrupt key (older hosts use the legacy ID).
+			// Follow Pi's configured interrupt key.
 			let hostInterrupt = matchesKey(data, "escape");
 			try {
 				const manager = getKeybindings();
-				const keys = [...manager.getKeys("app.interrupt"), ...manager.getKeys("interrupt" as never)];
+				const keys = manager.getKeys("app.interrupt");
 				if (keys.length) hostInterrupt = keys.some(key => matchesKey(data, key));
-			} catch { /* Hosts without an app keymap retain Escape. */ }
+			} catch { /* Embeddings without an app keymap retain Escape. */ }
 			if (hostInterrupt && !matches("pause") && core.state.goal?.status === "active" && core.state.goal.autoContinue) {
 				core.interruption.interruptTurn(ctx); return { consume: true };
 			}

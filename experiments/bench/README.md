@@ -22,7 +22,7 @@ The orchestrator (`run-bench.mjs`) emits:
 - `specs/2026-08-04-extension-review-plan/BENCH-<PHASE>.md` — human table
   (committed in the spec dir per the plan).
 
-Requires Node 22.15+ (`registerHooks`).
+Requires Node 22.19+ (`registerHooks`).
 
 ## What is measured (B1–B9)
 

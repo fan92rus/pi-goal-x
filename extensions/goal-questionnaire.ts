@@ -40,7 +40,7 @@ export type ProposalDecision = "confirm" | "continue" | "cancel";
 
 /**
  * Bound a custom dialog using the regular renderer's frame cache when
- * available. The pi 0.84 fullscreen renderer does not expose that cache, so
+ * available. When the fullscreen renderer does not expose that cache,
  * reserve four rows for host chrome and use the remaining terminal height.
  */
 export function computeDialogLineLimit(args: { terminalRows?: number; baseFrameLines?: number }): number | undefined {

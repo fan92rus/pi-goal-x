@@ -17,6 +17,21 @@ All notable changes to pi-goal-x are documented here.
 
 - Active goals no longer burn autonomous-run allowance on empty "waiting" turns while an async subagent is running. The goal prompt tells the agent to hold the turn open with `bg_wait` until the subagent completes, and the scheduler itself defers implicit-ready continuation delivery while subagents are alive (checked through the in-process pi-subagents RPC; absent pi-subagents fails open, a 10-minute max-deferral fuse guarantees delivery even if a subagent never finishes, and completion resumes the continuation immediately). Waiting-phase polling and user interjections are unaffected.
 
+## [0.34.0] — 2026-10-24
+
+Includes #107.
+
+### Changed
+
+- Require Pi 1.4 or newer (1.x) and Node 22.19 or newer. Use native prompt preparation and remove older-host compatibility checks.
+
+### Fixed
+
+- Reject stale goal checkpoints without pausing or changing the replacement goal; valid saved work can continue after rejection (#104).
+- Preserve Pi's system prompt and tool deltas from the first request, including across goal context filtering, model changes and compaction (#97).
+- Accept matching redundant task arguments and empty optional task IDs; reject conflicting fields and malformed batches without partial changes (#91, #92).
+- Retry brief Windows sharing failures during atomic file replacement, with bounded delays and cleanup of failed temporary writes (#94).
+
 ## [0.33.0] — 2026-10-24
 
 Includes #105 and #106.

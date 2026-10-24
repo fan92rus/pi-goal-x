@@ -62,7 +62,7 @@ test("stale settlement skips all scheduling work, including when the audit queue
 	const core = {
 		pi: { on: (name: string, handler: Function) => { handlers[name] = handler; } },
 		auditMessages: new GoalAuditMessages(),
-		scheduler: { settled: () => { settlements++; } },
+		scheduler: { settled: () => { settlements++; }, isDenied: () => false },
 		interruption: { settled: () => {}, ignoreAbort: () => false, isHeld: () => false },
 	} as unknown as GoalCore;
 	registerGoalEvents(core);
@@ -111,7 +111,7 @@ test("child installer registers only context filtering, without constructing goa
 		const pi = new Proxy({}, { get: (_target, key) => (...args: any[]) => {
 			registrations.push(String(key));
 			assert.equal(key, "on");
-			assert.equal(args[0], "context");
+			assert.equal(args[0], "context_with_system");
 			context = args[1];
 		} });
 		goalExtension(pi as ExtensionAPI);

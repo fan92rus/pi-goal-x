@@ -69,7 +69,7 @@ After confirmation, a goal stopped only by its budget can continue if the revise
 
 Some Pi `openai-responses` configurations omit the wire-level `strict` flag. OpenAI Responses may normalize schemas into strict mode when that flag is omitted. This can conflict with optional goal arguments; it is separate from pi-goal-x's `strictExecutionContract` scheduling setting.
 
-For the reported OpenCode model, a narrowly scoped Pi `models.json` override makes the supported Pi 0.84.1 adapter send `strict: false` for ordinary tools:
+For the reported OpenCode model, a narrowly scoped Pi `models.json` override makes the Pi adapter send `strict: false` for ordinary tools:
 
 ```json
 {

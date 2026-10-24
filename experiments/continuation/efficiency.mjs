@@ -54,7 +54,7 @@ async function run(policy,scenario,{optIn=false,guard,cap}={}){
   const draft=(payload.tools??[]).some(t=>t.function?.name==='propose_goal_draft');
   const action=audit?text('The result.txt fixture contains exactly the expected result.\n<approved/>'):draft?tool('propose_goal_draft',{objective:'Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal.',sisyphus:false}):(plan[step++]??text('Standing by.'));
   const at=performance.now();if(!audit&&!draft&&lastSettled!==undefined){dispatchMs.push(at-lastSettled);lastSettled=undefined;}
-  // Pi 1.0 can append a system-role prompt patch inside history. Its role does
+  // Pi can append a system-role prompt delta inside history. Its role does
   // not make it part of the leading static prefix: preserve its actual position.
   const firstHistoryIndex=payload.messages.findIndex(m=>!['system','developer'].includes(m.role));
   const leading=firstHistoryIndex<0?payload.messages:payload.messages.slice(0,firstHistoryIndex);

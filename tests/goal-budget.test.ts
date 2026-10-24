@@ -123,7 +123,7 @@ test("budget reached marks the goal budget_limited exactly once with ledger + on
 			prompt: "",
 			systemPromptOptions: {},
 		}, ctx);
-		const result = await handlers.get("context")?.({ messages: [] }, ctx);
+		const result = await handlers.get("context_with_system")?.({ messages: [] }, ctx);
 		const promptText = result?.messages?.at(-1)?.content ?? "";
 		assert.ok(promptText.includes("BUDGET LIMITED"), "budget-limited block injected");
 		assert.ok(promptText.includes("TOKEN BUDGET REACHED"), "one-time wrap-up steering injected");
@@ -134,7 +134,7 @@ test("budget reached marks the goal budget_limited exactly once with ledger + on
 			prompt: "",
 			systemPromptOptions: {},
 		}, ctx);
-		const second = await handlers.get("context")?.({ messages: [] }, ctx);
+		const second = await handlers.get("context_with_system")?.({ messages: [] }, ctx);
 		assert.ok(!(second?.messages?.at(-1)?.content ?? "").includes("TOKEN BUDGET REACHED"), "steering fires exactly once");
 
 		// A further turn_end cannot re-fire the transition (status not active).

@@ -37,7 +37,7 @@ test("normalizeQuestionnaireQuestions trims ids, de-duplicates, filters options,
 	);
 });
 
-test("dialog line limit supports pi 0.83 frames and pi 0.84 docked/fullscreen frames", () => {
+test("dialog line limit supports docked and fullscreen frames", () => {
 	assert.equal(computeDialogLineLimit({ terminalRows: 46, baseFrameLines: 38 }), 10);
 	assert.equal(computeDialogLineLimit({ terminalRows: 46, baseFrameLines: 20 }), 27);
 	assert.equal(computeDialogLineLimit({ terminalRows: 46 }), 42);

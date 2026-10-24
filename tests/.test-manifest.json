@@ -5,6 +5,7 @@
     ".tests/fault-injection.test.ts",
     ".tests/goal-accounting-runtime.test.ts",
     ".tests/goal-activity.test.ts",
+    ".tests/goal-atomic-rename.test.ts",
     ".tests/goal-audit-dashboard.test.ts",
     ".tests/goal-auditor-selector.test.ts",
     ".tests/goal-auditor.test.ts",
@@ -13,6 +14,7 @@
     ".tests/goal-compaction.test.ts",
     ".tests/goal-comprehensive-optimization.test.ts",
     ".tests/goal-context-usage.test.ts",
+    ".tests/goal-context.test.ts",
     ".tests/goal-controls.test.ts",
     ".tests/goal-core-tools.test.ts",
     ".tests/goal-core.test.ts",
@@ -44,7 +46,6 @@
     ".tests/goal-pool-snapshot.test.ts",
     ".tests/goal-pool.test.ts",
     ".tests/goal-prompt-cache.test.ts",
-    ".tests/goal-prompt-profile.test.ts",
     ".tests/goal-prompts.test.ts",
     ".tests/goal-questionnaire.test.ts",
     ".tests/goal-record.test.ts",
@@ -64,6 +65,7 @@
     ".tests/goal-task-lifecycle.test.ts",
     ".tests/goal-task-tools.test.ts",
     ".tests/goal-tasks.test.ts",
+    ".tests/goal-tool-inputs.test.ts",
     ".tests/goal-tool-names.test.ts",
     ".tests/goal-tool-visibility.test.ts",
     ".tests/goal-turn-transaction.test.ts",
@@ -86,11 +88,14 @@
     ".tests/integration/extension.test.ts"
   ],
   "e2eFiles": [
+    ".tests/e2e/goal-context-system-sdk.test.ts",
     ".tests/e2e/goal-continuation-user.test.ts",
     ".tests/e2e/goal-lifecycle-dashboard.test.ts",
     ".tests/e2e/goal-prompt-cache-sdk.test.ts",
     ".tests/e2e/goal-scheduler-sdk.test.ts",
     ".tests/e2e/goal-session-safety.test.ts",
+    ".tests/e2e/goal-stale-dispatch-sdk.test.ts",
+    ".tests/e2e/goal-tool-input-sdk.test.ts",
     ".tests/e2e/network-recovery-rpc.test.ts"
   ]
 }

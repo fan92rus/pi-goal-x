@@ -16,10 +16,24 @@ commands:
   finish: /spec-finish [spec-id-or-path]
   settings: /specs-settings
 specs:
+  - id: 2026-10-24-release-0-34-0
+    path: specs/2026-10-24-release-0-34-0
+    title: Release runtime reliability fixes with Pi 1.4 as the minimum host
+    status: implementing
+    focused: false
+    last_audit: null
+    updated: 2026-10-24
+  - id: 2026-10-24-runtime-reliability
+    path: specs/2026-10-24-runtime-reliability
+    title: Stale-run isolation, context preservation, tool inputs and Windows writes
+    status: ready_for_review
+    focused: false
+    last_audit: 2026-10-24
+    updated: 2026-10-24
   - id: 2026-10-24-release-0-33-0
     path: specs/2026-10-24-release-0-33-0
     title: Release Pi integration and configurable controls as 0.33.0
-    status: validating
+    status: completed
     focused: false
     last_audit: null
     updated: 2026-10-24

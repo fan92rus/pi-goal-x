@@ -79,7 +79,7 @@ if (wantSelfCheck) {
 const startedAt = Date.now();
 // `--test-isolation=none` (single-process suite, shared module state) is only
 // accepted by Node >= 23.4; probe the running binary and omit it on older
-// releases so the same script works across the supported Node range (22.15+).
+// releases so the same script works across the supported Node range (22.19+).
 const isolationProbe = spawnSync(process.execPath, ["--test-isolation=none", "--test", "--help"], { stdio: "ignore" });
 const isolationArgs = isolationProbe.status === 0 ? ["--test-isolation=none"] : [];
 const result = spawnSync(

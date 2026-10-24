@@ -10,6 +10,7 @@ import {
 	SessionManager,
 	SettingsManager,
 	type ExtensionContext,
+	type ModelRuntime,
 	type ResourceLoader,
 } from "@earendil-works/pi-coding-agent";
 import type { GoalRecord, GoalTask, GoalTaskList } from "./goal-record.ts";
@@ -277,25 +278,15 @@ export function resolveAuditorModel(ctx: ExtensionContext, config: GoalSettings)
 /**
  * Options that reuse the parent session's auth + registered providers for the nested auditor.
  *
- * Pi 0.81+ `createAgentSession` accepts `modelRuntime` (and ignores `modelRegistry`).
- * ExtensionContext still exposes `modelRegistry`, which wraps the live ModelRuntime.
+ * Pi 1.4's extension ModelRegistry wraps the live ModelRuntime.
  * Sharing that runtime keeps extension providers such as `pi-cursor-sdk`'s `cursor`
  * provider (and its auth) available. Without this, the auditor builds a fresh runtime
  * with an empty resource loader, so Cursor models fail with "No API key found for cursor"
  * even when `~/.pi/agent/auth.json` has a Cursor key.
- *
- * Older SDKs still accept `modelRegistry`; pass both for compatibility.
  */
-export function resolveAuditorSessionModelOptions(ctx: ExtensionContext): {
-	modelRegistry: ExtensionContext["modelRegistry"];
-	modelRuntime?: unknown;
-} {
-	const registry = ctx.modelRegistry as unknown as { runtime?: unknown } | undefined;
-	const runtime = registry?.runtime;
-	if (runtime) {
-		return { modelRegistry: ctx.modelRegistry, modelRuntime: runtime };
-	}
-	return { modelRegistry: ctx.modelRegistry };
+export function resolveAuditorSessionModelOptions(ctx: ExtensionContext): { modelRuntime?: ModelRuntime } {
+	const registry = ctx.modelRegistry as unknown as { runtime?: ModelRuntime } | undefined;
+	return { modelRuntime: registry?.runtime };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pi SDK types Model<any> idiomatically (pi-coding-agent sdk.d.ts)

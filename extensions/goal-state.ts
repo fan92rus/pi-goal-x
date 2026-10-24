@@ -475,6 +475,7 @@ export function createGoalCore(
 	}
 
 	function beginAccounting(): void {
+		if (scheduler?.isDenied() || (runningGoalId && runningGoalId !== state.goal?.id)) { clearActiveAccounting(); return; }
 		if (scheduler?.isWaiting() || interruption?.isHeld()) { clearActiveAccounting(); return; }
 		if (!state.goal || (state.goal.status !== "active")) {
 			clearActiveAccounting();
@@ -489,6 +490,7 @@ export function createGoalCore(
 	}
 
 	function accountProgress(ctx: ExtensionContext, opts: { completedTurnTokens?: number } = {}): void {
+		if (scheduler?.isDenied() || (runningGoalId && runningGoalId !== state.goal?.id)) { clearActiveAccounting(); return; }
 		// Skip disk reconciliation for complete goals — they are pending archival at turn_end.
 		if (state.goal?.activePath && state.goal?.status !== "complete" && !reconcileFocusedGoalFromDisk(ctx, { preserveMemoryUsage: true })) return;
 		if (!state.goal || state.goal.status !== "active" || !accounting.isActiveFor(state.goal.id)) {

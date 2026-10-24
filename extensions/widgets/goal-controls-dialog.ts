@@ -156,7 +156,7 @@ export class GoalControlsDialog implements Component {
 					const conflict = main.find(([, binding]) => bindingKeys(binding).some(bound => sameGoalKey(bound, key, isKittyProtocolActive())));
 					if (conflict && row.action?.context !== "expanded" && row.action?.context !== "audit" && row.action?.context !== "dialog") problems.push(`${formatGoalKeybinding(key)} is used by Pi (${conflict[0]}). Choose a free key or change it in Pi's keybindings.json.`);
 				}
-			} catch { /* Older hosts expose fewer keymap inspection methods. */ }
+			} catch { /* Embeddings may omit keymap inspection. */ }
 		}
 		if (problems.length) { this.error = problems[0]!; return; }
 		this.mutate({ op: "set", path: row.path, value });

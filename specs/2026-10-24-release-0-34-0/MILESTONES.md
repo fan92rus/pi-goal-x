@@ -1,0 +1,7 @@
+# Release log
+
+- User authorized merging #107 and publishing a new minor release after a complete Pi 1.4+ audit. Updated the runtime PRODUCT/TECH and created this release plan before implementation.
+- npm reports 1.4.0 as latest for pi-ai, pi-coding-agent and pi-tui; pi-goal-x latest and the latest GitHub release are 0.33.0. Selected 0.34.0.
+- #107 has a green validation check at 679b56b, no pending reviews, and a mergeable head. Contributor co-author mappings were already verified; use a merge commit to retain that history.
+- Whole-project audit confirms all seven installed Pi modules are 1.4.0; root package/lockfile peer floors and development pins agree. All 23 explicit SDK import paths used by current code/tests/experiments exist in 1.4. Removed the remaining older-host settlement test case and current pre-1.4 labels/comments. Current runtime/scripts/tests/docs/workflows contain no older-host version claims; historical specs and released changelog entries remain records.
+- Prepared package/lock versions and dated changelog for 0.34.0. TypeScript, lint and all 54 focused controls/network tests pass. The local 79-file tarball contains the three new runtime modules, excludes the removed prompt-profile fallback, and declares Pi 1.4+ peers. Its extracted recovery CLI works, and a real Pi 1.4/Node 22.19 goal workflow completes, preserves the executor prefix and another extension's instruction, and verifies the output file.

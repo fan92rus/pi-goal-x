@@ -138,7 +138,7 @@ test("/goal-unfocus is idempotent, session-local, and leaves the active goal byt
 
 		await harness.handlers.get("before_agent_start")?.(
 			{ systemPrompt: "base prompt", prompt: "ordinary user request" }, harness.ctx);
-		const promptResult = await harness.handlers.get("context")?.({ messages: [] }, harness.ctx);
+		const promptResult = await harness.handlers.get("context_with_system")?.({ messages: [] }, harness.ctx);
 		assert.match(promptResult?.messages?.at(-1)?.content ?? "", /\[PI GOAL UNFOCUSED\]/);
 		assert.doesNotMatch(promptResult?.messages?.at(-1)?.content ?? "", /\[PI GOAL ACTIVE/);
 	} finally {
@@ -158,7 +158,7 @@ test("hideUnfocusedPrompt suppresses the model-facing reminder on every request 
 		await harness.handlers.get("session_start")?.({ reason: "startup" }, harness.ctx);
 		await harness.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "ordinary user request" }, harness.ctx);
 		for (let i = 0; i < 3; i++) {
-			const result = await harness.handlers.get("context")?.({ messages: [] }, harness.ctx);
+			const result = await harness.handlers.get("context_with_system")?.({ messages: [] }, harness.ctx);
 			assert.equal(hasUnfocusedReminder(result), false, `request ${i + 1} must not carry the unfocused reminder`);
 		}
 		assert.deepEqual(readFileSync(fixture.activePath), originalGoalFile, "hiding the reminder must not mutate the goal file");
@@ -176,16 +176,16 @@ test("hideUnfocusedPrompt takes effect on the next request after a settings chan
 	try {
 		await harness.handlers.get("session_start")?.({ reason: "startup" }, harness.ctx);
 		await harness.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "hello" }, harness.ctx);
-		const visible = await harness.handlers.get("context")?.({ messages: [] }, harness.ctx);
+		const visible = await harness.handlers.get("context_with_system")?.({ messages: [] }, harness.ctx);
 		assert.match(visible?.messages?.at(-1)?.content ?? "", /\[PI GOAL UNFOCUSED\]\n1 open pi goal exists,/, "default keeps the reminder");
 
 		writeFileSync(settingsPath, JSON.stringify({ autoSelectSingleGoal: false, disabled: true, hideUnfocusedPrompt: true }));
 		invalidateGoalSettingsCache();
-		assert.equal(hasUnfocusedReminder(await harness.handlers.get("context")?.({ messages: [] }, harness.ctx)), false, "true hides it");
+		assert.equal(hasUnfocusedReminder(await harness.handlers.get("context_with_system")?.({ messages: [] }, harness.ctx)), false, "true hides it");
 
 		writeFileSync(settingsPath, JSON.stringify({ autoSelectSingleGoal: false, disabled: true, hideUnfocusedPrompt: false }));
 		invalidateGoalSettingsCache();
-		const restored = await harness.handlers.get("context")?.({ messages: [] }, harness.ctx);
+		const restored = await harness.handlers.get("context_with_system")?.({ messages: [] }, harness.ctx);
 		assert.match(restored?.messages?.at(-1)?.content ?? "", /\[PI GOAL UNFOCUSED\]/, "false restores it");
 	} finally {
 		invalidateGoalSettingsCache();
@@ -199,7 +199,7 @@ test("hideUnfocusedBanner alone does not suppress the model-facing reminder", as
 	try {
 		await harness.handlers.get("session_start")?.({ reason: "startup" }, harness.ctx);
 		await harness.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "hello" }, harness.ctx);
-		const result = await harness.handlers.get("context")?.({ messages: [] }, harness.ctx);
+		const result = await harness.handlers.get("context_with_system")?.({ messages: [] }, harness.ctx);
 		assert.match(result?.messages?.at(-1)?.content ?? "", /\[PI GOAL UNFOCUSED\]/, "the banner setting must not reach the prompt path");
 	} finally {
 		fixture.cleanup();
@@ -216,7 +216,7 @@ test("hideUnfocusedPrompt never suppresses stale-checkpoint rejection", async ()
 			harness.ctx,
 		);
 		assert.equal(harness.abortCount, 1, "stale checkpoint must still abort the turn");
-		const result = await harness.handlers.get("context")?.({ messages: [] }, harness.ctx);
+		const result = await harness.handlers.get("context_with_system")?.({ messages: [] }, harness.ctx);
 		assert.match(result?.messages?.at(-1)?.content ?? "", /\[GOAL STALE goalId=ghost-goal\]/);
 	} finally {
 		fixture.cleanup();
@@ -341,9 +341,9 @@ test("one session can unfocus while another remains focused on the shared goal",
 		await first.commands.get("goal-unfocus")!.handler("", first.ctx);
 
 		await first.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "hello" }, first.ctx);
-		const firstPrompt = await first.handlers.get("context")?.({ messages: [] }, first.ctx);
+		const firstPrompt = await first.handlers.get("context_with_system")?.({ messages: [] }, first.ctx);
 		await second.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "continue" }, second.ctx);
-		const secondPrompt = await second.handlers.get("context")?.({ messages: [] }, second.ctx);
+		const secondPrompt = await second.handlers.get("context_with_system")?.({ messages: [] }, second.ctx);
 		assert.match(firstPrompt?.messages?.at(-1)?.content ?? "", /\[PI GOAL UNFOCUSED\]/);
 	assert.ok(promptIncludes(secondPrompt, `[PI GOAL ACTIVE goalId=${fixture.goal.id}]`));
 		assert.equal(existsSync(path.join(fixture.cwd, ".pi", "goals", "goal_events.jsonl")), false);
@@ -359,7 +359,7 @@ test("autoSelectSingleGoal opt-in focuses one goal on resume when no focus entry
 		await harness.handlers.get("session_start")?.({ reason: "resume" }, harness.ctx);
 		assert.equal(harness.selectCount, 0);
 		await harness.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "continue" }, harness.ctx);
-		const prompt = await harness.handlers.get("context")?.({ messages: [] }, harness.ctx);
+		const prompt = await harness.handlers.get("context_with_system")?.({ messages: [] }, harness.ctx);
 	assert.ok(promptIncludes(prompt, `[PI GOAL ACTIVE goalId=${fixture.goal.id}]`));
 	} finally {
 		fixture.cleanup();
@@ -382,7 +382,7 @@ test("the null entry produced by unfocus survives resume/tree and suppresses opt
 		const resumed = createHarness({ cwd: fixture.cwd, hasUI: true, sessionEntries });
 		await resumed.handlers.get("session_start")?.({ reason: "resume" }, resumed.ctx);
 		await resumed.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "hello" }, resumed.ctx);
-		let prompt = await resumed.handlers.get("context")?.({ messages: [] }, resumed.ctx);
+		let prompt = await resumed.handlers.get("context_with_system")?.({ messages: [] }, resumed.ctx);
 		assert.match(prompt?.messages?.at(-1)?.content ?? "", /\[PI GOAL UNFOCUSED\]/, "one open goal must not auto-select despite opt-in setting");
 
 		sessionEntries.splice(0, sessionEntries.length, {
@@ -392,7 +392,7 @@ test("the null entry produced by unfocus survives resume/tree and suppresses opt
 		});
 		await resumed.handlers.get("session_tree")?.({ newLeafId: "focused-branch", oldLeafId: "unfocused-branch" }, resumed.ctx);
 		await resumed.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "focused branch" }, resumed.ctx);
-		prompt = await resumed.handlers.get("context")?.({ messages: [] }, resumed.ctx);
+		prompt = await resumed.handlers.get("context_with_system")?.({ messages: [] }, resumed.ctx);
 	assert.ok(promptIncludes(prompt, `[PI GOAL ACTIVE goalId=${fixture.goal.id}]`));
 
 		sessionEntries.splice(0, sessionEntries.length, {
@@ -402,7 +402,7 @@ test("the null entry produced by unfocus survives resume/tree and suppresses opt
 		});
 		await resumed.handlers.get("session_tree")?.({ newLeafId: "unfocused-branch", oldLeafId: "focused-branch" }, resumed.ctx);
 		await resumed.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "after tree" }, resumed.ctx);
-		prompt = await resumed.handlers.get("context")?.({ messages: [] }, resumed.ctx);
+		prompt = await resumed.handlers.get("context_with_system")?.({ messages: [] }, resumed.ctx);
 		assert.match(prompt?.messages?.at(-1)?.content ?? "", /\[PI GOAL UNFOCUSED\]/);
 
 		const secondGoal = createGoal({ objective: "Second shared goal", autoContinue: true, sisyphus: false });
@@ -414,7 +414,7 @@ test("the null entry produced by unfocus survives resume/tree and suppresses opt
 		});
 		await resumed.handlers.get("session_tree")?.({ newLeafId: "second-goal-branch", oldLeafId: "unfocused-branch" }, resumed.ctx);
 		await resumed.handlers.get("before_agent_start")?.({ systemPrompt: "base", prompt: "second goal" }, resumed.ctx);
-		prompt = await resumed.handlers.get("context")?.({ messages: [] }, resumed.ctx);
+		prompt = await resumed.handlers.get("context_with_system")?.({ messages: [] }, resumed.ctx);
 	assert.ok(promptIncludes(prompt, `[PI GOAL ACTIVE goalId=${writtenSecondGoal.id}]`));
 
 		sessionEntries.splice(0, sessionEntries.length, {
@@ -517,7 +517,7 @@ test("restoring default-pool focus cannot select a same-ID goal in an external p
 		writeActiveGoalFile(goalStorageContext({ cwd: fixture.cwd }), fixture.goal);
 		const h = createHarness({ cwd: fixture.cwd, sessionEntries: [{ type: "custom", customType: "pi-goal-focus", data: goalFocusDetails(fixture.goal.id, "selected") }] });
 		await h.handlers.get("session_start")?.({ reason: "startup" }, h.ctx);
-		const result = await h.handlers.get("context")?.({ messages: [] }, h.ctx);
+		const result = await h.handlers.get("context_with_system")?.({ messages: [] }, h.ctx);
 		assert.equal(hasUnfocusedReminder(result), true);
 		assert.doesNotMatch(JSON.stringify(result), /PI GOAL ACTIVE/);
 	} finally { fixture.cleanup(); invalidateGoalSettingsCache(); }

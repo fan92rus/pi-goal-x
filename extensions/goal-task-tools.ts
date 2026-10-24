@@ -17,6 +17,8 @@ import { statusLabel, truncateText } from "./goal-core.ts";
 import { loadGoalSettings } from "./goal-settings.ts";
 import { buildTaskSummary, checkSubtasksComplete, findSubtaskDepthViolation, findTaskInTree, skipAllSubtasks } from "./goal-policy.ts";
 import { showTaskConfirmation, type TaskConfirmationResult } from "./goal-task-confirmation.ts";
+import { normalizeTaskProgress, type TaskProgressInput } from "./goal-tool-inputs.ts";
+export type { TaskProgressInput } from "./goal-tool-inputs.ts";
 import {
 	SET_GOAL_TASKS_TOOL_NAME,
 	UPDATE_GOAL_TASK_TOOL_NAME,
@@ -199,12 +201,6 @@ export function countTasks(tasks: readonly GoalTask[] | undefined): number {
 	return total;
 }
 
-export interface TaskProgressInput {
- task_id: string;
- status: "start" | "complete" | "skipped" | "pending";
- evidence?: string;
- reason?: string;
-}
 function progressSpec(input: TaskProgressInput, core: import("./goal-state.ts").GoalCore, ctx: ExtensionContext): GoalTaskUpdateSpec {
  const settings = loadGoalSettings(ctx.cwd);
  const now = nowIso();
@@ -411,19 +407,19 @@ pi.registerTool(defineTool({
 	promptSnippet: "Start, complete, skip, or reopen tasks; batch related progress.",
 	promptGuidelines: ["start requires pending and sets current task. complete requires evidence for contracted tasks and completed/skipped non-lightweight children. skipped requires a reason and explicit user direction or a hard contradiction; never skip to avoid work. pending reopens skipped tasks only; completed tasks are immutable. Completing/skipping the current task clears focus."],
 	parameters: Type.Object({
-		task_id: Type.Optional(Type.String({ description: "Single-task form; omit with updates." })),
-		status: Type.Optional(StringEnum(["start", "complete", "skipped", "pending"] as const)),
- updates: Type.Optional(Type.Array(Type.Object({task_id: Type.String(), status: StringEnum(["start", "complete", "skipped", "pending"] as const), evidence: Type.Optional(Type.String()), reason: Type.Optional(Type.String())}, {additionalProperties: false}), {minItems: 1, maxItems: 100, description: "Ordered atomic batch; omit all single-task fields."})),
+		task_id: Type.Optional(Type.String({ description: "Single-task form; with updates, any non-empty root fields must repeat one batch entry." })),
+		status: Type.Optional(StringEnum(["start", "complete", "skipped", "pending", ""] as const)),
+ updates: Type.Optional(Type.Array(Type.Object({task_id: Type.String(), status: StringEnum(["start", "complete", "skipped", "pending"] as const), evidence: Type.Optional(Type.String()), reason: Type.Optional(Type.String())}, {additionalProperties: false}), {maxItems: 100, description: "Ordered atomic batch. An empty array is allowed only with valid single-task fields."})),
 		evidence: Type.Optional(Type.String({ description: "Completion evidence; max 200 chars." })),
 		reason: Type.Optional(Type.String({ description: "Required for skipped." })),
 	}, { additionalProperties: false }),
 	executionMode: "sequential",
 	async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
-  if (rawParams.updates !== undefined) {
-   const fail = (text: string) => ({content: [{type: "text" as const, text}], details: goalDetails(core.state.goal)});
-   if ([rawParams.task_id, rawParams.status, rawParams.evidence, rawParams.reason].some(v => v !== undefined)) return fail("Use either updates or single-task fields, never both.");
-   const updates = rawParams.updates;
-   if (!Array.isArray(updates) || updates.length < 1 || updates.length > 100 || updates.some(u => !u || typeof u.task_id !== "string" || !u.task_id.trim() || !["start", "complete", "skipped", "pending"].includes(u.status) || (u.evidence !== undefined && typeof u.evidence !== "string") || (u.reason !== undefined && typeof u.reason !== "string"))) return fail("updates must contain 1–100 valid task updates.");
+  const fail = (text: string) => ({content: [{type: "text" as const, text}], details: goalDetails(core.state.goal)});
+  const normalized = normalizeTaskProgress(rawParams);
+  if (!normalized.ok) return fail(normalized.message);
+  if (normalized.batch) {
+   const updates = normalized.updates;
    core.reconcileFocusedGoalFromDisk(ctx);
    if (loadGoalSettings(ctx.cwd).disableTasks) return fail("update_goal_task is disabled by settings (disableTasks: true).");
    if (!core.state.goal) return fail("No goal is focused.");
@@ -433,8 +429,7 @@ pi.registerTool(defineTool({
    core.updateUI(ctx);
    return fail(`${updates.map(u => `${u.task_id} ${u.status}`).join("; ")}. ${buildTaskSummary(result.goal.taskList!)}.`);
   }
-  if (!rawParams.task_id || !rawParams.status) return {content: [{type: "text", text: "Provide task_id and status, or an updates batch."}], details: goalDetails(core.state.goal)};
-  const params = rawParams as TaskProgressInput;
+  const params = normalized.updates[0]!;
 		core.reconcileFocusedGoalFromDisk(ctx);
 		if (loadGoalSettings(ctx.cwd).disableTasks) {
 			return {
@@ -603,7 +598,8 @@ pi.registerTool(defineTool({
 		};
 	},
 	renderCall(args, theme) {
-		return new Text(theme.fg("toolTitle", "update_goal_task ") + theme.fg("muted", `${args?.task_id ?? ""} ${args?.status ?? ""}`), 0, 0);
+		const summary = args?.updates?.length ? `${args.updates.length} updates` : `${args?.task_id ?? ""} ${args?.status ?? ""}`;
+		return new Text(theme.fg("toolTitle", "update_goal_task ") + theme.fg("muted", summary), 0, 0);
 	},
 	renderResult(result, _options, theme) {
 		return renderGoalResult(result, _options, theme);

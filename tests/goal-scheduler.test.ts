@@ -1,6 +1,6 @@
 import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -790,7 +790,7 @@ test("prompt cache: normal and custom runs preserve history while refreshing all
  const h = await fixture(t);
  const history: any[] = [{role: "user", content: "Work on the goal", timestamp: 1}];
  const original = structuredClone(history);
- const request = async () => (await h.handlers.context!({messages: history}, h.ctx)).messages;
+ const request = async () => (await h.handlers.context_with_system!({messages: history}, h.ctx)).messages;
  const preflight = await h.handlers.before_agent_start!({prompt: "continue", systemPrompt: "host policy"}, h.ctx);
  assert.equal(preflight, undefined, "goal state never rewrites the system prefix");
  const first = await request();
@@ -846,11 +846,11 @@ test("prompt cache: interleaved sessions keep per-session transient sets", async
 	const h = await fixture(t);
 	const history: any[] = [{role: "user", content: "Work on the goal", timestamp: 1}];
 	const ctxB = {...h.ctx, sessionManager: {...h.ctx.sessionManager, getSessionId: () => "owner-B"}} as unknown as ExtensionContext;
-	const first: any[] = (await h.handlers.context!({messages: history}, h.ctx)).messages;
+	const first: any[] = (await h.handlers.context_with_system!({messages: history}, h.ctx)).messages;
 	// Session B advances the same goal so its transient set differs from A's.
 	h.core.state.goal!.usage.tokensUsed = 12345;
 	h.core.state.goal!.scheduler = {...newGoalScheduler("owner"), used: 7};
-	await h.handlers.context!({messages: history}, ctxB);
+	await h.handlers.context_with_system!({messages: history}, ctxB);
 	const wire: any = {messages: [{role: "user", content: "Work on the goal"}, {role: "user", content: [{type: "text", text: first.at(-2).content}]}, {role: "user", content: [{type: "text", text: first.at(-1).content, cache_control: {type: "ephemeral"}}]}]};
 	await h.handlers.before_provider_request!({payload: wire}, h.ctx);
 	assert.equal(wire.messages[0].content[0].cache_control?.type, "ephemeral", "session A's request relocates with A's set even after B overwrote its own");
@@ -863,12 +863,12 @@ test("prompt cache: cleared scheduling instructions vanish from retained history
 	// The standing instruction is a saved wait reason. A ready decision no longer
 	// carries text: next actions were removed.
 	h.core.state.goal!.scheduler = {...newGoalScheduler("owner"), phase: "waiting", decision: {kind: "wait"}, wait: {id: "w1", token: "t1", reason: "Publish release v1", deadline: Date.now() + 60_000}};
-	const first: any[] = (await h.handlers.context!({messages: history}, h.ctx)).messages;
+	const first: any[] = (await h.handlers.context_with_system!({messages: history}, h.ctx)).messages;
 	assert.ok(first.some((m: any) => typeof m.content === "string" && m.content.includes("Publish release v1")), "standing instruction rides the live state");
 	// Cleared by omission: a plain scheduler with no decision must not re-issue the order.
 	h.core.state.goal!.scheduler = {...newGoalScheduler("owner"), used: 1};
 	const advanced = [...history, {role: "assistant", content: "ack", timestamp: 2}];
-	const second: any[] = (await h.handlers.context!({messages: advanced}, h.ctx)).messages;
+	const second: any[] = (await h.handlers.context_with_system!({messages: advanced}, h.ctx)).messages;
 	assert.ok(!second.some((m: any) => typeof m.content === "string" && m.content.includes("Publish release v1")), "no retained tail re-issues the cancelled order");
 });
 
@@ -876,7 +876,7 @@ test("prompt cache: cleared scheduling instructions vanish from retained history
 test("prompt cache: model changes and missing identities cannot replay another request's counters", async t => {
  const h = await fixture(t);
  const history = [{role: "user", content: "inspect", timestamp: 1}];
- const request = async (ctx: ExtensionContext) => (await h.handlers.context!({messages: history}, ctx)).messages as any[];
+ const request = async (ctx: ExtensionContext) => (await h.handlers.context_with_system!({messages: history}, ctx)).messages as any[];
  const initial = {...h.ctx, model: {provider: "provider-a", id: "model-a"}} as ExtensionContext;
  await request(initial);
  h.core.state.goal!.usage.tokensUsed = 123456;
@@ -895,4 +895,83 @@ test("prompt cache: model changes and missing identities cannot replay another r
  const restarted = await request(initial);
  assert.equal(restarted.filter(m => m.customType === "pi-goal-live-context").length, 2);
  assert.match(restarted.at(-1).content, /234567 tokens/);
+});
+
+for (const order of ['prepare-first', 'agent-first']) test(`rejected checkpoints preserve a replacement goal through ${order} startup and cancellation`, async t => {
+ const h=await fixture(t,10);
+ const before=readFileSync(path.join(h.cwd,h.core.state.goal!.activePath!),'utf8');
+ const ctx={...h.ctx,signal:AbortSignal.abort()};
+ h.core.runningGoalId='previous-goal';
+ if(order==='agent-first')h.begin();
+ await h.handlers.before_agent_start!({prompt:'<pi_goal_continuation goal_id="previous-goal" kind="checkpoint"/>',systemPrompt:'base',systemPromptOptions:{}},ctx);
+ if(order==='prepare-first')h.begin();
+ assert.equal(h.core.runningGoalId,null,'rejected startup does not bind to the replacement goal');
+ assert.equal((await h.handlers.tool_call!({toolName:'write',input:{path:'wrong'}},ctx)).block,true);
+ await h.handlers.turn_start!({},ctx);
+ const message={role:'assistant',stopReason:'aborted',usage:{input:50,output:50,totalTokens:100}};
+ await h.handlers.message_end!({message},ctx);
+ await h.handlers.turn_end!({message},ctx);
+ await h.handlers.agent_end!({messages:[message]},ctx);
+ await h.handlers.agent_settled!({aborted:true},ctx);
+ assert.equal(h.core.scheduler.isDenied(),false);
+ assert.equal(h.core.state.goal?.status,'active');
+ assert.equal(readFileSync(path.join(h.cwd,h.core.state.goal!.activePath!),'utf8'),before,'no pause, accounting or scheduler changes leak into the replacement');
+ await h.handlers.before_agent_start!({prompt:'Continue the current goal',systemPrompt:'base',systemPromptOptions:{}},h.ctx);
+ h.begin();
+ assert.equal(h.core.runningGoalId,h.core.state.goal?.id,'the next legitimate run binds normally');
+});
+
+test('rejection cancels timers without losing the replacement goal\'s saved dispatch', async t => {
+ const h=await fixture(t,10);
+ t.mock.timers.enable({apis:['setTimeout','Date']});
+ assert.equal(h.core.scheduler.resume(h.ctx),true);
+ const before=JSON.stringify(h.core.state.goal?.scheduler);
+ h.core.scheduler.rejectCheckpoint(h.ctx);
+ h.begin();
+ h.core.scheduler.schedule(h.ctx);
+ t.mock.timers.tick(1000);
+ assert.equal(h.sent.length,0);
+ assert.equal(JSON.stringify(h.core.state.goal?.scheduler),before);
+ await h.handlers.agent_settled!({aborted:true},h.ctx);
+ t.mock.timers.tick(1);
+ assert.equal(h.sent.length,1,'existing intent dispatches once after the rejection settles');
+ assert.equal(h.core.state.goal?.scheduler?.used,1);
+});
+
+test('a rejected dispatch cannot release a user turn hold or renew its allowance', async t => {
+ const h=await fixture(t,10);
+ saveGoalSettingsFileConfig(h.cwd,{pauseOrder:'turn-first'});
+ h.core.interruption.pause(h.ctx);
+ const before=JSON.stringify(h.core.state.goal?.scheduler);
+ h.core.scheduler.rejectCheckpoint(h.ctx);
+ h.begin();
+ await h.handlers.agent_settled!({aborted:true},h.ctx);
+ assert.equal(h.core.interruption.isHeld(),true);
+ assert.equal(JSON.stringify(h.core.state.goal?.scheduler),before);
+ assert.equal(h.sent.length,0);
+});
+
+test('native retries retain the original run while a replacement waits for its own kickoff', async t => {
+ const h=await fixture(t,10);
+ t.mock.timers.enable({apis:['setTimeout','Date']});
+ const original=h.core.state.goal!.id;
+ h.begin();
+ h.core.replaceGoal({objective:'Replacement work',autoContinue:true,sisyphus:false},h.ctx);
+ const replacement=h.core.state.goal!.id;
+ assert.notEqual(replacement,original);
+ h.core.accountProgress(h.ctx,{completedTurnTokens:128});
+ assert.equal(h.core.state.goal?.usage.tokensUsed,0,'an old run cannot charge the replacement');
+ assert.equal(h.core.accounting.goalId,null,'replacement time starts with its own run');
+ assert.deepEqual(h.core.state.goal?.scheduler?.decision,{kind:'ready',purpose:'kickoff'});
+ h.core.runningGoalId=replacement; // before_agent_start can run again during host retry
+ h.begin();
+ assert.equal(h.core.runningGoalId,original);
+ t.mock.timers.tick(1000);
+ assert.equal(h.sent.length,0,'replacement work waits for the original execution to settle');
+ h.core.scheduler.settled(h.ctx,false);
+ t.mock.timers.tick(1);
+ assert.equal(h.sent.length,1,'saved creation intent starts a fresh run');
+ h.admit();
+ assert.equal(h.core.runningGoalId,replacement);
+ assert.equal(h.core.state.goal?.scheduler?.used,1);
 });

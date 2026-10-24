@@ -52,6 +52,6 @@ try {
 } finally {
  fs.rmSync(cwd,{recursive:true,force:true});
 }
-const result = {label,node:process.version,sdk:'0.84.1 (real)',method:'21 samples after warm-up; milliseconds per operation; raw samples retained; no concurrent benchmarks or model calls',rows};
+const result = {label,node:process.version,sdk:JSON.parse(fs.readFileSync(new URL('../../node_modules/@earendil-works/pi-coding-agent/package.json',import.meta.url),'utf8')).version+' (real)',method:'21 samples after warm-up; milliseconds per operation; raw samples retained; no concurrent benchmarks or model calls',rows};
 fs.writeFileSync(output,JSON.stringify(result,null,2)+'\n');
 console.log(JSON.stringify({label,rows:rows.map(({id,p50,p95})=>({id,p50,p95}))}));

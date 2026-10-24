@@ -41,7 +41,12 @@ function createCapture() {
 		registerTool: (def) => tools.push(def),
 		registerCommand: () => {},
 		on: (event, handler) => {
-			handlers.set(event, async (eventArg, ctxArg) => handler(eventArg, ctxArg));
+			const previous = handlers.get(event);
+			handlers.set(event, async (eventArg, ctxArg) => {
+				const prior = await previous?.(eventArg, ctxArg);
+				const next = await handler(prior ? { ...eventArg, ...prior } : eventArg, ctxArg);
+				return next ? { ...prior, ...next } : prior;
+			});
 		},
 		appendEntry: () => {},
 		registerMessageRenderer: () => {},
@@ -82,15 +87,18 @@ function createCapture() {
 
 	async function runTurn(triggerPrompt) {
 		return (await handlers.get("before_agent_start")(
-			{ systemPrompt: BASE_SYSTEM, prompt: triggerPrompt, systemPromptOptions: {} },
+			{ systemPrompt: BASE_SYSTEM, prompt: triggerPrompt, messageType: "user", systemPromptOptions: {} },
 			ctx,
 		)) ?? {};
 	}
 
 	async function runContext(messages) {
-		const event = { messages };
-		const result = await handlers.get("context")(event, ctx);
-		return result?.messages ?? event.messages;
+		const head = { role: "system", content: ctx.getSystemPrompt() };
+		const event = { messages: [head, ...messages] };
+		const result = await handlers.get("context_with_system")(event, ctx);
+		const full = result?.messages ?? event.messages;
+		if (full[0] !== head) throw new Error("Goal filtering changed the host system prompt");
+		return full.slice(1);
 	}
 
 	return { tools, startSession, runTurn, runContext, ctx,
