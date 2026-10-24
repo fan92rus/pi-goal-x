@@ -13,6 +13,7 @@
     ".tests/goal-compaction.test.ts",
     ".tests/goal-comprehensive-optimization.test.ts",
     ".tests/goal-context-usage.test.ts",
+    ".tests/goal-controls.test.ts",
     ".tests/goal-core-tools.test.ts",
     ".tests/goal-core.test.ts",
     ".tests/goal-dashboard-golden.test.ts",
@@ -43,6 +44,7 @@
     ".tests/goal-pool-snapshot.test.ts",
     ".tests/goal-pool.test.ts",
     ".tests/goal-prompt-cache.test.ts",
+    ".tests/goal-prompt-profile.test.ts",
     ".tests/goal-prompts.test.ts",
     ".tests/goal-questionnaire.test.ts",
     ".tests/goal-record.test.ts",
@@ -84,6 +86,7 @@
     ".tests/integration/extension.test.ts"
   ],
   "e2eFiles": [
+    ".tests/e2e/goal-continuation-user.test.ts",
     ".tests/e2e/goal-lifecycle-dashboard.test.ts",
     ".tests/e2e/goal-prompt-cache-sdk.test.ts",
     ".tests/e2e/goal-scheduler-sdk.test.ts",

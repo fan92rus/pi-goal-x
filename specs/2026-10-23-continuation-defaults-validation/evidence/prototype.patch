@@ -1,0 +1,158 @@
+diff -ru current/extensions/goal-commands.ts candidate/extensions/goal-commands.ts
+--- current/extensions/goal-commands.ts	2026-10-23 22:31:22
++++ candidate/extensions/goal-commands.ts	2026-10-23 22:56:14
+@@ -361,7 +361,7 @@
+ 	type SettingRow = {
+ 		key: keyof GoalSettings | string;
+ 		label: string;
+-		section: "Goal behavior" | "Task tracking" | "Completion auditor" | "Blocker Oracle";
++		section: "Goal behavior" | "Task tracking" | "Completion auditor" | "Blocker Oracle" | "Advanced execution";
+ 		kind: "boolean" | "modelSelector" | "thinking" | "positiveInteger";
+ 		/** Settings path for the mutation (defaults to [key]). */
+ 		path?: string[];
+@@ -377,6 +377,7 @@
+ 		{ key: "showAutonomousRuns", label: "show autonomous runs line", section: "Goal behavior", kind: "boolean" },
+ 		{ key: "stallTimeoutMinutes", label: "stall timeout (minutes)", section: "Goal behavior", kind: "positiveInteger" },
+ 		{ key: "objectiveMaxChars", label: "max objective length (0 = none)", section: "Goal behavior", kind: "positiveInteger" },
++		{ key: "idleContinuationBackoff", label: "slow repeated idle replies (opt-in)", section: "Advanced execution", kind: "boolean" },
+ 		{ key: "disableTasks", label: "disableTasks", section: "Task tracking", kind: "boolean" },
+ 		{ key: "subtaskDepth", label: "subtaskDepth", section: "Task tracking", kind: "positiveInteger" },
+ 		{ key: "disabled", label: "auditor disabled", section: "Completion auditor", kind: "boolean" },
+@@ -393,7 +394,7 @@
+ 	];
+ 
+ 	function settingsValue(config: GoalSettings, key: keyof GoalSettings | string): string {
+-		if (key === "strictExecutionContract" || key === "disabled" || key === "disableTasks" || key === "disableContracts" || key === "autoSelectSingleGoal" || key === "auditorProjectResources" || key === "hideUnfocusedBanner" || key === "hideUnfocusedPrompt" || key === "showAutonomousRuns") {
++		if (key === "idleContinuationBackoff" || key === "strictExecutionContract" || key === "disabled" || key === "disableTasks" || key === "disableContracts" || key === "autoSelectSingleGoal" || key === "auditorProjectResources" || key === "hideUnfocusedBanner" || key === "hideUnfocusedPrompt" || key === "showAutonomousRuns") {
+ 			return config[key] === true ? "true" : "false";
+ 		}
+ 		if (key === "subtaskDepth") return config.subtaskDepth !== undefined ? String(config.subtaskDepth) : "1";
+@@ -439,6 +440,7 @@
+ 			try {
+ 				mutateSettingsLayer({ scope, cwd: ctx.cwd, mutation });
+ 				applyEffectiveSettings();
++				if (mutation.path[0] === "idleContinuationBackoff") core.scheduler.schedule(ctx);
+ 				return true;
+ 			} catch (err) {
+ 				ctx.ui.notify(`Settings change failed: ${err instanceof Error ? err.message : String(err)}`, "warning");
+@@ -457,6 +459,7 @@
+ 				const localLayer = snapshot[scope].layer as Record<string, unknown>;
+ 				const options: string[] = [];
+ 				options.push(`─── Editing: ${scope} (${scopePath(scope)}) ───`);
++				options.push(`Scope: ${scope} (select to switch)`);
+ 				let lastSection: string | null = null;
+ 				const pathOf = (row: SettingRow): string[] => row.path ?? [String(row.key)];
+ 				const valueAtPath = (obj: unknown, path: string[]): unknown => {
+diff -ru current/extensions/goal-scheduler.ts candidate/extensions/goal-scheduler.ts
+--- current/extensions/goal-scheduler.ts	2026-10-23 22:31:22
++++ candidate/extensions/goal-scheduler.ts	2026-10-23 22:56:14
+@@ -16,6 +16,7 @@
+ 	private runGoalId: string | undefined;
+ 	private runGoalContent: string | undefined;
+ 	private runHadWork = false;
++	private runPacingEnabled = false;
+ 	private denied = false;
+ 	private unsubscribe: (() => void) | undefined;
+ 	private core: GoalCore;
+@@ -207,13 +208,14 @@
+ 		if (this.inRun) { this.core.runningGoalId = this.core.state.goal?.id ?? null; return; }
+ 		this.inRun = true; this.declared = false; this.denied = false;
+ 		this.runGoalId = this.core.state.goal?.id;
+-		this.runGoalContent = this.goalContent(this.core.state.goal);
++		this.runPacingEnabled = loadGoalSettings(ctx.cwd).idleContinuationBackoff === true;
++		this.runGoalContent = this.runPacingEnabled ? this.goalContent(this.core.state.goal) : undefined;
+ 		this.runHadWork = false;
+ 		this.cancelTimer(); this.core.runtime.clearContinuationTimer();
+ 		this.core.runningGoalId = this.core.state.goal?.id ?? null;
+ 	}
+ 	/** Work in any tool turn counts until the entire logical execution settles. */
+-	recordWork(): void { if (this.inRun) this.runHadWork = true; }
++	recordWork(): void { if (this.inRun && this.runPacingEnabled) this.runHadWork = true; }
+ 	turn(ctx: ExtensionContext): void {
+ 		if (!this.declared) return;
+ 		this.declared = false;
+@@ -267,7 +269,7 @@
+ 				if (strict || (s.decision.kind === "ready" && s.decision.purpose !== "ready")) { this.schedule(ctx); return; }
+ 			}
+ 			if (!strict) {
+-				this.update(ctx, (state, current) => { this.implicitReady(state); this.paceIdle(state, current); });
++				this.update(ctx, (state, current) => { this.implicitReady(state); if (loadGoalSettings(ctx.cwd).idleContinuationBackoff && this.runPacingEnabled) this.paceIdle(state, current); else state.idle = undefined; });
+ 				this.schedule(ctx); return;
+ 			}
+ 			if (s.repairUsed || !this.available(ctx, s)) {
+@@ -305,6 +307,7 @@
+ 			const g = this.core.state.goal;
+ 			if (!g || g.status !== "active" || !g.autoContinue || !g.scheduler) return;
+ 			let s = this.state(ctx, g);
++			if (!loadGoalSettings(ctx.cwd).idleContinuationBackoff && s.idle) s = this.update(ctx, state => { state.idle = undefined; }).scheduler!;
+ 			if (s.phase === "ready" && s.decision?.kind === "ready" && s.decision.purpose === "repair" && !this.strict(ctx, s)) {
+ 				s = this.update(ctx, state => this.implicitReady(state)).scheduler!;
+ 			}
+@@ -346,6 +349,7 @@
+ 				if (g.status !== "active" || !g.autoContinue || budgetReached(g) || !this.available(ctx, s)) throw new Error(this.allowanceReason(ctx));
+ 				if (s.wait && Date.now() >= s.wait.deadline) throw new Error("Wait deadline reached.");
+ 				if (s.phase === "ready" && s.decision?.kind === "ready" && s.decision.purpose === "repair" && !this.strict(ctx, s)) this.implicitReady(s);
++				if (!loadGoalSettings(ctx.cwd).idleContinuationBackoff) s.idle = undefined;
+ 				if (this.idleDelay(s) > 0) { deferred = true; return; }
+ 				let kind = s.phase === "ready" && s.decision?.kind === "ready" ? s.decision.purpose : undefined;
+ 				if (s.phase === "waiting" && s.wait) {
+@@ -373,7 +377,7 @@
+ 	}
+ 	isWaiting(): boolean {
+ 		const s = this.core.state.goal?.scheduler;
+-		return !this.inRun && !!s && (s.phase === "waiting" || this.idleDelay(s) > 0);
++		return !this.inRun && !!s && (s.phase === "waiting" || (!!this.ctx && loadGoalSettings(this.ctx.cwd).idleContinuationBackoff === true && this.idleDelay(s) > 0));
+ 	}
+ 	isDenied(): boolean { return this.denied; }
+ }
+diff -ru current/extensions/goal-settings.ts candidate/extensions/goal-settings.ts
+--- current/extensions/goal-settings.ts	2026-10-23 22:31:22
++++ candidate/extensions/goal-settings.ts	2026-10-23 22:56:14
+@@ -111,6 +111,7 @@
+ 	 */
+ 	showAutonomousRuns?: boolean;
+ 	strictExecutionContract?: boolean;
++	idleContinuationBackoff?: boolean;
+ 	/**
+ 	 * Maximum objective length in characters (0/unset = no limit, the
+ 	 * default; >0 caps objectives in create_goal, propose_goal_draft, and
+@@ -342,6 +343,7 @@
+ 	"stallTimeoutMinutes",
+ 	"maxAutonomousRuns",
+ 	"strictExecutionContract",
++	"idleContinuationBackoff",
+ 	"objectiveMaxChars",
+ 	"keybindings",
+ 	"hideUnfocusedBanner",
+@@ -394,6 +396,7 @@
+ 
+ 	for (const [key, value] of Object.entries(record)) {
+ 		switch (key) {
++			case "idleContinuationBackoff":
+ 			case "strictExecutionContract":
+ 			case "disableTasks":
+ 			case "disableContracts":
+@@ -822,6 +825,7 @@
+ 		globalValue: global.layer.oracle?.maxFailedAttemptsPerBlocker,
+ 		defaultValue: 2,
+ 	}));
++	const idleContinuationBackoff = track("idleContinuationBackoff", resolveLeaf<boolean>({projectValue: project.layer.idleContinuationBackoff, globalValue: global.layer.idleContinuationBackoff, defaultValue: false}));
+ 	const strictExecutionContract = track("strictExecutionContract", resolveLeaf<boolean>({
+ 		projectValue: project.layer.strictExecutionContract,
+ 		globalValue: global.layer.strictExecutionContract,
+@@ -895,6 +899,7 @@
+ 		goalsRoot,
+ 		stallTimeoutMinutes,
+ 		maxAutonomousRuns,
++		idleContinuationBackoff,
+ 		strictExecutionContract,
+ 		objectiveMaxChars,
+ 		keybindings,
+@@ -1248,6 +1253,7 @@
+ 		if (so.maxFailedAttemptsPerBlocker !== undefined) o.maxFailedAttemptsPerBlocker = so.maxFailedAttemptsPerBlocker;
+ 		if (Object.keys(o).length > 0) persisted.oracle = o;
+ 	}
++	if (settings.idleContinuationBackoff !== undefined) persisted.idleContinuationBackoff = settings.idleContinuationBackoff;
+ 	if (settings.strictExecutionContract !== undefined) persisted.strictExecutionContract = settings.strictExecutionContract;
+ 	if (settings.maxAutonomousRuns !== undefined) persisted.maxAutonomousRuns = settings.maxAutonomousRuns;
+ 	if (settings.stallTimeoutMinutes !== undefined) persisted.stallTimeoutMinutes = settings.stallTimeoutMinutes;

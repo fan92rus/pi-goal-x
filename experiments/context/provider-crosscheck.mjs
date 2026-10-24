@@ -44,7 +44,7 @@ try {
  for (const id of ['active-regular-no-tasks','current-contracted-task','tasks-disabled','guided-drafting-question']) {
   const expected=await captureOne(id);
   const scenario=FIXTURES[id]();
-  const cwd='/tmp/goal-context-capture';
+  const cwd=process.env.PI_GOAL_CONTEXT_CAPTURE_CWD??'/tmp/goal-context-capture';
   const manager=SessionManager.inMemory(cwd);
   if(scenario.goal) manager.appendCustomEntry('pi-goal-focus',{version:1,focusedGoalId:scenario.goal.id,reason:'created'});
   if(scenario.draftPrompt) manager.appendCustomEntry('pi-goal-draft',{version:1,mode:'goal',seed:'build the thing',startedAt:'2026-08-23T12:00:00.000Z',auditorEnabled:true});

@@ -1,0 +1,20 @@
+{
+  "attempts": [
+    {
+      "kind": "provider setup",
+      "provider": "opencode-go",
+      "result": "configured API key expired; switched to an already configured provider; no credential values copied"
+    },
+    {
+      "kind": "evaluation ceiling",
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-v4-flash",
+      "requests": 20,
+      "artifactTestsPass": true,
+      "completed": false,
+      "passed": false,
+      "explanation": "20-request harness ceiling interrupted independent review; raised to 40 and made execution errors fail promptly",
+      "usageReportedCostUSD": 0.0037473071999999997
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+
+
+ Reloaded keybindings, extensions, skills, prompts, themes, and context
+ files
+
+┌──────────────────────────────────────────────────────────────────────┐
+│ Goal controls  · This project                                        │
+│  Commands    Keys   [Pausing]                                        │
+│ Pause order                                                          │
+│ 2/5 · Current: Goal first                                            │
+│   Goal and turn together                                             │
+│ › Goal first                                                         │
+│   Turn first                                                         │
+│   Use inherited value                                                │
+│ ──────────────────────────────────────────────────────────────────── │
+│ First: pause the goal; the turn finishes. Next: stop the turn.       │
+│ ↑↓ move · Enter select · Esc back                                    │
+└──────────────────────────────────────────────────────────────────────┘
+~/projects/pi-goal-x/experiments/runs/goal-controls/settings-paths-78...
+0.0%/200k                                                        fixture

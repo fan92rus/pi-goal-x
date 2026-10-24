@@ -1,0 +1,43 @@
+{
+  "evidence": "actual SDK with scripted provider; user-command entry, controlled model behavior",
+  "meaning": "same runtime gate after the prototype fix; opting out resumes immediately",
+  "results": [
+    {
+      "id": "candidate-opt-out-enabled",
+      "passed": true,
+      "stopReason": "opt-out-resumed",
+      "finalSettings": {
+        "idleContinuationBackoff": false
+      },
+      "requests": 3,
+      "settlements": [
+        {
+          "at": 313,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 1,
+            "nextAt": 1792792786223
+          },
+          "used": 1
+        },
+        {
+          "at": 322,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 2,
+            "nextAt": 1792792816232
+          },
+          "used": 2
+        },
+        {
+          "at": 335,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        }
+      ]
+    }
+  ]
+}

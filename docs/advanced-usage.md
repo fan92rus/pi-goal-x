@@ -4,7 +4,13 @@ For installation, goal workflows, commands and the settings overview, see the [R
 
 ## Automatic continuation and optional execution contracts
 
-Active goals continue automatically after successful executions, including reasoning-only responses and final-task verification. No tool call, task update, scheduling declaration, or cooldown is required. Unproductive loops remain possible; optional run limits and token budgets still apply.
+Active goals continue automatically after successful executions, including reasoning-only responses and final-task verification. No tool call, task update, or scheduling declaration is required.
+
+Default continuation is immediate. To slow repeated replies without recognized work, enable **slow repeated idle replies (opt-in)** under Advanced execution in `/goal-settings` (`idleContinuationBackoff: true`). Use the scope switch to choose a global default or a project override. An explicit project `false` overrides global `true`; removing the override restores inheritance.
+
+When enabled, one execution without recognized work continues immediately. Further such executions wait 30, 60, 120, 240, then 300 seconds between attempts. Work observed anywhere in the execution or a change to the objective, requirements or tasks resets the delay. Goal inspection, echo-only calls, accounting and scheduling declarations alone do not reset it. This heuristic may delay reasoning or unfamiliar custom tools, and repeated recognized tool calls can bypass it. It reduces request rate; it does not guarantee progress or finite spending. Use a run allowance or token budget for a hard limit.
+
+The delay survives reloads and shows a relative time, local clock time and resume command. Waiting spends no autonomous runs or active time. Turning the option off cancels a pending delay promptly without renewing spent runs or resuming a paused goal. Turning it on starts observing a subsequent execution, rather than classifying work retroactively. Old saved delay metadata has no effect without opt-in. `/goal-resume` renews the run allowance and continues now; incoming user/producer messages remain ordinary host work outside that allowance. Strict waits and provider-error recovery keep their separate timing.
 
 Enable `strictExecutionContract: true` in `/goal-settings` or your global/project settings to require explicit ready/wait decisions. In that mode, a missing decision permits one repair prompt within the remaining allowance, then pauses. This is a user preference; agents should not enable it merely to continue.
 

@@ -1,0 +1,159 @@
+{
+  "node": "v26.10.0",
+  "results": [
+    {
+      "sdk": "0.83.0",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "sdk": "0.84.1",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "sdk": "0.86.0",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "sdk": "0.85.1",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "sdk": "0.87.0",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "sdk": "1.0.0",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "sdk": "1.4.0",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}

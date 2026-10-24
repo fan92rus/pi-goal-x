@@ -356,7 +356,7 @@ test("configured task shortcut toggles the unified dashboard expansion (overlay 
 	);
 
 	assert.ok(
-		goalSource.includes("matchesKey(data, keybindings.toggleExpand)"),
+		goalSource.includes('matches("dashboard.toggleExpand")'),
 		"goal-widget.ts reads the configured dashboard keybinding",
 	);
 	assert.ok(

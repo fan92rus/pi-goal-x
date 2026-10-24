@@ -1,0 +1,32 @@
+  goal.ts, ready-observer.mjs
+
+
+ Warning: fd not found. Offline mode enabled, skipping download.
+
+┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Goal controls  · This project                                                                      │
+│ [Commands]   Keys    Pausing                                                                       │
+│ Search: type to filter                                                                             │
+│ › Draft a goal                            /goal                                                    │
+│   Draft a Sisyphus goal                   /sisyphus                                                │
+│   Start a goal directly                   /goal-direct                                             │
+│   Start Sisyphus directly                 /sisyphus-direct                                         │
+│   Revise the goal                         /goal-tweak                                              │
+│   Pause the goal                          /goal-pause                                              │
+│   Resume the goal                         /goal-resume                                             │
+│   Clear the goal                          /goal-clear                                              │
+│   List goals                              /goal-list                                               │
+│   Show goal status                        /goal-status                                             │
+│   Refresh goal state                      /goal-refresh                                            │
+│   Recover goal files                      /goal-recovery                                           │
+│   Focus a goal                            /goal-focus                                              │
+│   Unfocus the goal                        /goal-unfocus                                            │
+│   Goal settings                           /goal-settings                                           │
+│ 1/17  · default                                                                                    │
+│ ────────────────────────────────────────────────────────────────────────────────────────────────── │
+│ Start a guided goal with confirmation.                                                             │
+│ ↑↓ move · Enter edit · Tab section · Ctrl+S scope                                                  │
+│ Esc back · /goal-settings is always available                                                      │
+└────────────────────────────────────────────────────────────────────────────────────────────────────┘
+~/projects/pi-goal-x/experiments/runs/goal-controls/controls-ui-52622-1792834782781 (codex/custom-goal-cont...
+0.0%/200k                                                                                              fixture

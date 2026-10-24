@@ -1,0 +1,155 @@
+{
+  "sdk": "1.4.0",
+  "elapsedMs": 67540,
+  "results": [
+    {
+      "case": "controls-ui",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/controls-ui-78298-1792837799892",
+      "requests": 4,
+      "checks": [
+        "settings-entry",
+        "alias",
+        "reload",
+        "record-key",
+        "conflict",
+        "scope",
+        "inherit",
+        "narrow-preview",
+        "turn-first",
+        "held-time",
+        "cancel-edit",
+        "custom-resume",
+        "audited-completion"
+      ]
+    },
+    {
+      "case": "settings-paths",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/settings-paths-78298-1792837799894",
+      "requests": 0,
+      "checks": [
+        "invalid-command",
+        "correct-input",
+        "replace",
+        "alias",
+        "disable",
+        "default",
+        "reset-back",
+        "reset-cancel",
+        "reset-commands",
+        "settings-recovery",
+        "capture-cancel",
+        "preview-cancel",
+        "additional-key",
+        "invalid-key",
+        "comma-roundtrip",
+        "disable-key",
+        "default-key",
+        "scope",
+        "inherit-key",
+        "reset-global",
+        "saved-pause-selection",
+        "inherit-pause",
+        "narrow-provenance"
+      ]
+    },
+    {
+      "case": "editor-controls",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/editor-controls-78298-1792837820070",
+      "requests": 0,
+      "checks": [
+        "command-shortcut",
+        "settings-recovery",
+        "pending-reload",
+        "unsent-editor-text"
+      ]
+    },
+    {
+      "case": "command-shortcuts",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/command-shortcuts-78298-1792837823709",
+      "requests": 4,
+      "checks": [
+        "argument-dialog-cancel",
+        "argument-dialog-submit",
+        "pause-command-shortcut",
+        "resume",
+        "audited-completion"
+      ]
+    },
+    {
+      "case": "together",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/together-78298-1792837825524",
+      "requests": 4
+    },
+    {
+      "case": "goal-first",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/goal-first-78298-1792837832324",
+      "requests": 4
+    },
+    {
+      "case": "goal-first-finish",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/goal-first-finish-78298-1792837840040",
+      "requests": 3
+    },
+    {
+      "case": "native-interrupt",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/native-interrupt-78298-1792837846811",
+      "requests": 4,
+      "checks": [
+        "native-interrupt",
+        "goal-stays-active",
+        "no-background-restart",
+        "user-message-continues",
+        "audited-completion"
+      ]
+    },
+    {
+      "case": "dialog-keys",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/dialog-keys-78298-1792837848501",
+      "requests": 6,
+      "checks": [
+        "remapped-hints",
+        "old-confirm-inactive",
+        "custom-navigation",
+        "auditor-toggle",
+        "custom-cancel",
+        "draft-cancel",
+        "custom-confirm",
+        "audited-completion"
+      ]
+    },
+    {
+      "case": "answer-editing",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/answer-editing-78298-1792837857652",
+      "requests": 5,
+      "checks": [
+        "letter-controls-preserve-text",
+        "native-cursor-keys",
+        "native-escape",
+        "preserved-draft",
+        "custom-editor-hints",
+        "custom-summary-confirm",
+        "audited-completion"
+      ]
+    }
+  ]
+}

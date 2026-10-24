@@ -1,0 +1,61 @@
+{
+  "sdk": "1.4.0",
+  "results": [
+    {
+      "case": "controls-ui",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/controls-ui-52622-1792834782781",
+      "requests": 4,
+      "checks": [
+        "settings-entry",
+        "alias",
+        "reload",
+        "record-key",
+        "conflict",
+        "scope",
+        "inherit",
+        "narrow-preview",
+        "turn-first",
+        "held-time",
+        "cancel-edit",
+        "custom-resume",
+        "audited-completion"
+      ]
+    },
+    {
+      "case": "editor-controls",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/editor-controls-52622-1792834808211",
+      "requests": 0,
+      "checks": [
+        "command-shortcut",
+        "settings-recovery",
+        "pending-reload",
+        "unsent-editor-text"
+      ]
+    },
+    {
+      "case": "together",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/together-52622-1792834811870",
+      "requests": 4
+    },
+    {
+      "case": "goal-first",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/goal-first-52622-1792834826128",
+      "requests": 4
+    },
+    {
+      "case": "goal-first-finish",
+      "passed": true,
+      "sdk": "1.4.0",
+      "directory": "experiments/runs/goal-controls/goal-first-finish-52622-1792834840421",
+      "requests": 3
+    }
+  ]
+}

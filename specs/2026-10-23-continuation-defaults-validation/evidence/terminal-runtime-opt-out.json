@@ -1,0 +1,70 @@
+{
+  "evidence": "actual keyboard setting mutation while a paced goal runs",
+  "changedAt": 1792792665541.994,
+  "dispatchDelayMs": 16.006103515625,
+  "settings": {
+    "idleContinuationBackoff": false
+  },
+  "actions": [
+    {
+      "text": "/goal-direct Create greeting.txt containing exactly Hello from goal followed by a newline. Verify it and finish with the completion auditor.\r"
+    },
+    {
+      "text": "/goal-settings\r"
+    },
+    {
+      "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+    },
+    {
+      "text": "\u001b[B\r"
+    },
+    {
+      "text": "\u001b"
+    },
+    {
+      "stop": true
+    }
+  ],
+  "requests": [
+    {
+      "at": 1792792635372,
+      "phase": "execution",
+      "action": "text",
+      "optedIn": true
+    },
+    {
+      "at": 1792792635404,
+      "phase": "execution",
+      "action": "text",
+      "optedIn": true
+    },
+    {
+      "at": 1792792665421,
+      "phase": "execution",
+      "action": "text",
+      "optedIn": true
+    },
+    {
+      "at": 1792792665558,
+      "phase": "execution",
+      "action": "write",
+      "optedIn": false
+    },
+    {
+      "at": 1792792671582,
+      "phase": "execution",
+      "action": "update_goal",
+      "optedIn": false
+    },
+    {
+      "at": 1792792671596,
+      "phase": "audit",
+      "action": "text",
+      "optedIn": false
+    }
+  ],
+  "artifact": "Hello from goal\n",
+  "archivedFiles": [
+    "goal_2026102322575159_mvlig2pn-qz8hf9.md"
+  ]
+}

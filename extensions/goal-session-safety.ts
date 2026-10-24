@@ -23,7 +23,10 @@ export function filterGoalSessionContext<T>(messages: readonly T[], child = fals
 
 type TranscriptMessage = Parameters<ExtensionAPI["sendMessage"]>[0];
 type SessionKey = string | ExtensionContext["sessionManager"];
-const sessionKey = (ctx: ExtensionContext): SessionKey => ctx.sessionManager.getSessionId?.() ?? ctx.sessionManager;
+const sessionKey = (ctx: ExtensionContext): SessionKey => {
+	const manager = ctx.sessionManager;
+	return manager.getSessionId?.() ?? manager;
+};
 
 /** Transcript output waits for the entire agent run, including tool results, to settle. */
 export class GoalAuditMessages {
@@ -37,12 +40,22 @@ export class GoalAuditMessages {
 		this.pending = [];
 	}
 
-	flush(ctx: ExtensionContext, pi: ExtensionAPI): void {
-		const session = sessionKey(ctx);
-		this.pending = this.pending.filter(item => item.session === session);
-		if (!ctx.isIdle()) return;
-		const pending = this.pending;
-		this.pending = [];
-		for (const item of pending) pi.sendMessage(item.message, { triggerTurn: false });
+	/** False means the entire settlement callback belongs to an invalidated host. */
+	flush(ctx: ExtensionContext, pi: ExtensionAPI): boolean {
+		try {
+			// Check both getters before changing the queue: a late callback from
+			// an old runner must not discard the replacement session's messages.
+			const session = sessionKey(ctx);
+			const idle = ctx.isIdle();
+			this.pending = this.pending.filter(item => item.session === session);
+			if (!idle) return true;
+			const pending = this.pending;
+			this.pending = [];
+			for (const item of pending) pi.sendMessage(item.message, { triggerTurn: false });
+			return true;
+		} catch (error) {
+			if (error instanceof Error && error.message.startsWith("This extension ctx is stale after session replacement or reload.")) return false;
+			throw error;
+		}
 	}
 }

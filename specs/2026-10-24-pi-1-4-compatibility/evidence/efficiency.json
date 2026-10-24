@@ -1,0 +1,3289 @@
+{
+  "environment": {
+    "node": "v26.10.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M2",
+    "sdk": "1.4.0"
+  },
+  "candidateSource": "working production extensions",
+  "method": "offline SDK + localhost scripted provider; byte/framing observations, not billed tokens or live cache hits; guard cases are counterfactual harness policies, not Codex or Claude runs",
+  "profiles": {
+    "original": {
+      "context": {
+        "mode": "context",
+        "rows": [
+          {
+            "fixture": "active-regular-10-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3014,
+              "extensionAttributableChars": 8736,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2122,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 4581,
+              "messageChars": 3415,
+              "totalSerializedChars": 14225,
+              "estimatedTokens": 3557
+            },
+            "requestSHA256": "b7adddb9bb4c748784ff3f03c146f74a3612ac9eef7ef23c679344796d012953",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "active-regular-50-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2869,
+              "extensionAttributableChars": 8591,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1977,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 4581,
+              "messageChars": 3270,
+              "totalSerializedChars": 14080,
+              "estimatedTokens": 3520
+            },
+            "requestSHA256": "6f219d94e7682a7dd2a75d11ab23540b40a45dbcd7e485e4b617837fba645e37",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "active-regular-no-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2510,
+              "extensionAttributableChars": 6853,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1627,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 3653,
+              "messageChars": 2911,
+              "totalSerializedChars": 12342,
+              "estimatedTokens": 3086
+            },
+            "requestSHA256": "0dca040ed2a43e1f9f3341c4798e37b2a64abb257fd43ba0be46c4077dc95d32",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "audit-rejection-and-rework",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 5348,
+              "extensionMessageChars": 681,
+              "extensionAttributableChars": 7466,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 1144,
+              "messageChars": 1080,
+              "totalSerializedChars": 7605,
+              "estimatedTokens": 1902
+            },
+            "requestSHA256": "4188ada76a8337440029491ffc986c918960131f53a188efc58f163db76de627",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          },
+          {
+            "fixture": "blocked-goal",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1075,
+              "extensionAttributableChars": 2512,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 322,
+              "checkpointChars": 207,
+              "historicalCheckpointChars": 138,
+              "toolSchemaChars": 1144,
+              "messageChars": 1475,
+              "totalSerializedChars": 8000,
+              "estimatedTokens": 2000
+            },
+            "requestSHA256": "32f96f26dd40df7567cfc9a47f9b69573697effba2c137c060a82f9681d40375",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          },
+          {
+            "fixture": "completion-audit",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 5352,
+              "extensionMessageChars": 705,
+              "extensionAttributableChars": 7494,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 234,
+              "historicalCheckpointChars": 156,
+              "toolSchemaChars": 1144,
+              "messageChars": 1104,
+              "totalSerializedChars": 7629,
+              "estimatedTokens": 1908
+            },
+            "requestSHA256": "0014670b1c88fb303e0c275df2effe74aa5b548ff26a91b7d1296f91928ceab1",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          },
+          {
+            "fixture": "current-contracted-task",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3280,
+              "extensionAttributableChars": 9002,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2344,
+              "checkpointChars": 231,
+              "historicalCheckpointChars": 154,
+              "toolSchemaChars": 4581,
+              "messageChars": 3681,
+              "totalSerializedChars": 14491,
+              "estimatedTokens": 3623
+            },
+            "requestSHA256": "dd7e8dd62ae93d39c00132f9774b2501a40b8fc3e0234d4fb9474b2854c21007",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "get-goal-default-and-verbose",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 4609,
+              "extensionAttributableChars": 10331,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2127,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 4581,
+              "messageChars": 5012,
+              "totalSerializedChars": 15822,
+              "estimatedTokens": 3956
+            },
+            "requestSHA256": "151a4d2a2cb9ec66e1148ff7706b187a2fd504d525275df7b0bdb9f0348a2e63",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "guided-drafting-question",
+            "breakdown": {
+              "sdkGuidanceChars": 771,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 0,
+              "extensionAttributableChars": 3316,
+              "baseSystemChars": 3301,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 2545,
+              "messageChars": 204,
+              "totalSerializedChars": 8608,
+              "estimatedTokens": 2152
+            },
+            "requestSHA256": "06426c5c765c58fcd36a1c2f9565da393ee5cb74fd29568ee1f5a300f5ac19d0",
+            "prefixSHA256": "b16a639ba7f8dd657ef9e8452d8c0fbd02d07d5699e74fbcc36a47994cad1546"
+          },
+          {
+            "fixture": "guided-proposal",
+            "breakdown": {
+              "sdkGuidanceChars": 771,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 0,
+              "extensionAttributableChars": 3316,
+              "baseSystemChars": 3301,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 2545,
+              "messageChars": 206,
+              "totalSerializedChars": 8610,
+              "estimatedTokens": 2153
+            },
+            "requestSHA256": "806c0b048f86e1db7cba936244176780f41dac657a0f4122205177cfef232925",
+            "prefixSHA256": "b16a639ba7f8dd657ef9e8452d8c0fbd02d07d5699e74fbcc36a47994cad1546"
+          },
+          {
+            "fixture": "half-complete-tree",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3051,
+              "extensionAttributableChars": 8773,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2129,
+              "checkpointChars": 225,
+              "historicalCheckpointChars": 150,
+              "toolSchemaChars": 4581,
+              "messageChars": 3452,
+              "totalSerializedChars": 14262,
+              "estimatedTokens": 3566
+            },
+            "requestSHA256": "5c4d8455042c665837aa2777fff09a2472f479b1933a8e103568bd434aac3687",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "latest-auditor-rejection",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1694,
+              "extensionAttributableChars": 6037,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 875,
+              "checkpointChars": 237,
+              "historicalCheckpointChars": 158,
+              "toolSchemaChars": 3653,
+              "messageChars": 2094,
+              "totalSerializedChars": 11525,
+              "estimatedTokens": 2882
+            },
+            "requestSHA256": "7c0c675dfdb53215bddd585477830ec219580e6560adaa31121d321e1ffbc19b",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "long-objective",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 4111,
+              "extensionAttributableChars": 8454,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 3189,
+              "checkpointChars": 228,
+              "historicalCheckpointChars": 152,
+              "toolSchemaChars": 3653,
+              "messageChars": 4512,
+              "totalSerializedChars": 13943,
+              "estimatedTokens": 3486
+            },
+            "requestSHA256": "a506e500b3bb6d36fc01a9f7f75e651334b763d06b3ca994f66b2f631a9af506",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "nested-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2968,
+              "extensionAttributableChars": 8690,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2052,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 4581,
+              "messageChars": 3369,
+              "totalSerializedChars": 14179,
+              "estimatedTokens": 3545
+            },
+            "requestSHA256": "d036a20ebec346c9c24d90c04498bcec4e2b798c8ac294ebf32ea191936d032f",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "oracle-consultation",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 4528,
+              "extensionMessageChars": 2496,
+              "extensionAttributableChars": 11367,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1625,
+              "checkpointChars": 204,
+              "historicalCheckpointChars": 136,
+              "toolSchemaChars": 3653,
+              "messageChars": 2897,
+              "totalSerializedChars": 12328,
+              "estimatedTokens": 3082
+            },
+            "requestSHA256": "866dd70646d91b4fc87d897957cd5ee81d08431c0964fc3eb827eef96507b075",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "paused-goal",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1317,
+              "extensionAttributableChars": 5660,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 568,
+              "checkpointChars": 204,
+              "historicalCheckpointChars": 136,
+              "toolSchemaChars": 3653,
+              "messageChars": 1717,
+              "totalSerializedChars": 11148,
+              "estimatedTokens": 2787
+            },
+            "requestSHA256": "1ff8068ba53c0c79c9a9f40f1a0e7b998a6b09bccb92207a73aab4259bc0a6c9",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "post-compaction-turn",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2325,
+              "extensionAttributableChars": 8047,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2090,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 4581,
+              "messageChars": 2595,
+              "totalSerializedChars": 13405,
+              "estimatedTokens": 3352
+            },
+            "requestSHA256": "3cdbb63055a69bc2a6544f53687fc506bdc0aee3a7188fcf1be904f409ecf3f9",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "sisyphus-ordered-objective",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3046,
+              "extensionAttributableChars": 7389,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2154,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 3653,
+              "messageChars": 3447,
+              "totalSerializedChars": 12878,
+              "estimatedTokens": 3220
+            },
+            "requestSHA256": "a55ebfcd9bc716677f95059eb8145197497972cbfa1f484ce3449a61ee60c6db",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "stale-checkpoint",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 699,
+              "extensionAttributableChars": 5042,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 384,
+              "checkpointChars": 68,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 3653,
+              "messageChars": 702,
+              "totalSerializedChars": 10133,
+              "estimatedTokens": 2534
+            },
+            "requestSHA256": "ef570bff9b942f6dccc602cb230eaf38533ca6699d20c2eefa343ae064786e7c",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "tasks-disabled",
+            "breakdown": {
+              "sdkGuidanceChars": 374,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2506,
+              "extensionAttributableChars": 5548,
+              "baseSystemChars": 2904,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1623,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 2668,
+              "messageChars": 2907,
+              "totalSerializedChars": 11037,
+              "estimatedTokens": 2760
+            },
+            "requestSHA256": "55f53bc318aca61280691c50d73801b5260dd2dba53c488804735ace29f10782",
+            "prefixSHA256": "a6669370850327a7388966f2294fd6b24f6e2a164af849a24289bab35ad99d8a"
+          },
+          {
+            "fixture": "token-budget-at-limit",
+            "breakdown": {
+              "sdkGuidanceChars": 374,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1065,
+              "extensionAttributableChars": 4107,
+              "baseSystemChars": 2904,
+              "extensionSystemChars": 0,
+              "goalStateChars": 283,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 2668,
+              "messageChars": 1465,
+              "totalSerializedChars": 9595,
+              "estimatedTokens": 2399
+            },
+            "requestSHA256": "69270f2762acb11c79a822d2321e0685d5f0f016467d7abba8bb5d68ce00ce56",
+            "prefixSHA256": "a6669370850327a7388966f2294fd6b24f6e2a164af849a24289bab35ad99d8a"
+          },
+          {
+            "fixture": "token-budget-seventy-five-percent",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2551,
+              "extensionAttributableChars": 6894,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1644,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 3653,
+              "messageChars": 2952,
+              "totalSerializedChars": 12383,
+              "estimatedTokens": 3096
+            },
+            "requestSHA256": "86e01cb47369cfca43b4db79b6c4590365d146bd3745a33a3f2dff61b256a63b",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "token-budget-zero-percent",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2536,
+              "extensionAttributableChars": 6879,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1635,
+              "checkpointChars": 219,
+              "historicalCheckpointChars": 146,
+              "toolSchemaChars": 3653,
+              "messageChars": 2937,
+              "totalSerializedChars": 12368,
+              "estimatedTokens": 3092
+            },
+            "requestSHA256": "6094706a3e3007c6ed7e5ea1986b279e56f3ae6a59ece4d8e3560075bbe3f1ee",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "unfocused-multiple-goals",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 337,
+              "extensionAttributableChars": 1774,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 238,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 1144,
+              "messageChars": 398,
+              "totalSerializedChars": 6923,
+              "estimatedTokens": 1731
+            },
+            "requestSHA256": "a721e7e4856c1176be61fb4913767b489a2f7b971960b8fdac0e9cf2e5cb5b39",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          }
+        ]
+      },
+      "entry": {
+        "mode": "entry",
+        "method": "100 warm-up operations; 100 samples of 10 begin + 20 recordWork calls; cached settings; no storage or model work",
+        "rows": [
+          {
+            "tasks": 10,
+            "oversizedStressFixture": false,
+            "optIn": false,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 0,
+            "p50Ms": 0.00042080000000055406,
+            "p95Ms": 0.0011916000000013582,
+            "goalJSONBytes": 670
+          },
+          {
+            "tasks": 50,
+            "oversizedStressFixture": false,
+            "optIn": false,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 0,
+            "p50Ms": 0.0000917000000001167,
+            "p95Ms": 0.0008167000000000258,
+            "goalJSONBytes": 3070,
+            "coldSettings": {
+              "samples": 100,
+              "operationsPerSample": 1,
+              "snapshots": 0,
+              "p50Ms": 0.00016699999999048032,
+              "p95Ms": 0.0007499999999964757
+            }
+          },
+          {
+            "tasks": 1000,
+            "oversizedStressFixture": true,
+            "optIn": false,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 0,
+            "p50Ms": 0.00003340000000093823,
+            "p95Ms": 0.00016669999999976425,
+            "goalJSONBytes": 61870
+          },
+          {
+            "tasks": 10,
+            "oversizedStressFixture": false,
+            "optIn": true,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 0,
+            "p50Ms": 0.00002920000000017353,
+            "p95Ms": 0.000037500000000534325,
+            "goalJSONBytes": 670
+          },
+          {
+            "tasks": 50,
+            "oversizedStressFixture": false,
+            "optIn": true,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 0,
+            "p50Ms": 0.00002920000000017353,
+            "p95Ms": 0.00003340000000093823,
+            "goalJSONBytes": 3070,
+            "coldSettings": {
+              "samples": 100,
+              "operationsPerSample": 1,
+              "snapshots": 0,
+              "p50Ms": 0.00008300000000360797,
+              "p95Ms": 0.00008400000000108321
+            }
+          },
+          {
+            "tasks": 1000,
+            "oversizedStressFixture": true,
+            "optIn": true,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 0,
+            "p50Ms": 0.00002920000000017353,
+            "p95Ms": 0.00003339999999951715,
+            "goalJSONBytes": 61870
+          }
+        ]
+      }
+    },
+    "current": {
+      "context": {
+        "mode": "context",
+        "rows": [
+          {
+            "fixture": "active-regular-10-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3014,
+              "extensionAttributableChars": 8736,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2122,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 4581,
+              "messageChars": 3415,
+              "totalSerializedChars": 14225,
+              "estimatedTokens": 3557
+            },
+            "requestSHA256": "b7adddb9bb4c748784ff3f03c146f74a3612ac9eef7ef23c679344796d012953",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "active-regular-50-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2869,
+              "extensionAttributableChars": 8591,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1977,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 4581,
+              "messageChars": 3270,
+              "totalSerializedChars": 14080,
+              "estimatedTokens": 3520
+            },
+            "requestSHA256": "6f219d94e7682a7dd2a75d11ab23540b40a45dbcd7e485e4b617837fba645e37",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "active-regular-no-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2510,
+              "extensionAttributableChars": 6853,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1627,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 3653,
+              "messageChars": 2911,
+              "totalSerializedChars": 12342,
+              "estimatedTokens": 3086
+            },
+            "requestSHA256": "0dca040ed2a43e1f9f3341c4798e37b2a64abb257fd43ba0be46c4077dc95d32",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "audit-rejection-and-rework",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 5348,
+              "extensionMessageChars": 681,
+              "extensionAttributableChars": 7466,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 1144,
+              "messageChars": 1080,
+              "totalSerializedChars": 7605,
+              "estimatedTokens": 1902
+            },
+            "requestSHA256": "4188ada76a8337440029491ffc986c918960131f53a188efc58f163db76de627",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          },
+          {
+            "fixture": "blocked-goal",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1075,
+              "extensionAttributableChars": 2512,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 322,
+              "checkpointChars": 207,
+              "historicalCheckpointChars": 138,
+              "toolSchemaChars": 1144,
+              "messageChars": 1475,
+              "totalSerializedChars": 8000,
+              "estimatedTokens": 2000
+            },
+            "requestSHA256": "32f96f26dd40df7567cfc9a47f9b69573697effba2c137c060a82f9681d40375",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          },
+          {
+            "fixture": "completion-audit",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 5352,
+              "extensionMessageChars": 705,
+              "extensionAttributableChars": 7494,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 234,
+              "historicalCheckpointChars": 156,
+              "toolSchemaChars": 1144,
+              "messageChars": 1104,
+              "totalSerializedChars": 7629,
+              "estimatedTokens": 1908
+            },
+            "requestSHA256": "0014670b1c88fb303e0c275df2effe74aa5b548ff26a91b7d1296f91928ceab1",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          },
+          {
+            "fixture": "current-contracted-task",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3280,
+              "extensionAttributableChars": 9002,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2344,
+              "checkpointChars": 231,
+              "historicalCheckpointChars": 154,
+              "toolSchemaChars": 4581,
+              "messageChars": 3681,
+              "totalSerializedChars": 14491,
+              "estimatedTokens": 3623
+            },
+            "requestSHA256": "dd7e8dd62ae93d39c00132f9774b2501a40b8fc3e0234d4fb9474b2854c21007",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "get-goal-default-and-verbose",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 4609,
+              "extensionAttributableChars": 10331,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2127,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 4581,
+              "messageChars": 5012,
+              "totalSerializedChars": 15822,
+              "estimatedTokens": 3956
+            },
+            "requestSHA256": "151a4d2a2cb9ec66e1148ff7706b187a2fd504d525275df7b0bdb9f0348a2e63",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "guided-drafting-question",
+            "breakdown": {
+              "sdkGuidanceChars": 771,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 0,
+              "extensionAttributableChars": 3316,
+              "baseSystemChars": 3301,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 2545,
+              "messageChars": 204,
+              "totalSerializedChars": 8608,
+              "estimatedTokens": 2152
+            },
+            "requestSHA256": "06426c5c765c58fcd36a1c2f9565da393ee5cb74fd29568ee1f5a300f5ac19d0",
+            "prefixSHA256": "b16a639ba7f8dd657ef9e8452d8c0fbd02d07d5699e74fbcc36a47994cad1546"
+          },
+          {
+            "fixture": "guided-proposal",
+            "breakdown": {
+              "sdkGuidanceChars": 771,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 0,
+              "extensionAttributableChars": 3316,
+              "baseSystemChars": 3301,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 2545,
+              "messageChars": 206,
+              "totalSerializedChars": 8610,
+              "estimatedTokens": 2153
+            },
+            "requestSHA256": "806c0b048f86e1db7cba936244176780f41dac657a0f4122205177cfef232925",
+            "prefixSHA256": "b16a639ba7f8dd657ef9e8452d8c0fbd02d07d5699e74fbcc36a47994cad1546"
+          },
+          {
+            "fixture": "half-complete-tree",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3051,
+              "extensionAttributableChars": 8773,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2129,
+              "checkpointChars": 225,
+              "historicalCheckpointChars": 150,
+              "toolSchemaChars": 4581,
+              "messageChars": 3452,
+              "totalSerializedChars": 14262,
+              "estimatedTokens": 3566
+            },
+            "requestSHA256": "5c4d8455042c665837aa2777fff09a2472f479b1933a8e103568bd434aac3687",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "latest-auditor-rejection",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1694,
+              "extensionAttributableChars": 6037,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 875,
+              "checkpointChars": 237,
+              "historicalCheckpointChars": 158,
+              "toolSchemaChars": 3653,
+              "messageChars": 2094,
+              "totalSerializedChars": 11525,
+              "estimatedTokens": 2882
+            },
+            "requestSHA256": "7c0c675dfdb53215bddd585477830ec219580e6560adaa31121d321e1ffbc19b",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "long-objective",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 4111,
+              "extensionAttributableChars": 8454,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 3189,
+              "checkpointChars": 228,
+              "historicalCheckpointChars": 152,
+              "toolSchemaChars": 3653,
+              "messageChars": 4512,
+              "totalSerializedChars": 13943,
+              "estimatedTokens": 3486
+            },
+            "requestSHA256": "a506e500b3bb6d36fc01a9f7f75e651334b763d06b3ca994f66b2f631a9af506",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "nested-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2968,
+              "extensionAttributableChars": 8690,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2052,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 4581,
+              "messageChars": 3369,
+              "totalSerializedChars": 14179,
+              "estimatedTokens": 3545
+            },
+            "requestSHA256": "d036a20ebec346c9c24d90c04498bcec4e2b798c8ac294ebf32ea191936d032f",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "oracle-consultation",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 4528,
+              "extensionMessageChars": 2496,
+              "extensionAttributableChars": 11367,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1625,
+              "checkpointChars": 204,
+              "historicalCheckpointChars": 136,
+              "toolSchemaChars": 3653,
+              "messageChars": 2897,
+              "totalSerializedChars": 12328,
+              "estimatedTokens": 3082
+            },
+            "requestSHA256": "866dd70646d91b4fc87d897957cd5ee81d08431c0964fc3eb827eef96507b075",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "paused-goal",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1317,
+              "extensionAttributableChars": 5660,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 568,
+              "checkpointChars": 204,
+              "historicalCheckpointChars": 136,
+              "toolSchemaChars": 3653,
+              "messageChars": 1717,
+              "totalSerializedChars": 11148,
+              "estimatedTokens": 2787
+            },
+            "requestSHA256": "1ff8068ba53c0c79c9a9f40f1a0e7b998a6b09bccb92207a73aab4259bc0a6c9",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "post-compaction-turn",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2325,
+              "extensionAttributableChars": 8047,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2090,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 4581,
+              "messageChars": 2595,
+              "totalSerializedChars": 13405,
+              "estimatedTokens": 3352
+            },
+            "requestSHA256": "3cdbb63055a69bc2a6544f53687fc506bdc0aee3a7188fcf1be904f409ecf3f9",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "sisyphus-ordered-objective",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3046,
+              "extensionAttributableChars": 7389,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2154,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 3653,
+              "messageChars": 3447,
+              "totalSerializedChars": 12878,
+              "estimatedTokens": 3220
+            },
+            "requestSHA256": "a55ebfcd9bc716677f95059eb8145197497972cbfa1f484ce3449a61ee60c6db",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "stale-checkpoint",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 699,
+              "extensionAttributableChars": 5042,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 384,
+              "checkpointChars": 68,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 3653,
+              "messageChars": 702,
+              "totalSerializedChars": 10133,
+              "estimatedTokens": 2534
+            },
+            "requestSHA256": "ef570bff9b942f6dccc602cb230eaf38533ca6699d20c2eefa343ae064786e7c",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "tasks-disabled",
+            "breakdown": {
+              "sdkGuidanceChars": 374,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2506,
+              "extensionAttributableChars": 5548,
+              "baseSystemChars": 2904,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1623,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 2668,
+              "messageChars": 2907,
+              "totalSerializedChars": 11037,
+              "estimatedTokens": 2760
+            },
+            "requestSHA256": "55f53bc318aca61280691c50d73801b5260dd2dba53c488804735ace29f10782",
+            "prefixSHA256": "a6669370850327a7388966f2294fd6b24f6e2a164af849a24289bab35ad99d8a"
+          },
+          {
+            "fixture": "token-budget-at-limit",
+            "breakdown": {
+              "sdkGuidanceChars": 374,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1065,
+              "extensionAttributableChars": 4107,
+              "baseSystemChars": 2904,
+              "extensionSystemChars": 0,
+              "goalStateChars": 283,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 2668,
+              "messageChars": 1465,
+              "totalSerializedChars": 9595,
+              "estimatedTokens": 2399
+            },
+            "requestSHA256": "69270f2762acb11c79a822d2321e0685d5f0f016467d7abba8bb5d68ce00ce56",
+            "prefixSHA256": "a6669370850327a7388966f2294fd6b24f6e2a164af849a24289bab35ad99d8a"
+          },
+          {
+            "fixture": "token-budget-seventy-five-percent",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2551,
+              "extensionAttributableChars": 6894,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1644,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 3653,
+              "messageChars": 2952,
+              "totalSerializedChars": 12383,
+              "estimatedTokens": 3096
+            },
+            "requestSHA256": "86e01cb47369cfca43b4db79b6c4590365d146bd3745a33a3f2dff61b256a63b",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "token-budget-zero-percent",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2536,
+              "extensionAttributableChars": 6879,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1635,
+              "checkpointChars": 219,
+              "historicalCheckpointChars": 146,
+              "toolSchemaChars": 3653,
+              "messageChars": 2937,
+              "totalSerializedChars": 12368,
+              "estimatedTokens": 3092
+            },
+            "requestSHA256": "6094706a3e3007c6ed7e5ea1986b279e56f3ae6a59ece4d8e3560075bbe3f1ee",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "unfocused-multiple-goals",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 337,
+              "extensionAttributableChars": 1774,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 238,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 1144,
+              "messageChars": 398,
+              "totalSerializedChars": 6923,
+              "estimatedTokens": 1731
+            },
+            "requestSHA256": "a721e7e4856c1176be61fb4913767b489a2f7b971960b8fdac0e9cf2e5cb5b39",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          }
+        ]
+      },
+      "entry": {
+        "mode": "entry",
+        "method": "100 warm-up operations; 100 samples of 10 begin + 20 recordWork calls; cached settings; no storage or model work",
+        "rows": [
+          {
+            "tasks": 10,
+            "oversizedStressFixture": false,
+            "optIn": false,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 1000,
+            "p50Ms": 0.0016291000000009602,
+            "p95Ms": 0.0027625000000000453,
+            "goalJSONBytes": 670
+          },
+          {
+            "tasks": 50,
+            "oversizedStressFixture": false,
+            "optIn": false,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 1000,
+            "p50Ms": 0.0029042000000004007,
+            "p95Ms": 0.008245900000000006,
+            "goalJSONBytes": 3070,
+            "coldSettings": {
+              "samples": 100,
+              "operationsPerSample": 1,
+              "snapshots": 100,
+              "p50Ms": 0.0028750000000030695,
+              "p95Ms": 0.0037499999999965894
+            }
+          },
+          {
+            "tasks": 1000,
+            "oversizedStressFixture": true,
+            "optIn": false,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 1000,
+            "p50Ms": 0.0537916000000024,
+            "p95Ms": 0.12263339999999942,
+            "goalJSONBytes": 61870
+          },
+          {
+            "tasks": 10,
+            "oversizedStressFixture": false,
+            "optIn": true,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 1000,
+            "p50Ms": 0.0013417000000004009,
+            "p95Ms": 0.001429200000001174,
+            "goalJSONBytes": 670
+          },
+          {
+            "tasks": 50,
+            "oversizedStressFixture": false,
+            "optIn": true,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 1000,
+            "p50Ms": 0.011129199999999173,
+            "p95Ms": 0.013150000000001683,
+            "goalJSONBytes": 3070,
+            "coldSettings": {
+              "samples": 100,
+              "operationsPerSample": 1,
+              "snapshots": 100,
+              "p50Ms": 0.002583000000015545,
+              "p95Ms": 0.0027500000000202363
+            }
+          },
+          {
+            "tasks": 1000,
+            "oversizedStressFixture": true,
+            "optIn": true,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 1000,
+            "p50Ms": 0.05800839999999994,
+            "p95Ms": 0.14909580000000347,
+            "goalJSONBytes": 61870
+          }
+        ]
+      }
+    },
+    "candidate": {
+      "context": {
+        "mode": "context",
+        "rows": [
+          {
+            "fixture": "active-regular-10-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3014,
+              "extensionAttributableChars": 8736,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2122,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 4581,
+              "messageChars": 3415,
+              "totalSerializedChars": 14225,
+              "estimatedTokens": 3557
+            },
+            "requestSHA256": "b7adddb9bb4c748784ff3f03c146f74a3612ac9eef7ef23c679344796d012953",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "active-regular-50-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2869,
+              "extensionAttributableChars": 8591,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1977,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 4581,
+              "messageChars": 3270,
+              "totalSerializedChars": 14080,
+              "estimatedTokens": 3520
+            },
+            "requestSHA256": "6f219d94e7682a7dd2a75d11ab23540b40a45dbcd7e485e4b617837fba645e37",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "active-regular-no-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2510,
+              "extensionAttributableChars": 6853,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1627,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 3653,
+              "messageChars": 2911,
+              "totalSerializedChars": 12342,
+              "estimatedTokens": 3086
+            },
+            "requestSHA256": "0dca040ed2a43e1f9f3341c4798e37b2a64abb257fd43ba0be46c4077dc95d32",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "audit-rejection-and-rework",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 5348,
+              "extensionMessageChars": 681,
+              "extensionAttributableChars": 7466,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 1144,
+              "messageChars": 1080,
+              "totalSerializedChars": 7605,
+              "estimatedTokens": 1902
+            },
+            "requestSHA256": "4188ada76a8337440029491ffc986c918960131f53a188efc58f163db76de627",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          },
+          {
+            "fixture": "blocked-goal",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1075,
+              "extensionAttributableChars": 2512,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 322,
+              "checkpointChars": 207,
+              "historicalCheckpointChars": 138,
+              "toolSchemaChars": 1144,
+              "messageChars": 1475,
+              "totalSerializedChars": 8000,
+              "estimatedTokens": 2000
+            },
+            "requestSHA256": "32f96f26dd40df7567cfc9a47f9b69573697effba2c137c060a82f9681d40375",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          },
+          {
+            "fixture": "completion-audit",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 5352,
+              "extensionMessageChars": 705,
+              "extensionAttributableChars": 7494,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 234,
+              "historicalCheckpointChars": 156,
+              "toolSchemaChars": 1144,
+              "messageChars": 1104,
+              "totalSerializedChars": 7629,
+              "estimatedTokens": 1908
+            },
+            "requestSHA256": "0014670b1c88fb303e0c275df2effe74aa5b548ff26a91b7d1296f91928ceab1",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          },
+          {
+            "fixture": "current-contracted-task",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3280,
+              "extensionAttributableChars": 9002,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2344,
+              "checkpointChars": 231,
+              "historicalCheckpointChars": 154,
+              "toolSchemaChars": 4581,
+              "messageChars": 3681,
+              "totalSerializedChars": 14491,
+              "estimatedTokens": 3623
+            },
+            "requestSHA256": "dd7e8dd62ae93d39c00132f9774b2501a40b8fc3e0234d4fb9474b2854c21007",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "get-goal-default-and-verbose",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 4609,
+              "extensionAttributableChars": 10331,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2127,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 4581,
+              "messageChars": 5012,
+              "totalSerializedChars": 15822,
+              "estimatedTokens": 3956
+            },
+            "requestSHA256": "151a4d2a2cb9ec66e1148ff7706b187a2fd504d525275df7b0bdb9f0348a2e63",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "guided-drafting-question",
+            "breakdown": {
+              "sdkGuidanceChars": 771,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 0,
+              "extensionAttributableChars": 3316,
+              "baseSystemChars": 3301,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 2545,
+              "messageChars": 204,
+              "totalSerializedChars": 8608,
+              "estimatedTokens": 2152
+            },
+            "requestSHA256": "06426c5c765c58fcd36a1c2f9565da393ee5cb74fd29568ee1f5a300f5ac19d0",
+            "prefixSHA256": "b16a639ba7f8dd657ef9e8452d8c0fbd02d07d5699e74fbcc36a47994cad1546"
+          },
+          {
+            "fixture": "guided-proposal",
+            "breakdown": {
+              "sdkGuidanceChars": 771,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 0,
+              "extensionAttributableChars": 3316,
+              "baseSystemChars": 3301,
+              "extensionSystemChars": 0,
+              "goalStateChars": 0,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 2545,
+              "messageChars": 206,
+              "totalSerializedChars": 8610,
+              "estimatedTokens": 2153
+            },
+            "requestSHA256": "806c0b048f86e1db7cba936244176780f41dac657a0f4122205177cfef232925",
+            "prefixSHA256": "b16a639ba7f8dd657ef9e8452d8c0fbd02d07d5699e74fbcc36a47994cad1546"
+          },
+          {
+            "fixture": "half-complete-tree",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3051,
+              "extensionAttributableChars": 8773,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2129,
+              "checkpointChars": 225,
+              "historicalCheckpointChars": 150,
+              "toolSchemaChars": 4581,
+              "messageChars": 3452,
+              "totalSerializedChars": 14262,
+              "estimatedTokens": 3566
+            },
+            "requestSHA256": "5c4d8455042c665837aa2777fff09a2472f479b1933a8e103568bd434aac3687",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "latest-auditor-rejection",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1694,
+              "extensionAttributableChars": 6037,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 875,
+              "checkpointChars": 237,
+              "historicalCheckpointChars": 158,
+              "toolSchemaChars": 3653,
+              "messageChars": 2094,
+              "totalSerializedChars": 11525,
+              "estimatedTokens": 2882
+            },
+            "requestSHA256": "7c0c675dfdb53215bddd585477830ec219580e6560adaa31121d321e1ffbc19b",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "long-objective",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 4111,
+              "extensionAttributableChars": 8454,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 3189,
+              "checkpointChars": 228,
+              "historicalCheckpointChars": 152,
+              "toolSchemaChars": 3653,
+              "messageChars": 4512,
+              "totalSerializedChars": 13943,
+              "estimatedTokens": 3486
+            },
+            "requestSHA256": "a506e500b3bb6d36fc01a9f7f75e651334b763d06b3ca994f66b2f631a9af506",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "nested-tasks",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2968,
+              "extensionAttributableChars": 8690,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2052,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 4581,
+              "messageChars": 3369,
+              "totalSerializedChars": 14179,
+              "estimatedTokens": 3545
+            },
+            "requestSHA256": "d036a20ebec346c9c24d90c04498bcec4e2b798c8ac294ebf32ea191936d032f",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "oracle-consultation",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 4528,
+              "extensionMessageChars": 2496,
+              "extensionAttributableChars": 11367,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1625,
+              "checkpointChars": 204,
+              "historicalCheckpointChars": 136,
+              "toolSchemaChars": 3653,
+              "messageChars": 2897,
+              "totalSerializedChars": 12328,
+              "estimatedTokens": 3082
+            },
+            "requestSHA256": "866dd70646d91b4fc87d897957cd5ee81d08431c0964fc3eb827eef96507b075",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "paused-goal",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1317,
+              "extensionAttributableChars": 5660,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 568,
+              "checkpointChars": 204,
+              "historicalCheckpointChars": 136,
+              "toolSchemaChars": 3653,
+              "messageChars": 1717,
+              "totalSerializedChars": 11148,
+              "estimatedTokens": 2787
+            },
+            "requestSHA256": "1ff8068ba53c0c79c9a9f40f1a0e7b998a6b09bccb92207a73aab4259bc0a6c9",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "post-compaction-turn",
+            "breakdown": {
+              "sdkGuidanceChars": 1141,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2325,
+              "extensionAttributableChars": 8047,
+              "baseSystemChars": 3671,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2090,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 4581,
+              "messageChars": 2595,
+              "totalSerializedChars": 13405,
+              "estimatedTokens": 3352
+            },
+            "requestSHA256": "3cdbb63055a69bc2a6544f53687fc506bdc0aee3a7188fcf1be904f409ecf3f9",
+            "prefixSHA256": "5f457f41999a5e621a017f28b0e2ef03e38b811c7fea3d1e7fa90ad9afd9c800"
+          },
+          {
+            "fixture": "sisyphus-ordered-objective",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 3046,
+              "extensionAttributableChars": 7389,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 2154,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 3653,
+              "messageChars": 3447,
+              "totalSerializedChars": 12878,
+              "estimatedTokens": 3220
+            },
+            "requestSHA256": "a55ebfcd9bc716677f95059eb8145197497972cbfa1f484ce3449a61ee60c6db",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "stale-checkpoint",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 699,
+              "extensionAttributableChars": 5042,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 384,
+              "checkpointChars": 68,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 3653,
+              "messageChars": 702,
+              "totalSerializedChars": 10133,
+              "estimatedTokens": 2534
+            },
+            "requestSHA256": "ef570bff9b942f6dccc602cb230eaf38533ca6699d20c2eefa343ae064786e7c",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "tasks-disabled",
+            "breakdown": {
+              "sdkGuidanceChars": 374,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2506,
+              "extensionAttributableChars": 5548,
+              "baseSystemChars": 2904,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1623,
+              "checkpointChars": 210,
+              "historicalCheckpointChars": 140,
+              "toolSchemaChars": 2668,
+              "messageChars": 2907,
+              "totalSerializedChars": 11037,
+              "estimatedTokens": 2760
+            },
+            "requestSHA256": "55f53bc318aca61280691c50d73801b5260dd2dba53c488804735ace29f10782",
+            "prefixSHA256": "a6669370850327a7388966f2294fd6b24f6e2a164af849a24289bab35ad99d8a"
+          },
+          {
+            "fixture": "token-budget-at-limit",
+            "breakdown": {
+              "sdkGuidanceChars": 374,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 1065,
+              "extensionAttributableChars": 4107,
+              "baseSystemChars": 2904,
+              "extensionSystemChars": 0,
+              "goalStateChars": 283,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 2668,
+              "messageChars": 1465,
+              "totalSerializedChars": 9595,
+              "estimatedTokens": 2399
+            },
+            "requestSHA256": "69270f2762acb11c79a822d2321e0685d5f0f016467d7abba8bb5d68ce00ce56",
+            "prefixSHA256": "a6669370850327a7388966f2294fd6b24f6e2a164af849a24289bab35ad99d8a"
+          },
+          {
+            "fixture": "token-budget-seventy-five-percent",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2551,
+              "extensionAttributableChars": 6894,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1644,
+              "checkpointChars": 222,
+              "historicalCheckpointChars": 148,
+              "toolSchemaChars": 3653,
+              "messageChars": 2952,
+              "totalSerializedChars": 12383,
+              "estimatedTokens": 3096
+            },
+            "requestSHA256": "86e01cb47369cfca43b4db79b6c4590365d146bd3745a33a3f2dff61b256a63b",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "token-budget-zero-percent",
+            "breakdown": {
+              "sdkGuidanceChars": 690,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 2536,
+              "extensionAttributableChars": 6879,
+              "baseSystemChars": 3220,
+              "extensionSystemChars": 0,
+              "goalStateChars": 1635,
+              "checkpointChars": 219,
+              "historicalCheckpointChars": 146,
+              "toolSchemaChars": 3653,
+              "messageChars": 2937,
+              "totalSerializedChars": 12368,
+              "estimatedTokens": 3092
+            },
+            "requestSHA256": "6094706a3e3007c6ed7e5ea1986b279e56f3ae6a59ece4d8e3560075bbe3f1ee",
+            "prefixSHA256": "8a1b8a2ecca3f1a0732886521546c529361859fab1be2e8d4188201807a5d099"
+          },
+          {
+            "fixture": "unfocused-multiple-goals",
+            "breakdown": {
+              "sdkGuidanceChars": 293,
+              "hostToolSchemaChars": 2555,
+              "childRequestChars": 0,
+              "extensionMessageChars": 337,
+              "extensionAttributableChars": 1774,
+              "baseSystemChars": 2823,
+              "extensionSystemChars": 0,
+              "goalStateChars": 238,
+              "checkpointChars": 0,
+              "historicalCheckpointChars": 0,
+              "toolSchemaChars": 1144,
+              "messageChars": 398,
+              "totalSerializedChars": 6923,
+              "estimatedTokens": 1731
+            },
+            "requestSHA256": "a721e7e4856c1176be61fb4913767b489a2f7b971960b8fdac0e9cf2e5cb5b39",
+            "prefixSHA256": "8a9ddeb992f79364bb81bf9d206c82fc5e703a45f22f4d4dc22e0e1db4c1b4e2"
+          }
+        ]
+      },
+      "entry": {
+        "mode": "entry",
+        "method": "100 warm-up operations; 100 samples of 10 begin + 20 recordWork calls; cached settings; no storage or model work",
+        "rows": [
+          {
+            "tasks": 10,
+            "oversizedStressFixture": false,
+            "optIn": false,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 0,
+            "p50Ms": 0.0038375000000002045,
+            "p95Ms": 0.010649999999999693,
+            "goalJSONBytes": 670
+          },
+          {
+            "tasks": 50,
+            "oversizedStressFixture": false,
+            "optIn": false,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 0,
+            "p50Ms": 0.0034250000000000114,
+            "p95Ms": 0.008245800000000258,
+            "goalJSONBytes": 3070,
+            "coldSettings": {
+              "samples": 100,
+              "operationsPerSample": 1,
+              "snapshots": 0,
+              "p50Ms": 0.05462499999998727,
+              "p95Ms": 0.2394169999999889
+            }
+          },
+          {
+            "tasks": 1000,
+            "oversizedStressFixture": true,
+            "optIn": false,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 0,
+            "p50Ms": 0.003274999999999295,
+            "p95Ms": 0.0057165999999995165,
+            "goalJSONBytes": 61870
+          },
+          {
+            "tasks": 10,
+            "oversizedStressFixture": false,
+            "optIn": true,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 1000,
+            "p50Ms": 0.004025000000000034,
+            "p95Ms": 0.006458299999999894,
+            "goalJSONBytes": 670
+          },
+          {
+            "tasks": 50,
+            "oversizedStressFixture": false,
+            "optIn": true,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 1000,
+            "p50Ms": 0.0060583000000008266,
+            "p95Ms": 0.020674999999999954,
+            "goalJSONBytes": 3070,
+            "coldSettings": {
+              "samples": 100,
+              "operationsPerSample": 1,
+              "snapshots": 100,
+              "p50Ms": 0.04362499999999159,
+              "p95Ms": 0.133624999999995
+            }
+          },
+          {
+            "tasks": 1000,
+            "oversizedStressFixture": true,
+            "optIn": true,
+            "samples": 100,
+            "operationsPerSample": 10,
+            "workEventsPerOperation": 20,
+            "snapshots": 1000,
+            "p50Ms": 0.05338329999999871,
+            "p95Ms": 0.06339590000000044,
+            "goalJSONBytes": 61870
+          }
+        ]
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "original-reasoning-default",
+      "policy": "original",
+      "scenario": "reasoning",
+      "optIn": false,
+      "outcome": "completed",
+      "requests": 17,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 15,
+      "auditorRequests": 1,
+      "settlements": 14,
+      "artifact": "verified result\n",
+      "dispatch": {
+        "samples": 13,
+        "p50Ms": 7.1872080000002825,
+        "p95Ms": 12.13562499999989,
+        "maxMs": 12.13562499999989
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3603,
+          "staticPrefixSHA256": "86b97528ed28dd80f6f64b934b56f149d847e901836b72847b4c8c9efe854a82"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9410,
+          "payloadBytes": 16524,
+          "cumulativeMessageBytes": 9410,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9771,
+          "payloadBytes": 16885,
+          "cumulativeMessageBytes": 19181,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10493,
+          "payloadBytes": 17607,
+          "cumulativeMessageBytes": 39806,
+          "commonMessagePrefixChars": 10025,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 8,
+          "messageBytes": 11937,
+          "payloadBytes": 19051,
+          "cumulativeMessageBytes": 85388,
+          "commonMessagePrefixChars": 11469,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "current-reasoning-default",
+      "policy": "current",
+      "scenario": "reasoning",
+      "optIn": false,
+      "outcome": "paced",
+      "requests": 3,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 2,
+      "auditorRequests": 0,
+      "settlements": 2,
+      "artifact": null,
+      "dispatch": {
+        "samples": 1,
+        "p50Ms": 7.848040999999284,
+        "p95Ms": 7.848040999999284,
+        "maxMs": 7.848040999999284
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3602,
+          "staticPrefixSHA256": "d85910186c8d13a914e0d9b64303577b7009f2c16cbf327810be1647b6c1da05"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9409,
+          "payloadBytes": 16523,
+          "cumulativeMessageBytes": 9409,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9770,
+          "payloadBytes": 16884,
+          "cumulativeMessageBytes": 19179,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "candidate-reasoning-default",
+      "policy": "candidate",
+      "scenario": "reasoning",
+      "optIn": false,
+      "outcome": "completed",
+      "requests": 17,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 15,
+      "auditorRequests": 1,
+      "settlements": 14,
+      "artifact": "verified result\n",
+      "dispatch": {
+        "samples": 13,
+        "p50Ms": 5.601915999999619,
+        "p95Ms": 14.417750000000524,
+        "maxMs": 14.417750000000524
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3604,
+          "staticPrefixSHA256": "3d8aefb9ef9e7f91435259a95dd88738278c4ca83beb73bdc5e5ec013cf93cd2"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9411,
+          "payloadBytes": 16525,
+          "cumulativeMessageBytes": 9411,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9772,
+          "payloadBytes": 16886,
+          "cumulativeMessageBytes": 19183,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10494,
+          "payloadBytes": 17608,
+          "cumulativeMessageBytes": 39810,
+          "commonMessagePrefixChars": 10025,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 8,
+          "messageBytes": 11938,
+          "payloadBytes": 19052,
+          "cumulativeMessageBytes": 85396,
+          "commonMessagePrefixChars": 11469,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "original-custom-default",
+      "policy": "original",
+      "scenario": "custom",
+      "optIn": false,
+      "outcome": "completed",
+      "requests": 11,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 9,
+      "auditorRequests": 1,
+      "settlements": 5,
+      "artifact": "verified result\n",
+      "dispatch": {
+        "samples": 4,
+        "p50Ms": 9.720790999999736,
+        "p95Ms": 12.057667000000038,
+        "maxMs": 12.057667000000038
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "publish_report",
+          "leadingSystemChars": 3600,
+          "staticPrefixSHA256": "7a5d8d48fad324455ce060fea20ac15a1aed858a5b7b91e98ffef8dd023ebded"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9407,
+          "payloadBytes": 16521,
+          "cumulativeMessageBytes": 9407,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9734,
+          "payloadBytes": 16848,
+          "cumulativeMessageBytes": 19141,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10369,
+          "payloadBytes": 17483,
+          "cumulativeMessageBytes": 39552,
+          "commonMessagePrefixChars": 9938,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 8,
+          "messageBytes": 11703,
+          "payloadBytes": 18817,
+          "cumulativeMessageBytes": 84248,
+          "commonMessagePrefixChars": 11208,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "current-custom-default",
+      "policy": "current",
+      "scenario": "custom",
+      "optIn": false,
+      "outcome": "paced",
+      "requests": 5,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 4,
+      "auditorRequests": 0,
+      "settlements": 2,
+      "artifact": null,
+      "dispatch": {
+        "samples": 1,
+        "p50Ms": 4.8659999999999854,
+        "p95Ms": 4.8659999999999854,
+        "maxMs": 4.8659999999999854
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "publish_report",
+          "leadingSystemChars": 3599,
+          "staticPrefixSHA256": "866769fe69ddbbaed52c9d68e94b2c427481aa0df3b193f35932a0f294b23c00"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9406,
+          "payloadBytes": 16520,
+          "cumulativeMessageBytes": 9406,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9733,
+          "payloadBytes": 16847,
+          "cumulativeMessageBytes": 19139,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10368,
+          "payloadBytes": 17482,
+          "cumulativeMessageBytes": 39548,
+          "commonMessagePrefixChars": 9938,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "candidate-custom-default",
+      "policy": "candidate",
+      "scenario": "custom",
+      "optIn": false,
+      "outcome": "completed",
+      "requests": 11,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 9,
+      "auditorRequests": 1,
+      "settlements": 5,
+      "artifact": "verified result\n",
+      "dispatch": {
+        "samples": 4,
+        "p50Ms": 7.741334000000279,
+        "p95Ms": 8.829249999999774,
+        "maxMs": 8.829249999999774
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "publish_report",
+          "leadingSystemChars": 3601,
+          "staticPrefixSHA256": "6c9ffad5888622ba62e1914bcd745f0230edf6be775d98f0944ceccf1f4d78b2"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9408,
+          "payloadBytes": 16522,
+          "cumulativeMessageBytes": 9408,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9735,
+          "payloadBytes": 16849,
+          "cumulativeMessageBytes": 19143,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10370,
+          "payloadBytes": 17484,
+          "cumulativeMessageBytes": 39556,
+          "commonMessagePrefixChars": 9938,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 8,
+          "messageBytes": 11704,
+          "payloadBytes": 18818,
+          "cumulativeMessageBytes": 84256,
+          "commonMessagePrefixChars": 11208,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "original-idle-default",
+      "policy": "original",
+      "scenario": "idle",
+      "optIn": false,
+      "outcome": "harness-ceiling",
+      "requests": 33,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 32,
+      "auditorRequests": 0,
+      "settlements": 32,
+      "artifact": null,
+      "dispatch": {
+        "samples": 31,
+        "p50Ms": 6.320290999999997,
+        "p95Ms": 12.002416000000267,
+        "maxMs": 13.947165999999925
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3598,
+          "staticPrefixSHA256": "4796d04d9ba74761317594a271980c3a3525054b9f3a994f77a8bc3b2decbba7"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9405,
+          "payloadBytes": 16519,
+          "cumulativeMessageBytes": 9405,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9702,
+          "payloadBytes": 16816,
+          "cumulativeMessageBytes": 19107,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10296,
+          "payloadBytes": 17410,
+          "cumulativeMessageBytes": 39402,
+          "commonMessagePrefixChars": 9897,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 8,
+          "messageBytes": 11484,
+          "payloadBytes": 18598,
+          "cumulativeMessageBytes": 83556,
+          "commonMessagePrefixChars": 11085,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 16,
+          "messageBytes": 13860,
+          "payloadBytes": 20974,
+          "cumulativeMessageBytes": 186120,
+          "commonMessagePrefixChars": 13461,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 32,
+          "messageBytes": 14954,
+          "payloadBytes": 22068,
+          "cumulativeMessageBytes": 444614,
+          "commonMessagePrefixChars": 7451,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "current-idle-default",
+      "policy": "current",
+      "scenario": "idle",
+      "optIn": false,
+      "outcome": "paced",
+      "requests": 3,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 2,
+      "auditorRequests": 0,
+      "settlements": 2,
+      "artifact": null,
+      "dispatch": {
+        "samples": 1,
+        "p50Ms": 7.912457999999788,
+        "p95Ms": 7.912457999999788,
+        "maxMs": 7.912457999999788
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3597,
+          "staticPrefixSHA256": "15c1fb2f7161ec2349b8c94fc85bb6da895df2f36b37efc4f421a4aae23786b7"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9404,
+          "payloadBytes": 16518,
+          "cumulativeMessageBytes": 9404,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9701,
+          "payloadBytes": 16815,
+          "cumulativeMessageBytes": 19105,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "candidate-idle-default",
+      "policy": "candidate",
+      "scenario": "idle",
+      "optIn": false,
+      "outcome": "harness-ceiling",
+      "requests": 33,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 32,
+      "auditorRequests": 0,
+      "settlements": 32,
+      "artifact": null,
+      "dispatch": {
+        "samples": 31,
+        "p50Ms": 5.975749999999607,
+        "p95Ms": 32.91954200000055,
+        "maxMs": 33.89716599999974
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3599,
+          "staticPrefixSHA256": "044e3303c28511887a7c54e7709dc84cfd2817a91223892fcbb61318241d7ef5"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9406,
+          "payloadBytes": 16520,
+          "cumulativeMessageBytes": 9406,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9703,
+          "payloadBytes": 16817,
+          "cumulativeMessageBytes": 19109,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10297,
+          "payloadBytes": 17411,
+          "cumulativeMessageBytes": 39406,
+          "commonMessagePrefixChars": 9897,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 8,
+          "messageBytes": 11485,
+          "payloadBytes": 18599,
+          "cumulativeMessageBytes": 83564,
+          "commonMessagePrefixChars": 11085,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 16,
+          "messageBytes": 13861,
+          "payloadBytes": 20975,
+          "cumulativeMessageBytes": 186136,
+          "commonMessagePrefixChars": 13461,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 32,
+          "messageBytes": 14955,
+          "payloadBytes": 22069,
+          "cumulativeMessageBytes": 444646,
+          "commonMessagePrefixChars": 7451,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "original-busy-poll-default",
+      "policy": "original",
+      "scenario": "busy-poll",
+      "optIn": false,
+      "outcome": "harness-ceiling",
+      "requests": 65,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 64,
+      "auditorRequests": 0,
+      "settlements": 32,
+      "artifact": null,
+      "dispatch": {
+        "samples": 31,
+        "p50Ms": 7.7540420000004815,
+        "p95Ms": 12.563874999999825,
+        "maxMs": 15.010040999999546
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "bash",
+          "leadingSystemChars": 3603,
+          "staticPrefixSHA256": "0667efad092b566d65dfe0dec5b2684796631db37969163c8840aac1cadd39bb"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9410,
+          "payloadBytes": 16524,
+          "cumulativeMessageBytes": 9410,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9764,
+          "payloadBytes": 16878,
+          "cumulativeMessageBytes": 19174,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10415,
+          "payloadBytes": 17529,
+          "cumulativeMessageBytes": 39650,
+          "commonMessagePrefixChars": 9954,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 8,
+          "messageBytes": 11717,
+          "payloadBytes": 18831,
+          "cumulativeMessageBytes": 84508,
+          "commonMessagePrefixChars": 11256,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 16,
+          "messageBytes": 14329,
+          "payloadBytes": 21443,
+          "cumulativeMessageBytes": 189880,
+          "commonMessagePrefixChars": 13866,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 32,
+          "messageBytes": 15895,
+          "payloadBytes": 23009,
+          "cumulativeMessageBytes": 459654,
+          "commonMessagePrefixChars": 7451,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "current-busy-poll-default",
+      "policy": "current",
+      "scenario": "busy-poll",
+      "optIn": false,
+      "outcome": "harness-ceiling",
+      "requests": 65,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 64,
+      "auditorRequests": 0,
+      "settlements": 32,
+      "artifact": null,
+      "dispatch": {
+        "samples": 31,
+        "p50Ms": 7.363208000000668,
+        "p95Ms": 12.419625000000451,
+        "maxMs": 15.552290999999968
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "bash",
+          "leadingSystemChars": 3602,
+          "staticPrefixSHA256": "913697d2de4deed3f300eee9b8d0553ce8af2bb23246cecc6755aa47b71049a2"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9409,
+          "payloadBytes": 16523,
+          "cumulativeMessageBytes": 9409,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9763,
+          "payloadBytes": 16877,
+          "cumulativeMessageBytes": 19172,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10414,
+          "payloadBytes": 17528,
+          "cumulativeMessageBytes": 39646,
+          "commonMessagePrefixChars": 9954,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 8,
+          "messageBytes": 11716,
+          "payloadBytes": 18830,
+          "cumulativeMessageBytes": 84500,
+          "commonMessagePrefixChars": 11256,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 16,
+          "messageBytes": 14328,
+          "payloadBytes": 21442,
+          "cumulativeMessageBytes": 189864,
+          "commonMessagePrefixChars": 13866,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 32,
+          "messageBytes": 15894,
+          "payloadBytes": 23008,
+          "cumulativeMessageBytes": 459622,
+          "commonMessagePrefixChars": 7451,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "candidate-busy-poll-default",
+      "policy": "candidate",
+      "scenario": "busy-poll",
+      "optIn": false,
+      "outcome": "harness-ceiling",
+      "requests": 65,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 64,
+      "auditorRequests": 0,
+      "settlements": 32,
+      "artifact": null,
+      "dispatch": {
+        "samples": 31,
+        "p50Ms": 5.371417000000292,
+        "p95Ms": 8.832208000001629,
+        "maxMs": 14.617333000000144
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "bash",
+          "leadingSystemChars": 3604,
+          "staticPrefixSHA256": "bf5eff3159638af4b3db082aedecd41650baa858572e59a1c4f37a5665ce5a06"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9411,
+          "payloadBytes": 16525,
+          "cumulativeMessageBytes": 9411,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9765,
+          "payloadBytes": 16879,
+          "cumulativeMessageBytes": 19176,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10416,
+          "payloadBytes": 17530,
+          "cumulativeMessageBytes": 39654,
+          "commonMessagePrefixChars": 9954,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 8,
+          "messageBytes": 11718,
+          "payloadBytes": 18832,
+          "cumulativeMessageBytes": 84516,
+          "commonMessagePrefixChars": 11256,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 16,
+          "messageBytes": 14330,
+          "payloadBytes": 21444,
+          "cumulativeMessageBytes": 189896,
+          "commonMessagePrefixChars": 13866,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 32,
+          "messageBytes": 15896,
+          "payloadBytes": 23010,
+          "cumulativeMessageBytes": 459686,
+          "commonMessagePrefixChars": 7451,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "candidate-idle-enabled",
+      "policy": "candidate",
+      "scenario": "idle",
+      "optIn": true,
+      "outcome": "paced",
+      "requests": 3,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 2,
+      "auditorRequests": 0,
+      "settlements": 2,
+      "artifact": null,
+      "dispatch": {
+        "samples": 1,
+        "p50Ms": 3.373583000000508,
+        "p95Ms": 3.373583000000508,
+        "maxMs": 3.373583000000508
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3599,
+          "staticPrefixSHA256": "27326c507a943d6bbcdcae540c3401f33a44a2fe98730f80ab12710df6e6ffb2"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9406,
+          "payloadBytes": 16520,
+          "cumulativeMessageBytes": 9406,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9703,
+          "payloadBytes": 16817,
+          "cumulativeMessageBytes": 19109,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "candidate-idle-default-cap-4",
+      "policy": "candidate",
+      "scenario": "idle",
+      "optIn": false,
+      "cap": 4,
+      "outcome": "product-run-cap",
+      "requests": 5,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 4,
+      "auditorRequests": 0,
+      "settlements": 4,
+      "artifact": null,
+      "dispatch": {
+        "samples": 3,
+        "p50Ms": 4.531750000000102,
+        "p95Ms": 7.379124999999476,
+        "maxMs": 7.379124999999476
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3605,
+          "staticPrefixSHA256": "5055ce00b1437cd919e812c6f8774984629f176f53bf31a624c2d4345c7166f7"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9425,
+          "payloadBytes": 16539,
+          "cumulativeMessageBytes": 9425,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9743,
+          "payloadBytes": 16857,
+          "cumulativeMessageBytes": 19168,
+          "commonMessagePrefixChars": 9316,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10379,
+          "payloadBytes": 17493,
+          "cumulativeMessageBytes": 39608,
+          "commonMessagePrefixChars": 9952,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "candidate-wait-default",
+      "policy": "candidate",
+      "scenario": "wait",
+      "optIn": false,
+      "outcome": "completed",
+      "requests": 6,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 4,
+      "auditorRequests": 1,
+      "settlements": 3,
+      "artifact": "verified result\n",
+      "dispatch": {
+        "samples": 2,
+        "p50Ms": 258.2572080000009,
+        "p95Ms": 258.2572080000009,
+        "maxMs": 258.2572080000009
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "update_goal",
+          "leadingSystemChars": 3599,
+          "staticPrefixSHA256": "34d70f7356391f5c4e733c372d64ddbe546a6a0b2c6b5914b53c6d32a08b8831"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9428,
+          "payloadBytes": 16542,
+          "cumulativeMessageBytes": 9428,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 10374,
+          "payloadBytes": 17488,
+          "cumulativeMessageBytes": 19802,
+          "commonMessagePrefixChars": 7451,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 11099,
+          "payloadBytes": 18213,
+          "cumulativeMessageBytes": 41666,
+          "commonMessagePrefixChars": 10662,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "waitQuiet": true,
+      "waitWakeMs": 8.36487500000112,
+      "errors": []
+    },
+    {
+      "id": "candidate-reasoning-default-one-additional",
+      "policy": "candidate",
+      "scenario": "reasoning",
+      "optIn": false,
+      "guard": "one-additional",
+      "outcome": "harness-policy-guard",
+      "requests": 3,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 2,
+      "auditorRequests": 0,
+      "settlements": 2,
+      "artifact": null,
+      "dispatch": {
+        "samples": 1,
+        "p50Ms": 4.5419590000001335,
+        "p95Ms": 4.5419590000001335,
+        "maxMs": 4.5419590000001335
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3619,
+          "staticPrefixSHA256": "4856cc7fb9aad91c817ade4952aaa508c021a7be690f162eaad5d7e362748864"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9426,
+          "payloadBytes": 16540,
+          "cumulativeMessageBytes": 9426,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9787,
+          "payloadBytes": 16901,
+          "cumulativeMessageBytes": 19213,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "candidate-idle-default-one-additional",
+      "policy": "candidate",
+      "scenario": "idle",
+      "optIn": false,
+      "guard": "one-additional",
+      "outcome": "harness-policy-guard",
+      "requests": 3,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 2,
+      "auditorRequests": 0,
+      "settlements": 2,
+      "artifact": null,
+      "dispatch": {
+        "samples": 1,
+        "p50Ms": 3.8703329999989364,
+        "p95Ms": 3.8703329999989364,
+        "maxMs": 3.8703329999989364
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3614,
+          "staticPrefixSHA256": "f5a812855745814ff5bbbe0a2b748136fa120c4e74543d99790906b002935d37"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9421,
+          "payloadBytes": 16535,
+          "cumulativeMessageBytes": 9421,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9718,
+          "payloadBytes": 16832,
+          "cumulativeMessageBytes": 19139,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "candidate-reasoning-default-eight-additional",
+      "policy": "candidate",
+      "scenario": "reasoning",
+      "optIn": false,
+      "guard": "eight-additional",
+      "outcome": "harness-policy-guard",
+      "requests": 10,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 9,
+      "auditorRequests": 0,
+      "settlements": 9,
+      "artifact": null,
+      "dispatch": {
+        "samples": 8,
+        "p50Ms": 3.767166999999972,
+        "p95Ms": 4.210958000001483,
+        "maxMs": 4.210958000001483
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3621,
+          "staticPrefixSHA256": "7dbef22332a3241c74036898716a878013af88abe1b3dba12782ee858c988b1d"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9428,
+          "payloadBytes": 16542,
+          "cumulativeMessageBytes": 9428,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9789,
+          "payloadBytes": 16903,
+          "cumulativeMessageBytes": 19217,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10511,
+          "payloadBytes": 17625,
+          "cumulativeMessageBytes": 39878,
+          "commonMessagePrefixChars": 10025,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 8,
+          "messageBytes": 11955,
+          "payloadBytes": 19069,
+          "cumulativeMessageBytes": 85532,
+          "commonMessagePrefixChars": 11469,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    },
+    {
+      "id": "candidate-idle-default-eight-additional",
+      "policy": "candidate",
+      "scenario": "idle",
+      "optIn": false,
+      "guard": "eight-additional",
+      "outcome": "harness-policy-guard",
+      "requests": 10,
+      "draftRequests": 1,
+      "choices": [
+        {
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "executorRequests": 9,
+      "auditorRequests": 0,
+      "settlements": 9,
+      "artifact": null,
+      "dispatch": {
+        "samples": 8,
+        "p50Ms": 3.9732500000009168,
+        "p95Ms": 5.7323340000002645,
+        "maxMs": 5.7323340000002645
+      },
+      "staticPrefixStable": true,
+      "prefixVariants": 1,
+      "prefixChanges": [
+        {
+          "executorRequest": 1,
+          "action": "text",
+          "leadingSystemChars": 3616,
+          "staticPrefixSHA256": "a9435f0087a8caecccc20d560ea2464fd86eeabaef11123d7c9732c09d77253f"
+        }
+      ],
+      "prefixDeltas": [],
+      "prefixScope": "leading system/developer messages + tool schemas; active executor only; host prompt materialization transitions are reported",
+      "toolSchemaStable": true,
+      "toolSchemaBytes": 6978,
+      "milestones": [
+        {
+          "request": 1,
+          "messageBytes": 9423,
+          "payloadBytes": 16537,
+          "cumulativeMessageBytes": 9423,
+          "commonMessagePrefixChars": 439,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 2,
+          "messageBytes": 9720,
+          "payloadBytes": 16834,
+          "cumulativeMessageBytes": 19143,
+          "commonMessagePrefixChars": 9303,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 4,
+          "messageBytes": 10314,
+          "payloadBytes": 17428,
+          "cumulativeMessageBytes": 39474,
+          "commonMessagePrefixChars": 9897,
+          "appendedSystemMessages": 0
+        },
+        {
+          "request": 8,
+          "messageBytes": 11502,
+          "payloadBytes": 18616,
+          "cumulativeMessageBytes": 83700,
+          "commonMessagePrefixChars": 11085,
+          "appendedSystemMessages": 0
+        }
+      ],
+      "errors": []
+    }
+  ]
+}

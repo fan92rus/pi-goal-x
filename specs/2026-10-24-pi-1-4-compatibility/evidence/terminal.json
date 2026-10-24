@@ -1,0 +1,197 @@
+{
+  "sdk": "1.4.0",
+  "method": "Actual repository CLI in a PTY; agent-operated keyboard interaction and scripted localhost provider, not a representative-user study.",
+  "lifecycle": {
+    "actions": [
+      {
+        "text": "/goal Create greeting.txt containing exactly Hello from goal followed by a newline. Verify it.\r"
+      },
+      {
+        "text": "\r"
+      },
+      {
+        "text": "\u001b"
+      },
+      {
+        "resize": [
+          20,
+          72
+        ],
+        "text": "/goal-status\r"
+      },
+      {
+        "resize": [
+          32,
+          110
+        ],
+        "text": "/goal-resume\r"
+      },
+      {
+        "text": "/goal-settings\r"
+      },
+      {
+        "text": "\u001b"
+      },
+      {
+        "text": "/reload\r"
+      },
+      {
+        "text": "/goal-settings\r"
+      },
+      {
+        "text": "\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\r"
+      },
+      {
+        "text": "\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+      }
+    ],
+    "requests": [
+      {
+        "at": 1792830889091,
+        "phase": "draft",
+        "action": "propose_goal_draft",
+        "optedIn": false,
+        "systemPresent": true,
+        "executionPromptCorrect": false,
+        "systemSHA256": "7f34f9695b862b34155c78e60c425e8a32ce9880156292f822a75e46fb384941"
+      },
+      {
+        "at": 1792830909252,
+        "phase": "execution",
+        "action": "write",
+        "optedIn": false,
+        "systemPresent": true,
+        "executionPromptCorrect": true,
+        "systemSHA256": "27d640bbf06a1e4aaf5fd3a9ba63cdb1e83bc3a1b60fc01ad50229451810178d"
+      },
+      {
+        "at": 1792830979483,
+        "phase": "execution",
+        "action": "write",
+        "optedIn": false,
+        "systemPresent": true,
+        "executionPromptCorrect": true,
+        "systemSHA256": "27d640bbf06a1e4aaf5fd3a9ba63cdb1e83bc3a1b60fc01ad50229451810178d"
+      },
+      {
+        "at": 1792830985505,
+        "phase": "execution",
+        "action": "update_goal",
+        "optedIn": false,
+        "systemPresent": true,
+        "executionPromptCorrect": true,
+        "systemSHA256": "27d640bbf06a1e4aaf5fd3a9ba63cdb1e83bc3a1b60fc01ad50229451810178d"
+      },
+      {
+        "at": 1792830985511,
+        "phase": "audit",
+        "action": "text",
+        "optedIn": false,
+        "systemPresent": true,
+        "executionPromptCorrect": false,
+        "systemSHA256": "e32fcea093fba619295ec764a3f5a77c1356345b8fb31aa003206acdc8cd0d7e"
+      }
+    ],
+    "observedPause": {
+      "requestCount": 2,
+      "artifactPresent": false
+    },
+    "artifact": "Hello from goal\n",
+    "archived": true,
+    "executorPrefixVariants": 1
+  },
+  "settings": {
+    "actions": [
+      {
+        "text": "/goal-settings\r"
+      },
+      {
+        "text": "\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\r"
+      },
+      {
+        "text": "\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\u001b[B\r"
+      },
+      {
+        "text": "\u001b"
+      },
+      {
+        "stop": true
+      }
+    ],
+    "global": {
+      "idleContinuationBackoff": true
+    },
+    "project": {
+      "oracle": {
+        "thinkingLevel": "max"
+      },
+      "thinking_level": "max"
+    },
+    "requests": 0,
+    "observed": [
+      "default false",
+      "global true",
+      "project inherits true",
+      "project false",
+      "remove idle override restores inheritance",
+      "auditor max",
+      "Oracle max"
+    ]
+  },
+  "limitations": [
+    "First incorrectly launched global-CLI probe was discarded.",
+    "The lifecycle capture reached its 240-second harness ceiling during later settings exploration; settings were finished in a separate project.",
+    "Terminal audit fixture checks the file itself; SDK workflows separately test real auditor tool reads."
+  ]
+}

@@ -1,5 +1,6 @@
+import { goalDialogControls } from "./goal-dialog-controls.ts";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Editor, type EditorTheme, Key, matchesKey, Text, visibleWidth } from "@earendil-works/pi-tui";
+import { Editor, type EditorTheme, Text, visibleWidth } from "@earendil-works/pi-tui";
 import { truncateToWidth, wrapTextWithAnsi } from "./widgets/text-cache.ts";
 
 
@@ -104,7 +105,7 @@ export function findProposalPresentationSegments(lines: string[], tailStart: num
 	// so pull the tail start back to it when present.
 	let effectiveTail = tailStart;
 	for (let i = tailStart - 1; i > tasksEnd; i--) {
-		if (lines[i]!.includes("press 'a' to toggle")) {
+		if (/Auditor (enabled|disabled).*to toggle/.test(stripAnsiCodes(lines[i]!))) {
 			effectiveTail = i;
 			break;
 		}
@@ -151,6 +152,7 @@ export function fitDialogLines(
 	proposal: ProposalPresentationSegments | null = null,
 	scroll: DialogScrollState | null = null,
 	dimStyle: (s: string) => string = (s) => s,
+	scrollHint = "PgUp/PgDn",
 ): string[] {
 	if (maxDialogLines <= 0 || lines.length <= maxDialogLines) return lines;
 	const keepHead = Math.min(protectedHead, maxDialogLines);
@@ -158,7 +160,7 @@ export function fitDialogLines(
 		return fitProposalPresentation(lines, maxDialogLines, keepHead, proposal);
 	}
 	if (scroll) {
-		return fitDialogViewport(lines, maxDialogLines, scroll, dimStyle);
+		return fitDialogViewport(lines, maxDialogLines, scroll, dimStyle, scrollHint);
 	}
 	// Context-heavy / input / submit dialogs without a scroll state: keep the
 	// head and the tail (options/footer/bottom border) exactly as the pre-fix
@@ -186,6 +188,7 @@ function fitDialogViewport(
 	maxDialogLines: number,
 	scroll: DialogScrollState,
 	dimStyle: (s: string) => string,
+	scrollHint: string,
 ): string[] {
 	const contentWindow = Math.max(0, maxDialogLines - 1);
 	const contentEnd = Math.max(0, lines.length - 1);
@@ -214,7 +217,7 @@ function fitDialogViewport(
 		// dashboard's `… +N more task` rows) and gives way to the border at the
 		// end. The footer hint sits directly above the border, so it is only
 		// visible when the end is reached (never while clipped — geometry).
-		viewport.push(dimStyle(`… +${hiddenBelow} more · PgUp/PgDn scroll`));
+		viewport.push(dimStyle(`… +${hiddenBelow} more · ${scrollHint} scroll`));
 	} else {
 		viewport.push(lines[lines.length - 1]!);
 	}
@@ -253,7 +256,7 @@ function fitProposalPresentation(
 	// the tasks from the start. The dropped task lines remain fully readable in
 	// the scrollback presentation. Never exceeds maxDialogLines.
 	const tailNoBlanks = tail.filter((l) => l.trim() !== "");
-	const hasAuditor = tail.length > 0 && tail[0]!.includes("press 'a' to toggle");
+	const hasAuditor = tail.length > 0 && /Auditor (enabled|disabled).*to toggle/.test(stripAnsiCodes(tail[0]!));
 	const restTail = hasAuditor ? tailNoBlanks.slice(1) : tailNoBlanks;
 	const keepRest = Math.min(restTail.length, Math.max(0, maxDialogLines - keepHead - (hasAuditor ? 1 : 0)));
 	const tailKept = [...(hasAuditor ? [tail[0]!] : []), ...restTail.slice(restTail.length - keepRest)];
@@ -387,6 +390,7 @@ export async function runGoalQuestionnaire(ctx: ExtensionContext, rawQuestions: 
 	const isMulti = questions.length > 1;
 	const totalTabs = questions.length + 1;
 
+	const controls = goalDialogControls(typeof ctx.cwd === "string" ? ctx.cwd : process.cwd());
 	const showRichDialog = async () => await ctx.ui.custom<GoalQuestionnaireResult | undefined>((tui, theme, _kb, done) => {
 		// Some web hosts invoke the factory with a render callback in place of a TUI.
 		if (!tui || typeof tui.getShowHardwareCursor !== "function" || typeof tui.setShowHardwareCursor !== "function" || typeof tui.requestRender !== "function") {
@@ -635,7 +639,7 @@ function advanceAfterAnswer() {
 
 		function handleInput(data: string) {
 			if (inputMode) {
-				if (matchesKey(data, Key.escape)) {
+				if (controls.cancelEditing(data)) {
 					const q = currentQuestion();
 					if (q && q.options.length === 0 && !isMulti) submit(true);
 					else {
@@ -644,9 +648,9 @@ function advanceAfterAnswer() {
 					}
 					return;
 				}
-				if (isMulti && (matchesKey(data, Key.tab) || matchesKey(data, Key.shift("tab")))) {
+				if (isMulti && (controls.matches(data, "next", true) || controls.matches(data, "previous", true))) {
 					exitEditor();
-					currentTab = matchesKey(data, Key.tab) ? (currentTab + 1) % totalTabs : (currentTab - 1 + totalTabs) % totalTabs;
+					currentTab = controls.matches(data, "next", true) ? (currentTab + 1) % totalTabs : (currentTab - 1 + totalTabs) % totalTabs;
 					const nextQ = currentQuestion();
 					if (nextQ) enterQuestion(nextQ);
 					else enterSubmitTab();
@@ -662,7 +666,7 @@ function advanceAfterAnswer() {
 			const opts = displayOptions();
 
 			if (isMulti) {
-				if (matchesKey(data, Key.tab) || matchesKey(data, Key.right)) {
+				if (controls.matches(data, "next")) {
 					currentTab = (currentTab + 1) % totalTabs;
 					const nextQ = currentQuestion();
 					if (nextQ) enterQuestion(nextQ);
@@ -670,7 +674,7 @@ function advanceAfterAnswer() {
 					refresh();
 					return;
 				}
-				if (matchesKey(data, Key.shift("tab")) || matchesKey(data, Key.left)) {
+				if (controls.matches(data, "previous")) {
 					currentTab = (currentTab - 1 + totalTabs) % totalTabs;
 					const nextQ = currentQuestion();
 					if (nextQ) enterQuestion(nextQ);
@@ -684,25 +688,25 @@ function advanceAfterAnswer() {
 			// submit summary): page and line scroll without moving the selection.
 			// Handled before the submit-tab early return so the summary scrolls
 			// too. ↑/↓ still select and auto-follow into view on the next render.
-			if (matchesKey(data, Key.pageUp)) {
+			if (controls.matches(data, "pageUp")) {
 				scrollTop -= Math.max(1, (maxDialogLines ?? 10) - 1);
 				needsFollow = false;
 				refresh();
 				return;
 			}
-			if (matchesKey(data, Key.pageDown)) {
+			if (controls.matches(data, "pageDown")) {
 				scrollTop += Math.max(1, (maxDialogLines ?? 10) - 1);
 				needsFollow = false;
 				refresh();
 				return;
 			}
-			if (matchesKey(data, Key.ctrl("up"))) {
+			if (controls.matches(data, "scrollUp")) {
 				scrollTop -= 1;
 				needsFollow = false;
 				refresh();
 				return;
 			}
-			if (matchesKey(data, Key.ctrl("down"))) {
+			if (controls.matches(data, "scrollDown")) {
 				scrollTop += 1;
 				needsFollow = false;
 				refresh();
@@ -710,18 +714,18 @@ function advanceAfterAnswer() {
 			}
 
 			if (currentTab === questions.length) {
-				if (matchesKey(data, Key.enter) && allAnswered()) submit(false);
-				else if (matchesKey(data, Key.escape)) submit(true);
+				if (controls.matches(data, "confirm") && allAnswered()) submit(false);
+				else if (controls.matches(data, "cancel")) submit(true);
 				return;
 			}
 
-			if (matchesKey(data, Key.up)) {
+			if (controls.matches(data, "up")) {
 				optionIndex = Math.max(0, optionIndex - 1);
 				needsFollow = true; // §options-scroll: keep the selection visible
 				refresh();
 				return;
 			}
-			if (matchesKey(data, Key.down)) {
+			if (controls.matches(data, "down")) {
 				optionIndex = Math.min(opts.length - 1, optionIndex + 1);
 				needsFollow = true;
 				refresh();
@@ -729,13 +733,13 @@ function advanceAfterAnswer() {
 			}
 
 			// Auditor toggle hotkey
-			if (matchesKey(data, "a") && auditorToggleInit) {
+			if (controls.matches(data, "toggleAuditor") && auditorToggleInit) {
 				auditorEnabled = !auditorEnabled;
 				refresh();
 				return;
 			}
 
-			if (matchesKey(data, Key.enter) && q) {
+			if (controls.matches(data, "confirm") && q) {
 				if (q.options.length === 0 || opts[optionIndex]?.isCustom) {
 					enterInputMode(q.id);
 					refresh();
@@ -749,7 +753,7 @@ function advanceAfterAnswer() {
 				return;
 			}
 
-			if (matchesKey(data, Key.escape)) submit(true);
+			if (controls.matches(data, "cancel")) submit(true);
 		}
 
 			function render(width: number): string[] {
@@ -915,7 +919,7 @@ function advanceAfterAnswer() {
 				add(theme.fg("muted", " Your answer:"));
 				for (const line of editor.render(safeWidth - 2)) add(` ${line}`);
 				lines.push("");
-				add(theme.fg("dim", " Enter to submit • Esc to cancel"));
+				add(theme.fg("dim", ` Enter to submit • ${controls.editorCancelHint()} to cancel`));
 			} else if (currentTab === questions.length) {
 				add(theme.fg("accent", theme.bold(" Ready to submit")));
 				protectedCount = lines.length;
@@ -925,7 +929,7 @@ function advanceAfterAnswer() {
 					add(`${theme.fg("muted", ` ${question.id}: `)}${answer ? theme.fg("text", `${answer.wasCustom ? "(wrote) " : ""}${answer.answer}`) : theme.fg("warning", "(unanswered)")}`);
 				}
 				lines.push("");
-				add(allAnswered() ? theme.fg("success", " Press Enter to submit") : theme.fg("warning", ` Unanswered: ${questions.filter((qq) => !answers.has(qq.id)).map((qq) => qq.id).join(", ")}`));
+				add(allAnswered() ? theme.fg("success", ` Press ${controls.hint("confirm")} to submit`) : theme.fg("warning", ` Unanswered: ${questions.filter((qq) => !answers.has(qq.id)).map((qq) => qq.id).join(", ")}`));
 			} else if (q) {
 				addWrapped(theme.fg("text", ` ${q.question}`));
 				questionBlockEnd = lines.length;
@@ -936,20 +940,20 @@ function advanceAfterAnswer() {
 					const circle = auditorEnabled ? "●" : "○";
 					const label = auditorEnabled ? "Auditor enabled" : "Auditor disabled";
 					const color = auditorEnabled ? "success" : "warning";
-					add(theme.fg(color, ` ${circle} ${label}`) + theme.fg("dim", "  (press 'a' to toggle)"));
+					add(theme.fg(color, ` ${circle} ${label}`) + theme.fg("dim", `  (press '${controls.hint("toggleAuditor")}' to toggle)`));
 					lines.push("");
 				}
 				const existing = answers.get(q.id);
 				if (existing) add(theme.fg("dim", ` Current: ${existing.wasCustom ? "(wrote) " : ""}${existing.answer}`));
 				lines.push("");
 				if (opts.length > 0) renderOptions();
-				else add(theme.fg("muted", " Press Enter to write your answer"));
+				else add(theme.fg("muted", ` Press ${controls.hint("confirm")} to write your answer`));
 			}
 
 			lines.push("");
 			if (!inputMode) {
-				const auditorHint = auditorToggleInit ? " • a toggle auditor" : "";
-				add(theme.fg("dim", isMulti ? " Tab/←→ navigate • ↑↓ select • Enter confirm • Esc cancel" + auditorHint : " ↑↓ navigate • Enter select • Esc cancel" + auditorHint));
+				const auditorHint = auditorToggleInit ? ` • ${controls.hint("toggleAuditor")} toggle auditor` : "";
+				add(theme.fg("dim", isMulti ? ` ${controls.hint("next")}/${controls.hint("previous")} navigate • ${controls.navigationHint()} select • ${controls.hint("confirm")} confirm • ${controls.hint("cancel")} cancel` + auditorHint : ` ${controls.navigationHint()} navigate • ${controls.hint("confirm")} select • ${controls.hint("cancel")} cancel` + auditorHint));
 			}
 			add(theme.fg("accent", "─".repeat(safeWidth)));
 			// Safety net: ensure no returned line exceeds the terminal width
@@ -989,14 +993,14 @@ function advanceAfterAnswer() {
 						// Pathological: options alone overflow the bound — scroll
 						// viewport is the last resort (nothing ever hidden).
 						const scrollState = { scrollTop, needsFollow, optionRanges, followIndex: optionIndex };
-						lines = fitDialogLines(lines, maxDialogLines, protectedCount, null, scrollState, (s) => theme.fg("dim", s));
+						lines = fitDialogLines(lines, maxDialogLines, protectedCount, null, scrollState, (s) => theme.fg("dim", s), controls.pagingHint());
 						scrollTop = scrollState.scrollTop;
 						needsFollow = scrollState.needsFollow;
 					}
 				} else {
 					// Input mode, submit tab: legacy tail-keep / viewport behavior.
 					const scrollState = !inputMode ? { scrollTop, needsFollow, optionRanges, followIndex: optionIndex } : null;
-					lines = fitDialogLines(lines, maxDialogLines, protectedCount, null, scrollState, (s) => theme.fg("dim", s));
+					lines = fitDialogLines(lines, maxDialogLines, protectedCount, null, scrollState, (s) => theme.fg("dim", s), controls.pagingHint());
 					if (scrollState) {
 						scrollTop = scrollState.scrollTop;
 						needsFollow = scrollState.needsFollow;

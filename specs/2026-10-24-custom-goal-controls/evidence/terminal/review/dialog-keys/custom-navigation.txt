@@ -1,0 +1,32 @@
+
+ propose_goal_draft Create greeting.txt containing exactly Hello from goal followed by a newline. Verify it.
+
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Confirm Goal Draft
+Budget: none
+
+● Goal draft ready for confirmation.
+
+┌─ Draft Details ──────────────────────────────────────────────────────────────────────────────────────────┐
+│   Mode: Normal goal
+│   Auto-continue: yes
+
+┌─ Original Topic ─────────────────────────────────────────────────────────────────────────────────────────┐
+
+│   Create the greeting file and verify it.
+
+┌─ Proposed Goal ──────────────────────────────────────────────────────────────────────────────────────────┐
+
+│   Create greeting.txt containing exactly Hello from goal followed by a newline. Verify it.
+ ● Auditor enabled  (press 'X' to toggle)
+
+
+  1. Confirm — create this goal now ★
+> 2. Continue chatting — keep refining
+  3. Cancel — discard this draft
+
+ K / J navigate • F6 select • F7 cancel • X toggle auditor
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/projects/pi-goal-x/experiments/runs/goal-controls/dialog-keys-78298-1792837848501 (codex/custom-goal-cont...
+1.5%/200k                                                                                              fixture

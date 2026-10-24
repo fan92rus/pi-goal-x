@@ -17,6 +17,29 @@ All notable changes to pi-goal-x are documented here.
 
 - Active goals no longer burn autonomous-run allowance on empty "waiting" turns while an async subagent is running. The goal prompt tells the agent to hold the turn open with `bg_wait` until the subagent completes, and the scheduler itself defers implicit-ready continuation delivery while subagents are alive (checked through the in-process pi-subagents RPC; absent pi-subagents fails open, a 10-minute max-deferral fuse guarantees delivery even if a subagent never finishes, and completion resumes the continuation immediately). Waiting-phase polling and user interjections are unaffected.
 
+## [0.33.0] — 2026-10-24
+
+Includes #105 and #106.
+
+### Added
+
+- A Controls screen in `/goal-settings` for command names and aliases, every public goal shortcut, goal-dialog keys and project/global inheritance. Commands can use subcommands such as `/goal edit`; `/goal-settings` stays available for recovery.
+- Configurable pause order: stop goal and turn together (the default), pause the goal first, or stop the turn first and wait for the user. Moving the pause key keeps Pi's interrupt available as a turn-only stop.
+
+### Changed
+
+- Controls keep the saved pause choice selected, show inheritance on narrow screens, and support paging through long lists. Questionnaire hints follow remapped keys while answer editing keeps Pi's text controls.
+- CI uses three jobs for the same seven Pi versions, combines duplicate checks, runs isolated workflows concurrently, and skips runtime work for prose/assets-only changes.
+- Develop and test against Pi 1.4.0. Use its native custom-turn prompt preparation while retaining the fallback for older hosts, honor startup cancellation, and run CLI checks against the repository's SDK.
+- Accept `max` thinking for the completion auditor and blocker Oracle in settings and the selector.
+
+### Fixed
+
+- Skip audit-message settlement callbacks whose Pi context was invalidated by session replacement or reload, preserving replacement-session messages and scheduling intent (#90).
+- Goal execution requests use the current Pi prompt and tool profile from their first request, including direct creation, draft confirmation, resume and reload. This fixes stale or missing prompt guidance on structured-transcript hosts without changing host internals.
+- Restore immediate continuation by default. Enable **slow repeated idle replies (opt-in)** in `/goal-settings` → **Advanced execution** (`idleContinuationBackoff: true`) to slow repeated idle replies (#100). Delays persist and can be disabled live. Set a finite `maxAutonomousRuns` for a hard stop; pacing alone does not guarantee loop termination.
+- Expose the project/global settings scope switch and keep delay timing and resume controls visible in the compact widget.
+
 ## [0.32.3] — 2026-10-02
 
 ### Fixed

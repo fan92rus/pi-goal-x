@@ -1,0 +1,32 @@
+ For /goal, propose a normal goal in this shape when ready:
+ === Goal ===
+ Objective: <one-sentence outcome>
+ Success criteria: <observable evidence the goal is done>
+ Boundaries: <in scope / out of scope>
+ Constraints: <hard rules>
+ Verification contract: <optional — what verification evidence is required before marking complete, e.g. 'Run
+ npm test (0 failures), grep for remaining references, re-read requirements and confirm every item is
+ addressed'>
+ If blocked: <default = stop and ask the user>
+ Call propose_goal_draft with sisyphus=false and autoContinue=true unless the user asked otherwise.
+
+
+
+ propose_goal_draft Create greeting.txt containing exactly Hello from goal followed by a newline. Verify it.
+ Goal running - Create greeting.txt containing exactly Hello from goal followed by a newline. Verify it.
+
+
+ ● Goal running
+ ├─ ⟡ Create greeting.txt containing exactly Hello from goal followed by a newline. Verify it.
+ └─ auto-continue on
+ Budget: none
+
+╭─ pi-goal-x ─ Create greeting.txt containing exactly Hello from goal followed by a newline. Verify it.──────╮
+│ goal: running                                                                                              │
+│ File     .pi/goals/active_goal_2026102408564444_mvm3v0o1-2zqphj.md                                         │
+╰─ Ctrl+Shift+T: expand tasks─────────────────────────────────────────────── Ctrl+Shift+A: toggle auditor ● ─╯
+── ⠙ Working ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/projects/pi-goal-x/experiments/runs/continuation-defaults/production-terminal-2026-10-24 (codex/continuat...
+1.7%/200k                                                                                              fixture

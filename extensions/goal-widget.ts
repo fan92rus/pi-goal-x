@@ -1,13 +1,19 @@
-import { matchesKey } from "@earendil-works/pi-tui";
+import { GOAL_KEY_ACTIONS, GOAL_COMMAND_INPUTS, bindingKeys, keyActionBinding, type GoalCommandId } from "./goal-controls.ts";
+import { matchesKey, getKeybindings } from "@earendil-works/pi-tui";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { cloneGoal, createGoal, nowIso, type GoalTask } from "./goal-record.ts";
 import { checkSubtasksComplete, findTaskInTree } from "./goal-policy.ts";
-import { DEFAULT_GOAL_KEYBINDINGS, loadGoalSettings } from "./goal-settings.ts";
+import { loadGoalSettings } from "./goal-settings.ts";
 import { serializeGoalFile } from "./storage/goal-files.ts";
 import type { AuditorWidgetProgress } from "./widgets/goal-widget.ts";
 import type { GoalCore } from "./goal-state.ts";
 
 const DEBUG_GOALS_DIR = ".pi/goals/debug";
+const KEY_ACTION_BY_PATH = new Map(GOAL_KEY_ACTIONS.map(action => [action.path.slice(1).join("."), action]));
+const COMMAND_KEYS = GOAL_KEY_ACTIONS.filter(action => action.path[1] === "commands");
+const EXPANDED_NAVIGATION = [["up", "up"], ["down", "down"], ["pageUp", "pageUp"], ["pageDown", "pageDown"], ["first", "home"], ["last", "end"]] as const;
+const COMPACT_NAVIGATION = [["scrollUp", "up"], ["scrollDown", "down"], ["scrollPageUp", "pageUp"], ["scrollPageDown", "pageDown"], ["scrollFirst", "home"], ["scrollLast", "end"]] as const;
+
 
 function isKittyRepeatOrRelease(data: string): boolean {
 	return data.startsWith("\x1b[") && /^[0-9:;]+:[23][u~ABCDHF]$/.test(data.slice(2));
@@ -117,90 +123,57 @@ export function syncTerminalInputPause(core: GoalCore, ctx: ExtensionContext): v
 		core.terminalInputUnsubscribe?.();
 		const goalCwd = typeof ctx.cwd === "string" ? ctx.cwd : process.cwd();
 		core.terminalInputUnsubscribe = ctx.ui.onTerminalInput((data) => {
-			// If an audit is running, Escape aborts the audit instead of pausing.
-			// Must return { consume: true } so the TUI doesn't also process the key
-			// and abort the running tool execution, which would cascade into pausing
-			// the entire goal (agent_end sees ctx.signal?.aborted and calls pauseActiveGoal).
-			// By contrast, the live-goal pause branch below deliberately does NOT
-			// consume: Escape must pass back to pi so it aborts the running tool
-			// execution and stops the current turn — pausing without stopping the
-			// "working" is exactly the reported bug.
-			// Any goal-owned modal (questionnaire, task confirmation, settings,
-			// goal picker, task-list overlay, escape dialog) owns every key while
-			// it is open: never intercept — otherwise Escape would pause the goal
-			// before the dialog could process it (bn-l pattern). Depth counter so
-			// nested goal modals remain guarded.
+			// The active dialog owns every key, including key capture and Escape.
 			if (core.goalModalDepth > 0) return undefined;
-			const keybindings = loadGoalSettings(goalCwd).keybindings?.dashboard ?? DEFAULT_GOAL_KEYBINDINGS.dashboard;
+			const settings = loadGoalSettings(goalCwd);
+			const matches = (path: string): boolean => {
+				const action = KEY_ACTION_BY_PATH.get(path)!;
+				return bindingKeys(keyActionBinding(settings, action)).some(key => matchesKey(data, key));
+			};
 			if (isKittyRepeatOrRelease(data)) {
-				const goalShortcut = matchesKey(data, keybindings.toggleExpand) || matchesKey(data, "ctrl+shift+a") ||
-					(matchesKey(data, "escape") && (core.isDashboardExpanded() || core.state.goal !== null)) ||
-					(core.isDashboardExpanded() && (["up", "down", "pageUp", "pageDown", "home", "end"] as const).some(key => matchesKey(data, key))) ||
-					(!core.isDashboardExpanded() && core.goalWidgetComponentRef.current !== null &&
-						([keybindings.scrollUp, keybindings.scrollDown, "ctrl+shift+pageUp", "ctrl+shift+pageDown", "ctrl+shift+home", "ctrl+shift+end"] as const).some(key => matchesKey(data, key)));
-				return goalShortcut ? { consume: true } : undefined;
+				const applicable = GOAL_KEY_ACTIONS.filter(action => action.context === "global" ||
+					(core.auditProgress ? action.context === "audit" : core.isDashboardExpanded() ? action.context === "expanded" : action.context === "compact"));
+				return applicable.some(action => bindingKeys(keyActionBinding(settings, action)).some(key => matchesKey(data, key))) ? { consume: true } : undefined;
 			}
-			if (matchesKey(data, "escape") && core.auditProgress) {
-				core.abortAudit(ctx);
+			if (core.auditProgress && matches("interruptAudit")) { core.abortAudit(ctx); return { consume: true }; }
+			if (core.isDashboardExpanded() && matches("dashboard.collapse")) { core.toggleDashboardExpanded(); return { consume: true }; }
+			if (matches("pause") && ((core.state.goal?.status === "active" && core.state.goal.autoContinue) || (core.state.goal?.status === "paused" && !ctx.isIdle()))) {
+				core.interruption.pause(ctx);
+				// Preserve Pi's ordinary Escape handling for the default combined stop.
+				return matchesKey(data, "escape") && settings.pauseOrder === "together" ? undefined : { consume: true };
+			}
+			// Follow Pi's configured interrupt key (older hosts use the legacy ID).
+			let hostInterrupt = matchesKey(data, "escape");
+			try {
+				const manager = getKeybindings();
+				const keys = [...manager.getKeys("app.interrupt"), ...manager.getKeys("interrupt" as never)];
+				if (keys.length) hostInterrupt = keys.some(key => matchesKey(data, key));
+			} catch { /* Hosts without an app keymap retain Escape. */ }
+			if (hostInterrupt && !matches("pause") && core.state.goal?.status === "active" && core.state.goal.autoContinue) {
+				core.interruption.interruptTurn(ctx); return { consume: true };
+			}
+			if (matches("dashboard.toggleExpand")) { core.toggleDashboardExpanded(); return { consume: true }; }
+			if (matches("toggleAuditor")) {
+				core.toggleGoalAuditor(ctx); core.goalWidgetComponentRef.current?.invalidate(); return { consume: true };
+			}
+			if (core.isDashboardExpanded()) {
+				for (const [name, key] of EXPANDED_NAVIGATION) if (matches(`dashboard.${name}`) && core.goalWidgetComponentRef.current?.handleNavigationKey(key)) return { consume: true };
+			} else {
+				for (const [name, key] of COMPACT_NAVIGATION) if (matches(`dashboard.${name}`) && core.goalWidgetComponentRef.current?.handleCompactScrollKey(key)) return { consume: true };
+			}
+			for (const action of COMMAND_KEYS) {
+				if (!bindingKeys(keyActionBinding(settings, action)).some(key => matchesKey(data, key))) continue;
+				const id = action.path[2] as GoalCommandId;
+				void (async () => {
+					core.enterGoalModal();
+					try {
+						const prompt = GOAL_COMMAND_INPUTS[id];
+						const args = prompt ? await ctx.ui.input(prompt) : "";
+						if (args === undefined || (prompt && !args.trim())) return;
+						await core.invokeGoalCommand?.(id, args, ctx);
+					} finally { core.exitGoalModal(); }
+				})().catch(error => ctx.ui.notify(String(error), "error"));
 				return { consume: true };
-			}
-			// §10: Escape collapses the expanded dashboard before it can pause the
-			// goal; Ctrl+Shift+T toggles compact/expanded (§19.5). While the
-			// expanded dashboard is open it owns the plain arrow keys; the
-			// compact widget scrolls with Ctrl+Shift chords that pi never binds
-			// (the editor owns ↑/↓/PgUp/PgDn), so no focus state is needed and
-			// editor keybindings are untouched whenever the dashboard is not
-			// focused.
-			if (matchesKey(data, "escape") && core.isDashboardExpanded()) {
-				core.toggleDashboardExpanded();
-				return { consume: true };
-			}
-			// Escape on a live goal: pause it, then pass the key back to pi by
-			// returning undefined (not { consume: true }) so pi aborts the running
-			// tool execution / current turn too — Escape must stop the working as
-			// well as flip the state. The abort cascade (agent_end / turn_end call
-			// pauseActiveGoal again) is a no-op because the goal is already paused.
-			// When the goal is already paused this branch is skipped and Escape
-			// falls through to pi, which stops the current turn without any goal
-			// state change.
-			if (matchesKey(data, "escape") && core.state.goal?.status === "active" && core.state.goal.autoContinue) {
-				core.pauseActiveGoal(ctx);
-				return undefined;
-			}
-
-			// Ctrl+Shift+T — toggle the unified dashboard between compact and
-			// expanded task views (the task-list overlay is merged into the
-			// dashboard; §10).
-			if (matchesKey(data, keybindings.toggleExpand)) {
-				core.toggleDashboardExpanded();
-				return { consume: true };
-			}
-
-			// Ctrl+Shift+A — toggle the focused goal's independent auditor.
-			// Persisted per-goal (revision-safe), ledger event, dashboard
-			// refresh, notification; inert with no focused goal or a complete
-			// goal (the modal-depth guard above covers goal modals).
-			if (matchesKey(data, "ctrl+shift+a")) {
-				core.toggleGoalAuditor(ctx);
-				core.goalWidgetComponentRef.current?.invalidate();
-				return { consume: true };
-			}
-
-			// Navigation keys: plain arrows scroll the expanded dashboard (it is
-			// modal while open); Ctrl+Shift+↑/↓/PgUp/PgDn/Home/End scroll the
-			// compact task list — free chords, consumed only when the compact
-			// list overflows (§9.6).
-			if (matchesKey(data, "up") || matchesKey(data, "down") || matchesKey(data, "pageUp") || matchesKey(data, "pageDown") || matchesKey(data, "home") || matchesKey(data, "end")) {
-				const key = matchesKey(data, "up") ? "up" : matchesKey(data, "down") ? "down" : matchesKey(data, "pageUp") ? "pageUp" : matchesKey(data, "pageDown") ? "pageDown" : matchesKey(data, "home") ? "home" : "end";
-				if (core.goalWidgetComponentRef?.current?.handleNavigationKey(key)) {
-					return { consume: true };
-				}
-			}
-			if (matchesKey(data, keybindings.scrollUp) || matchesKey(data, keybindings.scrollDown) || matchesKey(data, "ctrl+shift+pageUp") || matchesKey(data, "ctrl+shift+pageDown") || matchesKey(data, "ctrl+shift+home") || matchesKey(data, "ctrl+shift+end")) {
-				const key = matchesKey(data, keybindings.scrollUp) ? "up" : matchesKey(data, keybindings.scrollDown) ? "down" : matchesKey(data, "ctrl+shift+pageUp") ? "pageUp" : matchesKey(data, "ctrl+shift+pageDown") ? "pageDown" : matchesKey(data, "ctrl+shift+home") ? "home" : "end";
-				if (core.goalWidgetComponentRef?.current?.handleCompactScrollKey(key)) {
-					return { consume: true };
-				}
 			}
 
 			// Debug keybindings are inert unless PI_GOAL_DEBUG is set (P1-13).

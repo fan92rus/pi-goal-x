@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-24",
+  "node": "v26.10.0",
+  "developmentSDK": "1.4.0",
+  "baseCommit": "1e7a693be6fb26406c87351853b459fccc6dd0bf",
+  "unit": {
+    "tests": 1177,
+    "passed": 1177,
+    "failed": 0,
+    "skipped": 0,
+    "files": 86,
+    "manifest": true
+  },
+  "cli": {
+    "scenarios": 5,
+    "passed": 5,
+    "settingsRequests": 0
+  },
+  "sdk": {
+    "versions": [
+      "0.83.0",
+      "0.84.1",
+      "0.86.0",
+      "0.85.1",
+      "0.87.0",
+      "1.0.0",
+      "1.4.0"
+    ],
+    "checksPerHost": 39,
+    "passed": true
+  },
+  "minimumNode": [
+    {
+      "node": "22.15.0",
+      "sdk": "0.83.0",
+      "passed": true,
+      "mode": "turn-first",
+      "executorPrefixStable": true,
+      "artifact": "verified result\n"
+    },
+    {
+      "node": "22.19.0",
+      "sdk": "1.4.0",
+      "passed": true,
+      "mode": "turn-first",
+      "executorPrefixStable": true,
+      "artifact": "verified result\n"
+    }
+  ],
+  "context": {
+    "fixtures": 24,
+    "passed": true,
+    "providerPayloads": 6,
+    "responsesPayloads": 3,
+    "retainedHistoryBytes": 4194304
+  },
+  "performance": {
+    "rows": 105,
+    "passed": true
+  },
+  "typecheck": true,
+  "lint": true,
+  "packageDryRun": true,
+  "readmeUnchanged": true
+}

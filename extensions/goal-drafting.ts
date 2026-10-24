@@ -1,3 +1,4 @@
+import { commandHint, commandInstructions } from "./goal-controls.ts";
 import { randomUUID } from "node:crypto";
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool, type ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -144,7 +145,7 @@ export async function startGoalDrafting(core: GoalCore, ctx: ExtensionContext, m
 			? await awaitDraftChoice(core, ctx, label)
 			: "replace"; // headless: explicit new intent wins, but not silently (notified)
 		if (choice === "resume") {
-			ctx.ui.notify("A draft is already active; resuming it. Use /goal-cancel to discard it.", "info");
+			ctx.ui.notify(commandInstructions("A draft is already active; resuming it. Use /goal-cancel to discard it.", core.loadedCommands), "info");
 			return;
 		}
 		if (choice === "cancel") {
@@ -177,7 +178,7 @@ export async function startGoalDrafting(core: GoalCore, ctx: ExtensionContext, m
 		formatGoalBudget(targetGoal?.tokenBudget),
 		"Current objective:", targetGoal?.objective ?? "(goal no longer available)",
 		"User request:", trimmed || "(ask what they want to change)",
-	].join("\n") : goalDraftingPrompt(trimmed, mode);
+	].join("\n") : goalDraftingPrompt(trimmed, mode, core.loadedCommands);
 	try {
 		core.pi.sendUserMessage(prompt, { deliverAs: ctx.isIdle() ? "followUp" : "steer" });
 	} catch (err) {
@@ -250,7 +251,7 @@ export function registerDraftingTools(core: GoalCore): void {
 			allow_custom: Type.Optional(Type.Boolean({ description: "Allow a custom answer; defaults to true." })),
 		}, { additionalProperties: false }),
 		async execute(_id, params, _signal, _update, ctx) {
-			if (!activeDraft(core) && core.state.goal?.status !== "active") return { content: [{ type: "text", text: "No guided goal draft or active goal to ask in. Ask the user in chat instead." }], details: goalDetails(core.state.goal) };
+			if (!activeDraft(core) && core.state.goal?.status !== "active") return { content: [{ type: "text", text: commandInstructions("No guided goal draft or active goal to ask in. Ask the user in chat instead.", core.loadedCommands) }], details: goalDetails(core.state.goal) };
 			core.enterGoalModal();
 			try {
 				const result = await runGoalQuestionnaire(ctx, [{ id: "question", question: params.question, options: params.options ?? [], recommended: params.recommended, allowCustom: params.allow_custom }]);
@@ -309,7 +310,7 @@ export function registerDraftingTools(core: GoalCore): void {
 		description: "Present the drafted objective and agent-selected task plan for explicit user confirmation.",
 		promptSnippet: "Confirm the proposed goal and any useful task tree in one dialog.",
 		promptGuidelines: [
-			"Use only during a /goal, /sisyphus, or /goal-tweak guided draft.",
+			commandInstructions("Use only during a /goal, /sisyphus, or /goal-tweak guided draft.", core.loadedCommands),
 			"Clarify ambiguity before proposing. Include tasks when the work naturally decomposes into trackable milestones; omit them for genuinely simple work.",
 			"Set token_budget only when the user explicitly asked for a token budget or a spend limit. Never invent, estimate, or infer one from the objective's size; omitting it creates a goal with no budget.",
 			"Confirmation creates or revises the goal atomically. Continue Chatting leaves drafting active for refinement.",
@@ -325,7 +326,7 @@ export function registerDraftingTools(core: GoalCore): void {
 		executionMode: "sequential",
 		async execute(_id, params, _signal, _update, ctx) {
 			const draft = activeDraft(core);
-			if (!draft) return { content: [{ type: "text", text: "No guided goal draft is active. Do not create a goal without the user starting /goal or /sisyphus." }], details: goalDetails(core.state.goal) };
+			if (!draft) return { content: [{ type: "text", text: commandInstructions("No guided goal draft is active. Do not create a goal without the user starting /goal or /sisyphus.", core.loadedCommands) }], details: goalDetails(core.state.goal) };
 			if (params.token_budget !== undefined && params.token_budget !== null) {
 				const validation = validateTokenBudgetInput(params.token_budget);
 				if (!validation.ok) return {content: [{type: "text", text: validation.message}], details: goalDetails(core.state.goal)};
@@ -342,7 +343,7 @@ export function registerDraftingTools(core: GoalCore): void {
 			if (flushError || core.goalService.isTurnBuffered()) return {content: [{type: "text", text: "Proposal not saved: " + (flushError ?? "goal changes are still buffered")}], details: goalDetails(core.state.goal)};
 			core.reconcileFocusedGoalFromDisk(ctx);
 			const target = draft.mode === "tweak" ? core.state.goal : undefined;
-			if (draft.mode === "tweak" && (!target || target.id !== draft.targetGoalId)) return { content: [{ type: "text", text: "The goal changed while drafting; review it and start /goal-tweak again." }], details: goalDetails(core.state.goal) };
+			if (draft.mode === "tweak" && (!target || target.id !== draft.targetGoalId)) return { content: [{ type: "text", text: commandInstructions("The goal changed while drafting; review it and start /goal-tweak again.", core.loadedCommands) }], details: goalDetails(core.state.goal) };
 			if (target?.status === "complete") return {content: [{type: "text", text: "Completed goals cannot be tweaked."}], details: goalDetails(target)};
 			const proposalToken = target ? core.focusedOperationToken(target.id) : undefined;
 			const proposalRevision = target?.revision ?? 0;
@@ -376,7 +377,7 @@ export function registerDraftingTools(core: GoalCore): void {
 			});
 			if (confirmation.decision === "cancel") {
 				clearGoalDrafting(core, ctx);
-				return { content: [{ type: "text", text: `${summary}\n\nDraft cancelled; no goal was created. Run /goal or /sisyphus to start a new draft.` }], details: goalDetails(core.state.goal) };
+				return { content: [{ type: "text", text: `${summary}\n\nDraft cancelled; no goal was created. Run ${commandHint("goal", core.loadedCommands)} or ${commandHint("sisyphus", core.loadedCommands)} to start a new draft.` }], details: goalDetails(core.state.goal) };
 			}
 			if (confirmation.unavailable) {
 				return { content: [{ type: "text", text: `${summary}\n\n${DIALOG_UNAVAILABLE_HINT} The goal was NOT created and drafting remains active; do not retry the dialog until the host supports it or the user explicitly restarts with PI_GOAL_AUTO_CONFIRM=1.` }], details: goalDetails(core.state.goal) };
@@ -417,7 +418,7 @@ export function registerDraftingTools(core: GoalCore): void {
 					tokenBudget: created?.tokenBudget,
 				})}` }], details: goalDetails(core.state.goal), terminate: true };
 			}
-			if (!target) return { content: [{ type: "text", text: "The goal changed while drafting; review it and start /goal-tweak again." }], details: goalDetails(core.state.goal) };
+			if (!target) return { content: [{ type: "text", text: commandInstructions("The goal changed while drafting; review it and start /goal-tweak again.", core.loadedCommands) }], details: goalDetails(core.state.goal) };
 			const token = proposalToken!;
 			const finalFlushError = core.goalService.flushForAudit(ctx);
 			core.reconcileFocusedGoalFromDisk(ctx);
@@ -496,7 +497,7 @@ export function registerDraftingTools(core: GoalCore): void {
 				core.queueContinuation(ctx, true);
 			}
 			clearGoalDrafting(core, ctx);
-			return { content: [{ type: "text", text: `${summary}\n\nGoal tweak confirmed and applied.\n${formatGoalBudget(result.goal.tokenBudget)}${schedulingNote}${result.goal.status === "budget_limited" ? "\nConsumed tokens already meet this budget; the goal remains budget-limited." : result.goal.status === "paused" ? "\nGoal remains paused. Use /goal-resume to continue when scheduling permits." : ""}` }], details: goalDetails(result.goal), terminate: true };
+			return { content: [{ type: "text", text: `${summary}\n\nGoal tweak confirmed and applied.\n${formatGoalBudget(result.goal.tokenBudget)}${schedulingNote}${result.goal.status === "budget_limited" ? "\nConsumed tokens already meet this budget; the goal remains budget-limited." : result.goal.status === "paused" ? commandInstructions("\nGoal remains paused. Use /goal-resume to continue when scheduling permits.", core.loadedCommands) : ""}` }], details: goalDetails(result.goal), terminate: true };
 		},
 		renderCall(args, theme) {
 			// §proposal-presentation: the tool-call display lands in the terminal

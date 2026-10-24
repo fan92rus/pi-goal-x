@@ -1,3 +1,4 @@
+import type { GoalKeybinding, GoalCommands } from "../goal-controls.ts";
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { visibleWidth } from "@earendil-works/pi-tui";
@@ -297,10 +298,10 @@ export function renderAuditorWidgetLines(
 	progress: AuditorWidgetProgress,
 	theme: Theme,
 	width: number,
-	opts: { showToolDetails?: boolean; verdict?: "approved" | "disapproved" | "error" | null } = {},
+	opts: { showToolDetails?: boolean; verdict?: "approved" | "disapproved" | "error" | null; interruptKey?: GoalKeybinding } = {},
 ): string[] {
 	const model = deriveAuditorDashboardModel(progress, { auditorLabel: progress.auditorLabel, verdict: opts.verdict });
-	return renderAuditorDashboard(model, theme, width, { showToolDetails: opts.showToolDetails });
+	return renderAuditorDashboard(model, theme, width, { showToolDetails: opts.showToolDetails, interruptKey: opts.interruptKey });
 }
 
 /** §15.4: approval / rejection result card for a finished audit. */
@@ -312,18 +313,19 @@ export function renderAuditResultCardView(
 	return renderAuditResultCard(deriveAuditResultCard(view.verdict, view.report), theme, width);
 }
 
-export function renderGoalWidgetLines(goal: GoalWidgetRecord | null, theme: Theme, width: number, options: { openGoalCount?: number; auditorProgress?: AuditorWidgetProgress | null; disableTasks?: boolean; stalled?: boolean; ledgerEvents?: GoalLedgerEvent[]; expanded?: boolean; debug?: boolean; model?: GoalDashboardModel | null; compactScrollOffset?: number; expandedScrollOffset?: number; expandedTaskRows?: number; keybindings?: GoalDashboardKeybindings; /** Terminal-height bound (see boundWidgetRenderLines); undefined = unbounded. */ terminalRows?: number } = {}): string[] {
+export function renderGoalWidgetLines(goal: GoalWidgetRecord | null, theme: Theme, width: number, options: { commands?: GoalCommands; openGoalCount?: number; auditorProgress?: AuditorWidgetProgress | null; disableTasks?: boolean; stalled?: boolean; ledgerEvents?: GoalLedgerEvent[]; expanded?: boolean; debug?: boolean; model?: GoalDashboardModel | null; compactScrollOffset?: number; expandedScrollOffset?: number; expandedTaskRows?: number; keybindings?: GoalDashboardKeybindings; auditorKey?: GoalKeybinding; interruptAuditKey?: GoalKeybinding; /** Terminal-height bound (see boundWidgetRenderLines); undefined = unbounded. */ terminalRows?: number } = {}): string[] {
 	// When auditor progress is active, show the structured audit dashboard
 	// instead of the normal goal widget (§15.3).
 	if (options.auditorProgress) {
 		return boundWidgetRenderLines(renderAuditorWidgetLines(options.auditorProgress, theme, width, {
 			showToolDetails: options.expanded === true || options.debug === true,
+			interruptKey: options.interruptAuditKey,
 		}), options.terminalRows);
 	}
 	const openGoalCount = options.openGoalCount ?? 0;
 	if (!goal) {
 		// Unfocused panel when open goals exist; nothing when the pool is empty.
-		return boundWidgetRenderLines(openGoalCount > 0 ? renderUnfocusedDashboard(openGoalCount, theme, width) : [], options.terminalRows);
+		return boundWidgetRenderLines(openGoalCount > 0 ? renderUnfocusedDashboard(openGoalCount, theme, width, options.commands) : [], options.terminalRows);
 	}
 	const safeWidth = Math.max(1, width);
 	const otherCount = Math.max(0, openGoalCount - 1);
@@ -332,11 +334,12 @@ export function renderGoalWidgetLines(goal: GoalWidgetRecord | null, theme: Them
 		otherOpenGoals: otherCount,
 		ledgerEvents: options.ledgerEvents ?? [],
 		tasksDisabled: options.disableTasks === true,
+		commands: options.commands,
 	});
 	if (!model) return [];
 	const lines = options.expanded
 		? renderExpandedDashboard(model, theme, safeWidth, { scrollOffset: options.expandedScrollOffset, rows: options.expandedTaskRows, keybindings: options.keybindings })
-		: renderCompactDashboard(model, theme, safeWidth, { scrollOffset: options.compactScrollOffset, keybindings: options.keybindings });
+		: renderCompactDashboard(model, theme, safeWidth, { scrollOffset: options.compactScrollOffset, keybindings: options.keybindings, auditorKey: options.auditorKey });
 	return boundWidgetRenderLines(clampLinesToWidth(lines, width), options.terminalRows);
 }
 
@@ -555,6 +558,8 @@ export class GoalWidgetComponent implements Component {
 			ledgerEvents: this.getLedgerEvents(),
 			tasksDisabled: settings.disableTasks === true,
 			maxAutonomousRuns: settings.maxAutonomousRuns,
+			idleContinuationBackoff: settings.idleContinuationBackoff,
+			commands: settings.commands,
 		}) : null;
 		this.maybeReanchor(model);
 		const lines = renderGoalWidgetLines(this.getGoal(), this.theme, safeWidth, {
@@ -570,6 +575,9 @@ export class GoalWidgetComponent implements Component {
 			expandedScrollOffset: this.expandedScrollOffset,
 			expandedTaskRows: expandedTaskViewportRows(this.lastRenderWidth),
 			keybindings: settings.keybindings?.dashboard,
+			auditorKey: settings.keybindings?.toggleAuditor,
+			commands: settings.commands,
+			interruptAuditKey: settings.keybindings?.interruptAudit,
 		});
 		if (this.getDebugMode()) {
 			lines.push(...this.renderDebugPanel(width));
@@ -638,6 +646,8 @@ export class GoalWidgetComponent implements Component {
 			ledgerEvents: this.getLedgerEvents(),
 			tasksDisabled: settings.disableTasks === true,
 			maxAutonomousRuns: settings.maxAutonomousRuns,
+			idleContinuationBackoff: settings.idleContinuationBackoff,
+			commands: settings.commands,
 		}) : null;
 		this.maybeReanchor(model);
 		const list = model?.taskTree.filter((n) => n.depth === 0) ?? [];
@@ -674,6 +684,8 @@ export class GoalWidgetComponent implements Component {
 			ledgerEvents: this.getLedgerEvents(),
 			tasksDisabled: settings.disableTasks === true,
 			maxAutonomousRuns: settings.maxAutonomousRuns,
+			idleContinuationBackoff: settings.idleContinuationBackoff,
+			commands: settings.commands,
 		}) : null;
 		this.maybeReanchor(model);
 		const list = model?.taskTree ?? [];

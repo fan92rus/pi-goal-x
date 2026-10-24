@@ -1,0 +1,32 @@
+ Warning: fd not found. Offline mode enabled, skipping download.
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+ Goal settings
+
+ → ─── Editing: project
+ (/Users/tom/projects/pi-goal-x/experiments/runs/continuation-defaults/pi14-settings-2026-10-24/.pi/pi-goal-x
+ -settings.json) ───
+   Scope: project (select to switch)
+   ─── Goal behavior ───
+     autoSelectSingleGoal: false (default)
+     hideUnfocusedBanner: false (default)
+     hideUnfocusedPrompt: false (default)
+     disableContracts: false (default)
+     explicit execution contracts (opt-in): false (default)
+     autonomous run allowance: unlimited (default) (default)
+     show autonomous runs line: true (default)
+     stall timeout (minutes): 0 (default)
+     max objective length (0 = none): 0 (default)
+   ─── Advanced execution ───
+     slow repeated idle replies (opt-in): true (inherited from global)
+   ─── Task tracking ───
+     disableTasks: false (default)
+     subtaskDepth: 1 (default)
+   ─── Completion auditor ───
+     auditor disabled: false (default)
+     provider: (default) (default)
+     model: (default) (default)
+     thinking_level: (default) (default)
+   ─── Blocker Oracle ───
+     oracle enabled: false (default)
+~/projects/pi-goal-x/experiments/runs/continuation-defaults/pi14-settings-2026-10-24 (codex/continuation-de...

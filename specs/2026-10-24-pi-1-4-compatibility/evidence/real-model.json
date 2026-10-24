@@ -1,0 +1,35 @@
+{
+  "sdk": "1.4.0",
+  "method": "real model, actual SDK, ordinary /goal confirmation choices; agent-operated RPC walkthrough",
+  "provider": "openrouter",
+  "model": "deepseek/deepseek-v4-flash",
+  "thinking": "medium",
+  "objective": "/goal Fix normalizeName so it trims outer whitespace and collapses internal whitespace to one space. Add tests for tabs/newlines and unchanged ordinary names, and run all tests. Keep the change focused and add no dependencies.",
+  "choices": [
+    {
+      "title": "Completion auditor (currently enabled)",
+      "answer": "Enabled — require independent approval"
+    },
+    {
+      "title": "Confirm Goal Draft",
+      "answer": "1. Confirm — create this goal now (Recommended)"
+    }
+  ],
+  "completed": true,
+  "requests": 20,
+  "elapsedMs": 59670,
+  "sdkReportedCostUSD": 0.003069116596,
+  "usage": {
+    "input": 51301,
+    "output": 4916,
+    "cacheRead": 60928,
+    "cacheWrite": 0
+  },
+  "extraSchedulingDeclarations": 0,
+  "errors": [],
+  "artifactTestsPass": true,
+  "independentAssertions": true,
+  "source": "export function normalizeName(input) {\n  return input.trim().replace(/\\s+/g, ' ');\n}\n",
+  "testOutput": "✔ trims and collapses name whitespace (0.516917ms)\n✔ tabs are trimmed and collapsed (0.058084ms)\n✔ newlines are trimmed and collapsed (0.060334ms)\n✔ mixed whitespace is collapsed (0.078708ms)\n✔ ordinary name unchanged (0.070792ms)\n✔ empty or whitespace input is empty (0.052083ms)\nℹ tests 6\nℹ suites 0\nℹ pass 6\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 128.704\n",
+  "limitation": "One model run, not a causal timing/cost comparison; cost comes from SDK usage, not a billing receipt."
+}

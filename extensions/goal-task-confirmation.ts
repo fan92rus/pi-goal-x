@@ -1,4 +1,4 @@
-import { matchesKey } from "@earendil-works/pi-tui";
+import { goalDialogControls } from "./goal-dialog-controls.ts";
 import { truncateToWidth } from "./widgets/text-cache.ts";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
@@ -45,6 +45,7 @@ export async function showTaskConfirmation(ctx: ExtensionContext, proposalText: 
 }
 
 async function showTaskListConfirmationDialog(ctx: ExtensionContext, proposalText: string): Promise<TaskConfirmationResult | undefined> {
+	const controls = goalDialogControls(typeof ctx.cwd === "string" ? ctx.cwd : process.cwd());
 	return await ctx.ui.custom<TaskConfirmationResult | undefined>(
 		(tui: TUI, theme: Theme, _keybindings: unknown, done: (result: TaskConfirmationResult | undefined) => void): Component => {
 			if (!tui || typeof tui.getShowHardwareCursor !== "function" || typeof tui.setShowHardwareCursor !== "function" || typeof tui.requestRender !== "function") {
@@ -130,28 +131,28 @@ async function showTaskListConfirmationDialog(ctx: ExtensionContext, proposalTex
 
 					// ── Footer ───────────────────────────────────────────────
 					lines.push(accent(`├${horizLine}┤`));
-					lines.push(line(p + dim("Enter to select  ·  ↑↓ to navigate  ·  Esc = keep current tasks")));
+					lines.push(line(p + dim(`${controls.hint("confirm")} to select  ·  ${controls.navigationHint()} to navigate  ·  ${controls.hint("cancel")} = keep current tasks`)));
 					lines.push(accent(`└${horizLine}┘`));
 
 					return lines;
 				},
 
 				handleInput(data: string): void {
-					if (matchesKey(data, "up")) {
+					if (controls.matches(data, "up")) {
 						selectedIndex = (selectedIndex - 1 + OPTIONS.length) % OPTIONS.length;
 						tui.requestRender();
 						return;
 					}
-					if (matchesKey(data, "down")) {
+					if (controls.matches(data, "down")) {
 						selectedIndex = (selectedIndex + 1) % OPTIONS.length;
 						tui.requestRender();
 						return;
 					}
-					if (matchesKey(data, "enter")) {
+					if (controls.matches(data, "confirm")) {
 						done({ decision: OPTIONS[selectedIndex]!.value });
 						return;
 					}
-					if (matchesKey(data, "escape")) {
+					if (controls.matches(data, "cancel")) {
 						done({ decision: "cancel" });
 						return;
 					}

@@ -1,4 +1,4 @@
-import { matchesKey } from "@earendil-works/pi-tui";
+import { goalDialogControls } from "../goal-dialog-controls.ts";
 import { truncateToWidth } from "./text-cache.ts";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
@@ -27,6 +27,7 @@ export async function showEscapeDialog(
 		return "continue_working";
 	}
 
+	const controls = goalDialogControls(typeof ctx.cwd === "string" ? ctx.cwd : process.cwd());
 	return await ctx.ui.custom<EscapeDialogResult>(
 		(tui: TUI, theme: Theme, _keybindings: unknown, done: (result: EscapeDialogResult) => void): Component => {
 			const wasHardwareCursorShown = tui.getShowHardwareCursor();
@@ -78,7 +79,7 @@ export async function showEscapeDialog(
 
 					// ── Header ────────────────────────────────────────────────
 					lines.push(accent(`┌${horizLine}┐`));
-					const headerContent = p + theme.bold("Audit interrupted by Escape") + dim("  (continue = default)");
+					const headerContent = p + theme.bold("Audit interrupted") + dim("  (continue = default)");
 					lines.push(line(truncateToWidth(headerContent, innerWidth, "…")));
 					const truncatedObjective = truncateToWidth(goalObjective, innerWidth - 14, "…");
 					lines.push(line(p + dim("Goal: ") + dim(truncatedObjective)));
@@ -100,7 +101,7 @@ export async function showEscapeDialog(
 
 					// ── Footer ───────────────────────────────────────────────
 					lines.push(accent(`├${horizLine}┤`));
-					const footerText = dim("Enter to select  ·  ↑↓ to navigate  ·  Esc = continue working");
+					const footerText = dim(`${controls.hint("confirm")} to select  ·  ${controls.navigationHint()} to navigate  ·  ${controls.hint("cancel")} = continue working`);
 						const truncFooter = truncateToWidth(footerText, innerWidth - 2, "…");
 					lines.push(line(p + truncFooter));
 					lines.push(accent(`└${horizLine}┘`));
@@ -109,22 +110,22 @@ export async function showEscapeDialog(
 				},
 
 				handleInput(data: string): void {
-					if (matchesKey(data, "up")) {
+					if (controls.matches(data, "up")) {
 						selectedIndex = (selectedIndex - 1 + OPTIONS.length) % OPTIONS.length;
 						tui.requestRender();
 						return;
 					}
-					if (matchesKey(data, "down")) {
+					if (controls.matches(data, "down")) {
 						selectedIndex = (selectedIndex + 1) % OPTIONS.length;
 						tui.requestRender();
 						return;
 					}
-					if (matchesKey(data, "enter")) {
+					if (controls.matches(data, "confirm")) {
 						cancelled = false;
 						done(OPTIONS[selectedIndex]!.value);
 						return;
 					}
-					if (matchesKey(data, "escape")) {
+					if (controls.matches(data, "cancel")) {
 						cancelled = true;
 						done("continue_working");
 						return;

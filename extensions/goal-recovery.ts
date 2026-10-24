@@ -1,4 +1,5 @@
 import { goalStoragePath, goalPoolSnapshotPath, ensureGoalStorageDirectory } from "./storage/goal-root.ts";
+import { commandPaths, type GoalCommands } from "./goal-controls.ts";
 /**
  * /goal-recovery — read-only storage/recovery report + guarded repair.
  *
@@ -228,7 +229,7 @@ export async function runRecoveryRepair(
 	return { applied, backupDir, confirmed: true };
 }
 
-export function formatRecoveryReport(report: RecoveryReport): string {
+export function formatRecoveryReport(report: RecoveryReport, commands?: GoalCommands): string {
 	const lines: string[] = [];
 	lines.push(report.healthy ? "Recovery report: OK — no issues found." : "Recovery report: issues found.");
 	if (report.malformedGoalFiles.length > 0) {
@@ -247,7 +248,9 @@ export function formatRecoveryReport(report: RecoveryReport): string {
 		for (const o of report.orphanedSnapshotGoals) lines.push(`      ${o.goalId} (${o.activePath})`);
 	}
 	if (report.staleLocks.length > 0 || report.orphanedSnapshotGoals.length > 0) {
-		lines.push("Run `/goal-recovery repair` to remove stale locks and refresh the pool snapshot (confirmation + backup required).");
+		const route = commandPaths(commands, "goal-recovery")[0];
+		lines.push(route ? `Run \`/${route} repair\` to remove stale locks and refresh the pool snapshot (confirmation + backup required).`
+			: "Enable a recovery command in /goal-settings controls to repair these files (confirmation + backup required).");
 	}
 	return lines.join("\n");
 }

@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-24",
+  "node": "v26.10.0",
+  "suite": {
+    "command": "npm run test:all",
+    "tests": 1145,
+    "pass": 1145,
+    "fail": 0,
+    "skipped": 0,
+    "files": 85,
+    "durationMs": 47910.027417
+  },
+  "typecheck": true,
+  "lint": true,
+  "explicitExperimentLint": true,
+  "manifest": {
+    "unit": 78,
+    "integration": 1,
+    "e2e": 6
+  },
+  "contextFixtures": 24,
+  "providerPayloads": 6,
+  "responsesCompatibilityPayloads": 3,
+  "retentionMaxHistoryBytes": 4194304,
+  "hostVersions": [
+    "0.83.0",
+    "0.84.1",
+    "0.85.1",
+    "0.86.0",
+    "0.87.0",
+    "1.0.0",
+    "1.4.0"
+  ],
+  "runtimeBenchmarkRows": 105,
+  "packageDryRun": true,
+  "publicationTests": 6,
+  "rankingTests": 5,
+  "productionDependencyAudit": "zero vulnerabilities",
+  "efficiency": {
+    "contexts": 72,
+    "scenarios": 19,
+    "candidatePrefixVariants": 1,
+    "disabledPacingSnapshots": 0
+  },
+  "notes": [
+    "Node 22.15 and 24 are CI coverage, not local execution claims.",
+    "Real-model, terminal and SDK evidence have separate methods and limitations.",
+    "Prototype patch retains native diff whitespace. Readable terminal frames omit right padding; raw PTY captures remain in ignored runs."
+  ]
+}

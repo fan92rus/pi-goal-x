@@ -6,6 +6,9 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { renderGoalWidgetLines, renderAuditorWidgetLines, renderAuditResultCardView, GoalWidgetComponent, applyStableHeightBound, type GoalWidgetRecord, type AuditorWidgetProgress } from "../extensions/widgets/goal-widget.ts";
 import type { GoalTask } from "../extensions/goal-record.ts";
 import { createMockTUI, createMockTheme } from "./tui-test-utils.ts";
+import { createGoal } from "../extensions/goal-record.ts";
+import { newGoalScheduler } from "../extensions/goal-scheduler-state.ts";
+import { deriveGoalDashboardModel } from "../extensions/widgets/goal-dashboard-model.ts";
 
 const theme = {
 	fg: (_color: string, value: string) => value,
@@ -45,6 +48,22 @@ test("renderGoalWidgetLines renders the unified compact dashboard", () => {
 	assert.doesNotMatch(lines[0]!, /1m05s/, "usage moved from the header into the status line");
 	assert.match(lines[1]!, /goal: sisyphus running \[1m05s 2\.5K\]/);
 	assert.match(lines.at(-1) ?? "", /^╰─ .*Ctrl\+Shift\+T: expand/);
+});
+
+for (const width of [72, 110]) test(`idle pacing preserves compact height and controls at ${width} columns`, () => {
+	const current = createGoal({ objective: "Finish the report", autoContinue: true, sisyphus: false });
+	current.activePath = ".pi/goals/report.md";
+	const state = { stickyCap: undefined as number | undefined, stickyRegime: undefined as string | undefined, stickyTerminalRows: undefined as number | undefined };
+	const model = () => deriveGoalDashboardModel(current, { focused: true, otherOpenGoals: 0, idleContinuationBackoff: true });
+	const initial = renderGoalWidgetLines(current, theme, width, { model: model() });
+	const first = applyStableHeightBound(initial, 32, state, "same-goal");
+	current.scheduler = { ...newGoalScheduler("test"), phase: "ready", decision: { kind: "ready", purpose: "ready" }, idle: { runs: 2, nextAt: Date.now() + 30000 } };
+	const paced = renderGoalWidgetLines(current, theme, width, { model: model() });
+	const visible = applyStableHeightBound(paced, 32, state, "same-goal");
+	assert.equal(visible.length, first.length);
+	assert.match(visible.join("\n"), /Next automatic attempt in .*\/goal-resume/);
+	assert.match(visible.at(-1)!, /^╰─ .*Ctrl\+Shift\+T/);
+	assert.ok(visible.every(line => visibleWidth(line) <= width));
 });
 
 test("renderGoalWidgetLines shows the complete state", () => {
@@ -525,6 +544,7 @@ function keybindingHarness(initialExpanded = false) {
 		auditProgress: null,
 		state: { goal: null },
 		pauseActiveGoal: () => { consumed.push("pause"); },
+		interruption: { pause: () => { consumed.push("pause"); } },
 		abortAudit: () => { consumed.push("abort-audit"); },
 		isDashboardExpanded: () => expanded,
 		toggleDashboardExpanded: () => { expanded = !expanded; consumed.push("toggle"); },
@@ -761,6 +781,7 @@ function scrollHarness(initialExpanded = false, g: GoalWidgetRecord = manyTasksG
 		auditProgress: null,
 		state: { goal: null },
 		pauseActiveGoal: () => { consumed.push("pause"); },
+		interruption: { pause: () => { consumed.push("pause"); } },
 		abortAudit: () => { consumed.push("abort-audit"); },
 		isDashboardExpanded: () => expanded,
 		toggleDashboardExpanded: () => { expanded = !expanded; consumed.push("toggle"); },

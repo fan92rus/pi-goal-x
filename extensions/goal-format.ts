@@ -1,5 +1,6 @@
 import { type Theme } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import { commandInstructions, type GoalCommands } from "./goal-controls.ts";
 import {
 	formatDuration,
 	formatTokenValue,
@@ -43,8 +44,8 @@ export function usageLines(goal: GoalRecord): string[] {
 	];
 }
 
-export function detailedSummary(goal: GoalRecord | null): string {
-	if (!goal) return "No goal is set. Use /goal <objective> or /sisyphus <objective> to start immediately.";
+export function detailedSummary(goal: GoalRecord | null, commands?: GoalCommands): string {
+	if (!goal) return commandInstructions("No goal is set. Use /goal <objective> or /sisyphus <objective> to start immediately.", commands);
 	const lines = [
 		`Goal: ${goal.objective}`,
 		`Status: ${statusLabel(goal)}`,

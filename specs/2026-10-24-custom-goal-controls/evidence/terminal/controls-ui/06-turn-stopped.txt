@@ -1,0 +1,20 @@
+[Extensions]
+  goal.ts, ready-observer.mjs
+
+
+ Turn stopped. The goal is waiting for you; Resume or send a message to
+ continue.
+
+ Operation aborted
+
+╭─ pi-goal-x ─ Create greeting.txt containing exactly Hello from goa…──╮
+│ goal: waiting for you                                                │
+│ Turn stopped. Resume or send a message to continue.                  │
+│ File     .pi/goals/active_goal_2026102410395334_mvm7jo1q-x901m2.md   │
+╰─ Ctrl+Shift+T: expand tasks───────── Ctrl+Shift+A: toggle auditor ● ─╯
+────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────
+~/projects/pi-goal-x/experiments/runs/goal-controls/controls-ui-52622...
+1.3%/200k                                                        fixture
+Turn stopped · press pause again to pause the goal · Resume or send a...

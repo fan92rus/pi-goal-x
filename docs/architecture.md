@@ -249,6 +249,28 @@ token/time intervals per turn; a goal never double-charges the same interval.
 `GoalRuntime` (goal-runtime.ts) owns continuation scheduling, the stale
 checkpoint state, the turn-stop guard, and one-shot steering reminders.
 
+`GoalScheduler` persists dispatch intent and allowance consumption. Default
+continuation is immediate. Explicit `idleContinuationBackoff=true` also records a
+bounded idle streak and earliest next attempt: one immediate continuation, then
+30 seconds doubling to five minutes. Work accumulates over the whole logical run;
+content snapshots exclude usage, revisions and scheduler writes. Disabled pacing
+skips those snapshots. Settings are rechecked at scheduling and admission; opting
+out removes saved delay metadata without renewing consumption. Resume and genuine
+host input reset pacing; strict waits and provider recovery remain independent.
+
+`goal-prompt-profile.ts` detects Pi's native custom-turn startup protocol and
+leaves its structured prompt/tool deltas intact on Pi 1.2 and newer. On older
+affected structured hosts, it projects the current public prompt and resolved
+tools through `context_with_system`, or the full `context` event where necessary.
+That fallback fixes the first request after direct creation, drafting, resume or
+reload without changing history or tool/result pairs. Classic hosts keep their
+native path. Current `agent_settled.aborted` events stop continuation/recovery and
+pause the associated goal, including cancellation before a provider request.
+
+Audit display messages flush only at idle settlement and remain scoped to their
+session. If Pi has invalidated a settlement context, the handler skips it before
+consuming continuation intent or changing the replacement session's queue.
+
 An optional `token_budget` may be set at creation. When accounted usage
 reaches the budget, `accountProgress` transitions the goal to the distinct
 `budget_limited` status exactly once (status leaves `active`, so accounting

@@ -1,0 +1,20 @@
+ ├─ ⟡ Create greeting.txt containing exactly Hello from goal followed
+ by a newline. Verify it.
+ └─ auto-continue on
+ Budget: none
+
+ Standing by.
+
+ Standing by.
+
+ Standing by.
+
+╭─ pi-goal-x ─ Create greeting.txt containing exactly Hello from goa…──╮
+│ Next automatic attempt in 60s (09:08 local). /goal-resume now.       │
+│ File     .pi/goals/active_goal_2026102409063497_mvm47obm-b091ib.md   │
+╰─ Ctrl+Shift+T: expand tasks───────── Ctrl+Shift+A: toggle auditor ● ─╯
+────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────
+~/projects/pi-goal-x/experiments/runs/continuation-defaults/productio...
+0.9%/200k                                                        fixture

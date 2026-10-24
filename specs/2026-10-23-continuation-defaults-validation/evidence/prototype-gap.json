@@ -1,0 +1,38 @@
+{
+  "evidence": "actual SDK with scripted provider; user-command entry, controlled model behavior",
+  "meaning": "Historical failing gate before the prototype fix; retained beside the passing regression evidence",
+  "results": [
+    {
+      "id": "candidate-opt-out-enabled",
+      "passed": false,
+      "error": "AssertionError [ERR_ASSERTION]: Known prototype gap: opting out leaves an already queued delay active",
+      "stopReason": "opt-out-still-paced",
+      "finalSettings": {
+        "idleContinuationBackoff": false
+      },
+      "requests": 2,
+      "settlements": [
+        {
+          "at": 329,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 1,
+            "nextAt": 1792792291329
+          },
+          "used": 1
+        },
+        {
+          "at": 337,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 2,
+            "nextAt": 1792792321337
+          },
+          "used": 2
+        }
+      ]
+    }
+  ]
+}

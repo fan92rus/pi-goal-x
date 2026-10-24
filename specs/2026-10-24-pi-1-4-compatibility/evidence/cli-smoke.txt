@@ -1,0 +1,14 @@
+=== live Pi 1.4.0 lifecycle result ===
+host version:            1.4.0
+provider requests:       3 (drafting=1, execution=1, audit=1)
+dialogs:                 setStatus, setWidget, setStatus, setWidget, notify, setStatus, setWidget, select, select, notify, setStatus, setStatus, setStatus, setStatus, setStatus, setStatus, setStatus, notify, setStatus, setWidget
+tools called:            propose_goal_draft, update_goal
+active goal files:       .goal-ledger-checkpoint.json
+archived:                goal_2026102409331514_mvm55yxj-0nenf0.md
+goal status on disk:     (no record)
+goal tokenBudget:        (absent)
+ledger event types:      goal_created, completion_requested, audit_started, audit_result, goal_completed, goal_archived
+milestones:              {"draftingPrompt":true,"proposalShown":true,"goalCreated":true,"budgetNone":true,"executionStarted":true,"auditRan":true,"completed":true}
+
+[live] required milestones: all present
+[live] lifecycle reached completion/archival: yes

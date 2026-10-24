@@ -1,0 +1,204 @@
+{
+  "date": "2026-10-24",
+  "node": "v26.10.0",
+  "results": [
+    {
+      "sdk": "0.83.0",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ],
+      "tests": {
+        "tests": 37,
+        "pass": 37,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "sdk": "0.84.1",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ],
+      "tests": {
+        "tests": 37,
+        "pass": 37,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "sdk": "0.85.1",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ],
+      "tests": {
+        "tests": 37,
+        "pass": 37,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "sdk": "0.86.0",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ],
+      "tests": {
+        "tests": 37,
+        "pass": 37,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "sdk": "0.87.0",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ],
+      "tests": {
+        "tests": 37,
+        "pass": 37,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "sdk": "1.0.0",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ],
+      "tests": {
+        "tests": 37,
+        "pass": 37,
+        "fail": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "sdk": "1.4.0",
+      "passed": true,
+      "phases": [
+        {
+          "phase": "install",
+          "passed": true
+        },
+        {
+          "phase": "typecheck",
+          "passed": true
+        },
+        {
+          "phase": "sdk",
+          "passed": true
+        },
+        {
+          "phase": "providers",
+          "passed": true
+        }
+      ],
+      "tests": {
+        "tests": 37,
+        "pass": 37,
+        "fail": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "method": "Isolated npm SDK installations; typecheck, real SDK workflows and real provider serialization; no paid network inference.",
+  "nodeLimitation": "All local compatibility runs used Node 26.10.0. CI separately covers Node 22.15 and 24."
+}

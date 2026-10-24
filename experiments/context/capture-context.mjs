@@ -30,7 +30,7 @@ export function sdkSystem(definitions, customPrompt) {
  return raw.replaceAll(fs.realpathSync(new URL("../../node_modules/@earendil-works/pi-coding-agent", import.meta.url)), "/sdk");
 }
 const BASE_SYSTEM = sdkSystem(HOST_TOOLS);
-const CAPTURE_CWD = "/tmp/goal-context-capture";
+const CAPTURE_CWD = process.env.PI_GOAL_CONTEXT_CAPTURE_CWD ?? "/tmp/goal-context-capture";
 
 function createCapture() {
 	const handlers = new Map();

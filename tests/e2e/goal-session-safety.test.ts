@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const run = promisify(execFile);
 const worker = fileURLToPath(new URL("../session-safety-worker.mjs", import.meta.url));
-for (const mode of ["approve", "reject", "skip", "abort", "error", "history-completions", "history-responses", "child-fresh", "child-fork", "child-resume", "child-nested"]) {
+for (const mode of ["approve", "reject", "skip", "abort", "error", "stale-reload", "history-completions", "history-responses", "child-fresh", "child-fork", "child-resume", "child-nested"]) {
 	test(`real SDK: goal session safety (${mode})`, { timeout: 30_000 }, async () => {
 		const child = mode.startsWith("child-");
 		const { stdout } = await run(process.execPath, ["--experimental-strip-types", worker, mode], {

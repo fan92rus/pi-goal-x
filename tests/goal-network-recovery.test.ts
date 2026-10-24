@@ -598,6 +598,33 @@ test("session_compact_failed warns the user instead of failing silently (pi 1.0.
 	assert.match(message, /stays active/i, "the goal is not silently stopped");
 });
 
+for (const phase of ["startup", "success", "network-error"]) test(`lifecycle: settlement abort after ${phase} pauses without continuation or recovery`, async () => {
+	const { cwd, goal } = fixtureCwd();
+	const h = createHarness(cwd);
+	try {
+		await startSession(h.handlers, h.ctx, sessionEntriesFor(goal));
+		await h.handlers["before_agent_start"]!({ systemPrompt: "base", prompt: "continue", systemPromptOptions: {} }, h.ctx);
+		if (phase !== "startup") await h.handlers["agent_end"]!({ messages: phase === "network-error" ? [{ role: "assistant", stopReason: "error", errorMessage: REPORTED_503_MESSAGE }] : [] }, idleCtx(h.ctx));
+		await h.handlers["agent_settled"]!({ aborted: true }, idleCtx(h.ctx));
+		assert.equal(h.core.state.goal?.status, "paused");
+		assert.equal(await countCheckpoints(h), 0);
+		assert.ok(!h.notifications.some(n => /Retrying the goal/.test(n.message)));
+	} finally { h.core.scheduler.shutdown(); h.core.runtime.clearContinuationState(); }
+});
+
+test("lifecycle: an aborted settlement does not pause a replacement goal", async () => {
+	const { cwd, goal } = fixtureCwd();
+	const h = createHarness(cwd);
+	await startSession(h.handlers, h.ctx, sessionEntriesFor(goal));
+	await h.handlers["before_agent_start"]!({ systemPrompt: "base", prompt: "continue", systemPromptOptions: {} }, h.ctx);
+	await h.handlers["agent_end"]!({ messages: [] }, idleCtx(h.ctx));
+	h.core.state.goal = { ...goal, id: "replacement-goal", status: "active" };
+	await h.handlers["agent_settled"]!({ aborted: true }, idleCtx(h.ctx));
+	assert.equal(h.core.state.goal.status, "active");
+	assert.equal(await countCheckpoints(h), 0);
+	h.core.scheduler.shutdown(); h.core.runtime.clearContinuationState();
+});
+
 test("session_compact_failed stays silent when the user aborted or no goal is focused", async () => {
 	// An abort is a user action, not a fault: warning about it would be noise.
 	const { cwd, goal } = fixtureCwd();

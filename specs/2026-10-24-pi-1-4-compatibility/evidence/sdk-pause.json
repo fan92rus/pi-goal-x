@@ -1,0 +1,112 @@
+{
+  "passed": true,
+  "mode": "pause",
+  "command": "/goal Create result.txt containing exactly verified result followed by a newline, verify it and finish.",
+  "choices": [
+    {
+      "title": "Completion auditor (currently enabled)",
+      "answer": "Enabled — require independent approval"
+    },
+    {
+      "title": "Confirm Goal Draft",
+      "answer": "1. Confirm — create this goal now (Recommended)"
+    }
+  ],
+  "requests": [
+    {
+      "phase": "draft",
+      "action": "propose_goal_draft",
+      "hash": "b3b8c33f8a02fc55190b667df66e6f065d4920cddba434373d357c3e806a18b4",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "goal_question",
+        "goal_questionnaire",
+        "propose_goal_draft"
+      ]
+    },
+    {
+      "phase": "execution",
+      "action": "write",
+      "hash": "fc9b6e75edb80f324641539213a4c2dfd7f0d1a499983958b89002a3ebe63dfe",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "create_goal",
+        "get_goal",
+        "update_goal",
+        "set_goal_tasks"
+      ]
+    },
+    {
+      "phase": "execution",
+      "action": "write",
+      "hash": "fc9b6e75edb80f324641539213a4c2dfd7f0d1a499983958b89002a3ebe63dfe",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "create_goal",
+        "get_goal",
+        "update_goal",
+        "set_goal_tasks"
+      ]
+    },
+    {
+      "phase": "execution",
+      "action": "update_goal",
+      "hash": "fc9b6e75edb80f324641539213a4c2dfd7f0d1a499983958b89002a3ebe63dfe",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "create_goal",
+        "get_goal",
+        "update_goal",
+        "set_goal_tasks"
+      ]
+    },
+    {
+      "phase": "audit",
+      "action": "read",
+      "hash": "347e183ebcbd051144bccfa2a507bc08cc1d83b9563f8707df23c3c34d3382f9",
+      "tools": [
+        "read",
+        "grep",
+        "find",
+        "ls",
+        "bash"
+      ]
+    },
+    {
+      "phase": "audit",
+      "action": "text",
+      "hash": "347e183ebcbd051144bccfa2a507bc08cc1d83b9563f8707df23c3c34d3382f9",
+      "tools": [
+        "read",
+        "grep",
+        "find",
+        "ls",
+        "bash"
+      ]
+    }
+  ],
+  "initialExecutionPromptCorrect": true,
+  "executorPrefixStable": true,
+  "nativePromptPreparation": true,
+  "externalPromptInstructionPreserved": true,
+  "artifact": "verified result\n",
+  "paused": true,
+  "reloadedWhilePaused": false,
+  "errors": []
+}

@@ -31,10 +31,8 @@ export const DRAFTING_GOAL_TOOLS = [
 export const ALL_REGISTERED_GOAL_TOOLS = [...FIVE_GOAL_TOOLS, ...DRAFTING_GOAL_TOOLS] as const;
 
 /**
- * Goal tools that count as "real work" toward the active goal plus the common
- * host work tools. Used by the empty-turn continuation gate: if a non-tool-use
- * turn ends without any of these having been called, we do NOT queue the next
- * autoContinue.
+ * Legacy work-tool classification plus the common host work tools. Scheduling
+ * does not require membership: idle pacing uses the narrower progress set.
  */
 export const GOAL_WORK_TOOL_NAMES = [
 	UPDATE_GOAL_TOOL_NAME,

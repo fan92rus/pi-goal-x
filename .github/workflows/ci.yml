@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+
 # Cancel superseded runs: a new push/PR update stops the previous run, so
 # runner time is never spent on outdated commits.
 concurrency:
@@ -18,41 +21,58 @@ jobs:
   validate:
     name: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Determine affected checks
+        id: changes
+        run: node scripts/ci-scope.mjs
       - uses: actions/setup-node@v4
+        if: steps.changes.outputs.runtime == 'true'
         with:
           node-version: 24
           cache: npm
       - name: Install dependencies
-        run: npm ci
+        if: steps.changes.outputs.runtime == 'true'
+        run: npm ci --no-audit --no-fund
       - name: Ranking updater tests
         run: python3 -B scripts/test-update-ranking.py
       - name: Publication workflow tests
-        run: node --test scripts/test-publish-workflow.mjs
+        if: steps.changes.outputs.runtime == 'true'
+        run: node --test scripts/test-publish-workflow.mjs scripts/test-ci.mjs
       - name: Type check
+        if: steps.changes.outputs.runtime == 'true'
         run: npm run check
       - name: Lint
+        if: steps.changes.outputs.runtime == 'true'
         run: npm run lint
-      - name: Full test suite
-        run: npm run test:all
-      - name: Test-manifest self-check
-        run: npm run test:selfcheck
+      - name: Full tests, manifest and installed Pi workflows
+        if: steps.changes.outputs.runtime == 'true'
+        env:
+          PI_GOAL_CI_LOG_DIR: ${{ runner.temp }}/pi-goal-validation
+        run: node scripts/ci-checks.mjs
       - name: Package dry run
+        if: steps.changes.outputs.runtime == 'true'
         run: npm pack --dry-run
       - name: Production dependency audit
+        if: steps.changes.outputs.runtime == 'true'
         run: npm audit --omit=dev
       - name: Context and provider boundaries
+        if: steps.changes.outputs.runtime == 'true'
         run: |
           npm run context:gate
           npm run context:provider-check
           node --experimental-strip-types experiments/context/retention-check.mjs
       - name: Check out benchmark base
+        if: steps.changes.outputs.runtime == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha || github.event.before }}
           path: .benchmark-base
       - name: Runtime benchmark regression gate
+        if: steps.changes.outputs.runtime == 'true'
         run: |
           ln -s "$GITHUB_WORKSPACE/node_modules" .benchmark-base/node_modules
           # Main preserves compact historical checkpoints; use the corrected fixture for both runs.
@@ -60,32 +80,58 @@ jobs:
           npm --prefix .benchmark-base run bench:naf -- after naf
           npm run bench:naf -- after naf
           PI_GOAL_BENCH_REFERENCE="$GITHUB_WORKSPACE/.benchmark-base/experiments/bench/baseline-naf-after.json" npm run bench:gate:naf
+      - name: Save failure details
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-failure
+          path: |
+            ${{ runner.temp }}/pi-goal-validation/
+            experiments/runs/goal-controls/
+          retention-days: 5
+          if-no-files-found: ignore
 
   compatibility:
+    name: compatibility (${{ matrix.group }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         include:
-          - sdk: 0.83.0
+          - group: oldest
+            sdks: '0.83.0'
             node: 22.15.0
-          - sdk: 0.84.1
-            node: 24
-          - sdk: 0.85.1
-            node: 24
-          - sdk: 0.86.0
-            node: 24
+          - group: modern
+            sdks: '0.84.1 0.85.1 0.86.0 0.87.0 1.0.0 1.4.0'
+            node: 22.19.0
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Determine affected checks
+        id: changes
+        run: node scripts/ci-scope.mjs
       - uses: actions/setup-node@v4
+        if: steps.changes.outputs.runtime == 'true'
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-      - run: npm ci
-      - name: Install declared host boundary
-        run: npm install --no-save --package-lock=false @earendil-works/pi-ai@${{ matrix.sdk }} @earendil-works/pi-coding-agent@${{ matrix.sdk }} @earendil-works/pi-tui@${{ matrix.sdk }}
-      - run: npm run check
-      - name: Host and provider regressions
-        run: |
-          node --experimental-strip-types --import ./scripts/test-adapter-hooks.mjs --test tests/e2e/goal-prompt-cache-sdk.test.ts tests/e2e/goal-scheduler-sdk.test.ts tests/goal-rpc-dialogs.test.ts tests/goal-widget-lifetime.test.ts
-          npm run context:provider-check
+      - name: Install test tools
+        if: steps.changes.outputs.runtime == 'true'
+        run: npm ci --no-audit --no-fund
+      - name: Isolated host, type and provider regressions
+        if: steps.changes.outputs.runtime == 'true'
+        env:
+          HOST_VERSIONS: ${{ matrix.sdks }}
+        run: node experiments/continuation/compatibility.mjs $HOST_VERSIONS
+      - name: Save failure details
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-failure-${{ matrix.group }}
+          path: |
+            experiments/runs/continuation-defaults/production-hosts/results.json
+            experiments/runs/continuation-defaults/production-hosts/*/*.log
+          retention-days: 5
+          if-no-files-found: ignore

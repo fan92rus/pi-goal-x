@@ -1,0 +1,791 @@
+{
+  "evidence": "actual SDK with scripted provider; user-command entry, controlled model behavior",
+  "meaning": "passed means the observed policy behavior matched the probe expectation; it is not an endorsement of that policy as the default",
+  "results": [
+    {
+      "id": "original-ordinary",
+      "passed": true,
+      "stopReason": "completed",
+      "requests": 8,
+      "auditRequests": 1,
+      "elapsedMs": 373,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 187,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 200,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 209,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 221,
+          "status": "archived"
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": "verified result\n",
+      "customArtifact": null
+    },
+    {
+      "id": "current-ordinary",
+      "passed": true,
+      "stopReason": "completed",
+      "requests": 8,
+      "auditRequests": 1,
+      "elapsedMs": 260,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 79,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 89,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 97,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 107,
+          "status": "archived"
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": "verified result\n",
+      "customArtifact": null
+    },
+    {
+      "id": "candidate-ordinary",
+      "passed": true,
+      "stopReason": "completed",
+      "requests": 8,
+      "auditRequests": 1,
+      "elapsedMs": 260,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 75,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 84,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 93,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 104,
+          "status": "archived"
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": "verified result\n",
+      "customArtifact": null
+    },
+    {
+      "id": "original-reasoning",
+      "passed": true,
+      "stopReason": "completed",
+      "requests": 6,
+      "auditRequests": 1,
+      "elapsedMs": 196,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 19,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 26,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 34,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 42,
+          "status": "archived"
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": "verified result\n",
+      "customArtifact": null
+    },
+    {
+      "id": "current-reasoning",
+      "passed": true,
+      "stopReason": "paced",
+      "requests": 2,
+      "auditRequests": 0,
+      "elapsedMs": 189,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 20,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 1,
+            "nextAt": 1792792581815
+          },
+          "used": 1
+        },
+        {
+          "at": 27,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 2,
+            "nextAt": 1792792611822
+          },
+          "used": 2
+        }
+      ],
+      "savedDelayAtObservationMs": 30000,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": null,
+      "customArtifact": null
+    },
+    {
+      "id": "candidate-reasoning",
+      "passed": true,
+      "stopReason": "completed",
+      "requests": 6,
+      "auditRequests": 1,
+      "elapsedMs": 198,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 19,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 26,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 35,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 44,
+          "status": "archived"
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": "verified result\n",
+      "customArtifact": null
+    },
+    {
+      "id": "original-custom",
+      "passed": true,
+      "stopReason": "completed",
+      "requests": 8,
+      "auditRequests": 1,
+      "elapsedMs": 217,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 35,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 44,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 52,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 60,
+          "status": "archived"
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": "verified result\n",
+      "customArtifact": "section 1\nsection 2\n"
+    },
+    {
+      "id": "current-custom",
+      "passed": true,
+      "stopReason": "paced",
+      "requests": 4,
+      "auditRequests": 0,
+      "elapsedMs": 188,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 25,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 1,
+            "nextAt": 1792792582439
+          },
+          "used": 1
+        },
+        {
+          "at": 33,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 2,
+            "nextAt": 1792792612448
+          },
+          "used": 2
+        }
+      ],
+      "savedDelayAtObservationMs": 30000,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": null,
+      "customArtifact": "section 1\nsection 2\n"
+    },
+    {
+      "id": "candidate-custom",
+      "passed": true,
+      "stopReason": "completed",
+      "requests": 8,
+      "auditRequests": 1,
+      "elapsedMs": 209,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 22,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 29,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 38,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 47,
+          "status": "archived"
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": "verified result\n",
+      "customArtifact": "section 1\nsection 2\n"
+    },
+    {
+      "id": "original-idle",
+      "passed": true,
+      "stopReason": "harness-ceiling",
+      "requests": 4,
+      "auditRequests": 0,
+      "elapsedMs": 195,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 15,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 21,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 26,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 32,
+          "status": "active",
+          "phase": "ready",
+          "used": 4
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": null,
+      "customArtifact": null
+    },
+    {
+      "id": "current-idle",
+      "passed": true,
+      "stopReason": "paced",
+      "requests": 2,
+      "auditRequests": 0,
+      "elapsedMs": 193,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 25,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 1,
+            "nextAt": 1792792583048
+          },
+          "used": 1
+        },
+        {
+          "at": 31,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 2,
+            "nextAt": 1792792613054
+          },
+          "used": 2
+        }
+      ],
+      "savedDelayAtObservationMs": 29999,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": null,
+      "customArtifact": null
+    },
+    {
+      "id": "candidate-idle",
+      "passed": true,
+      "stopReason": "harness-ceiling",
+      "requests": 4,
+      "auditRequests": 0,
+      "elapsedMs": 215,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 31,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 39,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 47,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 55,
+          "status": "active",
+          "phase": "ready",
+          "used": 4
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": null,
+      "customArtifact": null
+    },
+    {
+      "id": "original-generic-status",
+      "passed": true,
+      "stopReason": "completed",
+      "requests": 5,
+      "auditRequests": 1,
+      "elapsedMs": 185,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 25,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 33,
+          "status": "archived"
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": "verified result\n",
+      "customArtifact": null
+    },
+    {
+      "id": "current-generic-status",
+      "passed": true,
+      "stopReason": "completed",
+      "requests": 5,
+      "auditRequests": 1,
+      "elapsedMs": 196,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 25,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 36,
+          "status": "archived"
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": "verified result\n",
+      "customArtifact": null
+    },
+    {
+      "id": "candidate-generic-status",
+      "passed": true,
+      "stopReason": "completed",
+      "requests": 5,
+      "auditRequests": 1,
+      "elapsedMs": 187,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 27,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 35,
+          "status": "archived"
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": "verified result\n",
+      "customArtifact": null
+    },
+    {
+      "id": "original-busy-poll",
+      "passed": true,
+      "stopReason": "harness-ceiling",
+      "requests": 8,
+      "auditRequests": 0,
+      "elapsedMs": 215,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 25,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 36,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 48,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 62,
+          "status": "active",
+          "phase": "ready",
+          "used": 4
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": null,
+      "customArtifact": null
+    },
+    {
+      "id": "current-busy-poll",
+      "passed": true,
+      "stopReason": "harness-ceiling",
+      "requests": 8,
+      "auditRequests": 0,
+      "elapsedMs": 215,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 24,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 36,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 48,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 60,
+          "status": "active",
+          "phase": "ready",
+          "used": 4
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": null,
+      "customArtifact": null
+    },
+    {
+      "id": "candidate-busy-poll",
+      "passed": true,
+      "stopReason": "harness-ceiling",
+      "requests": 8,
+      "auditRequests": 0,
+      "elapsedMs": 216,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {},
+      "settlements": [
+        {
+          "at": 25,
+          "status": "active",
+          "phase": "ready",
+          "used": 1
+        },
+        {
+          "at": 36,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 49,
+          "status": "active",
+          "phase": "ready",
+          "used": 3
+        },
+        {
+          "at": 61,
+          "status": "active",
+          "phase": "ready",
+          "used": 4
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": null,
+      "customArtifact": null
+    },
+    {
+      "id": "candidate-idle-enabled",
+      "passed": true,
+      "stopReason": "paced",
+      "requests": 2,
+      "auditRequests": 0,
+      "elapsedMs": 183,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {
+        "idleContinuationBackoff": true
+      },
+      "settlements": [
+        {
+          "at": 18,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 1,
+            "nextAt": 1792792584706
+          },
+          "used": 1
+        },
+        {
+          "at": 23,
+          "status": "active",
+          "phase": "ready",
+          "idle": {
+            "runs": 2,
+            "nextAt": 1792792614712
+          },
+          "used": 2
+        }
+      ],
+      "savedDelayAtObservationMs": 30000,
+      "quietWindowMs": 150,
+      "waitQuiet": false,
+      "artifact": null,
+      "customArtifact": null
+    },
+    {
+      "id": "candidate-wait",
+      "passed": true,
+      "stopReason": "completed",
+      "requests": 5,
+      "auditRequests": 1,
+      "elapsedMs": 420,
+      "commands": [
+        "/goal-direct Produce result.txt containing exactly verified result followed by a newline. Verify it and complete the goal."
+      ],
+      "settings": {
+        "strictExecutionContract": true
+      },
+      "settlements": [
+        {
+          "at": 20,
+          "status": "active",
+          "phase": "waiting",
+          "used": 1
+        },
+        {
+          "at": 257,
+          "status": "active",
+          "phase": "ready",
+          "used": 2
+        },
+        {
+          "at": 265,
+          "status": "archived"
+        }
+      ],
+      "savedDelayAtObservationMs": null,
+      "quietWindowMs": 150,
+      "waitQuiet": true,
+      "signalAt": 241,
+      "artifact": "verified result\n",
+      "customArtifact": null
+    }
+  ]
+}

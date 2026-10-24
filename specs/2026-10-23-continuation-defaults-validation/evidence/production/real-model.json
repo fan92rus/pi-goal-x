@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-24",
+  "method": "real model, actual SDK, ordinary /goal confirmation choices; agent-operated RPC walkthrough",
+  "source": "export function normalizeName(input) {\n  return input.trim().replace(/\\s+/g, ' ');\n}\n",
+  "provider": "openrouter",
+  "model": "deepseek/deepseek-v4-flash",
+  "thinking": "medium",
+  "objective": "/goal Fix normalizeName so it trims outer whitespace and collapses internal whitespace to one space. Add tests for tabs/newlines and unchanged ordinary names, and run all tests. Keep the change focused and add no dependencies.",
+  "choices": [
+    {
+      "title": "Completion auditor (currently enabled)",
+      "answer": "Enabled — require independent approval"
+    },
+    {
+      "title": "Confirm Goal Draft",
+      "answer": "1. Confirm — create this goal now (Recommended)"
+    }
+  ],
+  "completed": true,
+  "requests": 18,
+  "elapsedMs": 75681,
+  "sdkReportedCostUSD": 0.002818735192,
+  "usage": {
+    "input": 47627,
+    "output": 4488,
+    "cacheRead": 53671,
+    "cacheWrite": 0
+  },
+  "errors": [],
+  "extraSchedulingDeclarations": 0,
+  "artifactTestsPass": true,
+  "independentAssertions": true,
+  "testOutput": "✔ trims and collapses name whitespace (0.403583ms)\n✔ empty or whitespace input is empty (0.056584ms)\n✔ tabs and newlines collapsed to single spaces (0.047959ms)\n✔ newlines collapsed to single spaces (0.329834ms)\n✔ ordinary name unchanged (0.076958ms)\nℹ tests 5\nℹ suites 0\nℹ pass 5\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 113.397417\n",
+  "limitations": [
+    "One nondeterministic coding run; not a causal policy comparison.",
+    "Agent-operated RPC dialogs use the existing sequential fallback; rich confirmation was tested separately in the terminal.",
+    "Cost and cache counters come from SDK usage, not a billing receipt."
+  ]
+}

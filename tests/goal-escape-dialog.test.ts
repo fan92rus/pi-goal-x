@@ -84,7 +84,7 @@ test("escape dialog component renders correct structure and content", async () =
 	assert.ok(lines[lines.length - 1]!.includes("└"), "Bottom border present");
 
 	// Content
-	assert.ok(text.includes("Audit interrupted by Escape"), "Shows header");
+	assert.ok(text.includes("Audit interrupted"), "Shows header");
 	assert.ok(text.includes("Mark complete without audit"), "Shows complete option");
 	assert.ok(text.includes("Continue working"), "Shows continue option");
 	assert.ok(text.includes("Test objective"), "Shows objective");

@@ -1,3 +1,5 @@
+import { GOAL_COMMANDS, commandHint, commandPaths, commandProblems, commandRoutes, matchCommandRoute, type GoalCommandId } from "./goal-controls.ts";
+import { showGoalControls } from "./widgets/goal-controls-dialog.ts";
 import { goalStoragePath, goalStorageRoot } from "./storage/goal-root.ts";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -75,12 +77,15 @@ import {
 import type { GoalCore } from "./goal-state.ts";
 
 /**
- * The curated twelve-command palette. /goal and /sisyphus begin guided
- * drafting; -direct commands are the explicit bypass. Every frequent lifecycle action is independently
- * registered so it appears in slash-command tab completion. No aliases.
+ * Stable command actions retain their lifecycle checks. Configured invocation
+ * paths are registered at load time; aliases and subcommands share the same
+ * handler and argument completion. /goal-settings remains the recovery entry.
  */
 export function registerGoalCommands(core: GoalCore): void {
 	const { pi } = core;
+	type Definition = { description: string; handler: (args: string, ctx: ExtensionContext) => Promise<void> };
+	const actions = new Map<GoalCommandId, Definition>();
+	const define = (id: GoalCommandId, definition: Definition): void => { actions.set(id, definition); };
 
 	async function chooseOpenGoal(ctx: ExtensionContext, title: string): Promise<GoalRecord | null> {
 		core.reconcileFocusedGoalFromDisk(ctx);
@@ -117,7 +122,7 @@ export function registerGoalCommands(core: GoalCore): void {
 	async function focusGoalCommand(ctx: ExtensionContext): Promise<void> {
 		const open = core.openGoals();
 		if (open.length === 0) {
-			ctx.ui.notify("No open goals. Use /goal to draft one, or /goal-direct <objective> to start immediately.", "warning");
+			ctx.ui.notify(`No open goals. Use ${commandHint("goal", core.loadedCommands)} to draft one, or ${commandHint("goal-direct", core.loadedCommands)} <objective> to start immediately.`, "warning");
 			return;
 		}
 		if (open.length === 1) {
@@ -172,7 +177,7 @@ export function registerGoalCommands(core: GoalCore): void {
 		}
 		if (!current) {
 			const openCount = otherOpenGoalCount(core.goalsById, null);
-			ctx.ui.notify(openCount > 0 ? buildUnfocusedOpenGoalsSummary(openCount) : detailedSummary(null), "info");
+			ctx.ui.notify(openCount > 0 ? buildUnfocusedOpenGoalsSummary(openCount) : detailedSummary(null, core.loadedCommands), "info");
 			return;
 		}
 		ctx.ui.notify(`Goal unfocused for this session. It remains open in .pi/goals: ${current.id}`, "info");
@@ -181,12 +186,12 @@ export function registerGoalCommands(core: GoalCore): void {
 	function handleDirectGoalSet(rawObjective: string, ctx: ExtensionContext, mode: GoalMode): void {
 		const raw = rawObjective.trim();
 		if (!raw) {
-			const command = mode === "sisyphus" ? "/sisyphus <objective>" : "/goal <objective>";
+			const command = `${commandHint(mode === "sisyphus" ? "sisyphus-direct" : "goal-direct", core.loadedCommands)} <objective>`;
 			ctx.ui.notify(`No objective provided. Use ${command}.`, "warning");
 			return;
 		}
 		if (mode === "sisyphus" && !sisyphusObjectiveSufficient(raw)) {
-			ctx.ui.notify("A Sisyphus objective needs ordered steps with per-step done criteria. Use /sisyphus for guided drafting, or provide numbered steps (1) ..., 2) ...) in the objective.", "warning");
+			ctx.ui.notify(`A Sisyphus objective needs ordered steps with per-step done criteria. Use ${commandHint("sisyphus", core.loadedCommands)} for guided drafting, or provide numbered steps (1) ..., 2) ...) in the objective.`, "warning");
 			return;
 		}
 		const settings = loadGoalSettings(ctx.cwd);
@@ -222,7 +227,7 @@ export function registerGoalCommands(core: GoalCore): void {
 			? `\n\n${formatCheckpointHealthReport(checkpointHealth, sessionFile)}`
 			: "";
 		ctx.ui.notify(
-			formatRecoveryReport(report) + checkpointSection,
+			formatRecoveryReport(report, core.loadedCommands) + checkpointSection,
 			report.healthy && (checkpointHealth?.legacyFull ?? 0) === 0 ? "info" : "warning",
 		);
 	}
@@ -262,6 +267,7 @@ export function registerGoalCommands(core: GoalCore): void {
 			? `goal-refresh: re-read caches from disk — ${changes.length} change(s):\n${changes.map((c) => `  - ${c}`).join("\n")}`
 			: "goal-refresh: no changes detected — caches were already current.";
 		ctx.ui.notify(text, "info");
+		core.scheduler.refreshSettings(ctx);
 		core.updateUI(ctx);
 	}
 
@@ -279,7 +285,10 @@ export function registerGoalCommands(core: GoalCore): void {
 		const health = /^\s*health\b/i.test(rawArgs);
 		const ledger = readGoalLedger(ctx);
 		const text = buildGoalStatusText({
+			commands: core.loadedCommands,
+			keybindings: loadGoalSettings(ctx.cwd).keybindings,
 			maxAutonomousRuns: loadGoalSettings(ctx.cwd).maxAutonomousRuns,
+			idleContinuationBackoff: loadGoalSettings(ctx.cwd).idleContinuationBackoff,
 			goal: view,
 			focused: view !== null && core.focusedGoalId === view.id,
 			otherOpenGoals: otherCount,
@@ -323,10 +332,14 @@ export function registerGoalCommands(core: GoalCore): void {
 			return;
 		}
 		if (currentGoal.status === "paused") {
-			ctx.ui.notify("Goal is already paused. Use /goal-resume to continue.", "info");
+			ctx.ui.notify(`Goal is already paused. Use ${commandHint("goal-resume", core.loadedCommands)} to continue.`, "info");
+			if (!ctx.isIdle()) ctx.abort?.();
 			return;
 		}
+		core.interruption.reset();
+		ctx.ui.setStatus("goal-interrupt", undefined);
 		core.pauseActiveGoal(ctx);
+		ctx.abort?.();
 	}
 
 	async function handleGoalResume(ctx: ExtensionContext): Promise<void> {
@@ -361,10 +374,11 @@ export function registerGoalCommands(core: GoalCore): void {
 	type SettingRow = {
 		key: keyof GoalSettings | string;
 		label: string;
-		section: "Goal behavior" | "Task tracking" | "Completion auditor" | "Blocker Oracle";
+		section: "Goal behavior" | "Task tracking" | "Completion auditor" | "Blocker Oracle" | "Advanced execution";
 		kind: "boolean" | "modelSelector" | "thinking" | "positiveInteger";
 		/** Settings path for the mutation (defaults to [key]). */
 		path?: string[];
+		help?: string;
 	};
 
 	// Locale-aware parenthetical explanations for settings rows (user request
@@ -422,6 +436,8 @@ export function registerGoalCommands(core: GoalCore): void {
 		{ key: "showAutonomousRuns", label: "show autonomous runs line", section: "Goal behavior", kind: "boolean" },
 		{ key: "stallTimeoutMinutes", label: "stall timeout (minutes)", section: "Goal behavior", kind: "positiveInteger" },
 		{ key: "objectiveMaxChars", label: "max objective length (0 = none)", section: "Goal behavior", kind: "positiveInteger" },
+		{ key: "idleContinuationBackoff", label: "slow repeated idle replies (opt-in)", section: "Advanced execution", kind: "boolean",
+			help: "Slows repeated replies without recognized work. May delay reasoning or custom tools. For a hard stop, set an autonomous run allowance." },
 		{ key: "disableTasks", label: "disableTasks", section: "Task tracking", kind: "boolean" },
 		{ key: "autonomousTasks", label: "autonomousTasks", section: "Task tracking", kind: "boolean" },
 		{ key: "subtaskDepth", label: "subtaskDepth", section: "Task tracking", kind: "positiveInteger" },
@@ -439,7 +455,7 @@ export function registerGoalCommands(core: GoalCore): void {
 	];
 
 	function settingsValue(config: GoalSettings, key: keyof GoalSettings | string): string {
-		if (key === "strictExecutionContract" || key === "disabled" || key === "disableTasks" || key === "disableContracts" || key === "autonomousTasks" || key === "autoSelectSingleGoal" || key === "auditorProjectResources" || key === "hideUnfocusedBanner" || key === "hideUnfocusedPrompt" || key === "showAutonomousRuns") {
+		if (key === "idleContinuationBackoff" || key === "strictExecutionContract" || key === "disabled" || key === "disableTasks" || key === "disableContracts" || key === "autonomousTasks" || key === "autoSelectSingleGoal" || key === "auditorProjectResources" || key === "hideUnfocusedBanner" || key === "hideUnfocusedPrompt" || key === "showAutonomousRuns") {
 			return config[key] === true ? "true" : "false";
 		}
 		if (key === "subtaskDepth") return config.subtaskDepth !== undefined ? String(config.subtaskDepth) : "1";
@@ -485,6 +501,7 @@ export function registerGoalCommands(core: GoalCore): void {
 			try {
 				mutateSettingsLayer({ scope, cwd: ctx.cwd, mutation });
 				applyEffectiveSettings();
+				if (mutation.path[0] === "idleContinuationBackoff") core.scheduler.refreshSettings(ctx);
 				return true;
 			} catch (err) {
 				ctx.ui.notify(`Settings change failed: ${err instanceof Error ? err.message : String(err)}`, "warning");
@@ -503,6 +520,8 @@ export function registerGoalCommands(core: GoalCore): void {
 				const localLayer = snapshot[scope].layer as Record<string, unknown>;
 				const options: string[] = [];
 				options.push(`─── Editing: ${scope} (${scopePath(scope)}) ───`);
+				options.push(`Scope: ${scope} (select to switch)`);
+				options.push("Controls: commands, keys and pause order…");
 				let lastSection: string | null = null;
 				const pathOf = (row: SettingRow): string[] => row.path ?? [String(row.key)];
 				const valueAtPath = (obj: unknown, path: string[]): unknown => {
@@ -540,6 +559,7 @@ export function registerGoalCommands(core: GoalCore): void {
 				options.push("Done");
 				const selected = await ctx.ui.select("Goal settings", options);
 				if (!selected || selected === "Done") break;
+				if (selected.startsWith("Controls:")) { if (await showGoalControls(core, ctx, scope)) return; continue; }
 				if (selected.startsWith("───")) continue; // headers are not rows
 				const trimmed = selected.trim();
 				if (trimmed.startsWith("Scope:")) {
@@ -580,7 +600,7 @@ export function registerGoalCommands(core: GoalCore): void {
 					];
 					if (hasLocalOverride) actions.push(inheritLabel);
 					actions.push("Cancel");
-					const action = await ctx.ui.select(`${row.label} (${scope})`, actions);
+					const action = await ctx.ui.select(`${row.label} (${scope})${row.help ? `\n${row.help}` : ""}`, actions);
 					if (!action || action === "Cancel") continue;
 					if (action === inheritLabel) {
 						applyMutation(scope, { op: "unset", path: rowPath });
@@ -598,7 +618,7 @@ export function registerGoalCommands(core: GoalCore): void {
 					const actions = [`Set ${scope} override...`];
 					if (hasLocalOverride) actions.push(inheritLabel);
 					actions.push("Cancel");
-					const action = await ctx.ui.select(`${row.label} (${scope})`, actions);
+					const action = await ctx.ui.select(`${row.label} (${scope})${row.help ? `\n${row.help}` : ""}`, actions);
 					if (!action || action === "Cancel") continue;
 					if (action === inheritLabel) {
 						applyMutation(scope, { op: "unset", path: rowPath });
@@ -704,7 +724,7 @@ export function registerGoalCommands(core: GoalCore): void {
 		// Headless behavior is explicit: guidance without mutation. Clearing
 		// requires an interactive confirmation (follow-up Stage 2).
 		if (!ctx.hasUI) {
-			ctx.ui.notify(`Run /goal-clear in an interactive session to confirm clearing: ${oneLineSummary(target)}`, "warning");
+			ctx.ui.notify(`Run ${commandHint("goal-clear", core.loadedCommands)} in an interactive session to confirm clearing: ${oneLineSummary(target)}`, "warning");
 			return;
 		}
 		const confirmed = await ctx.ui.confirm("Clear goal?", oneLineSummary(target));
@@ -734,19 +754,19 @@ export function registerGoalCommands(core: GoalCore): void {
 				const selected = await chooseOpenGoal(ctx, "Tweak which open goal?");
 				if (!selected) return;
 			} else {
-				ctx.ui.notify("No goal is set. Use /goal to draft one, or /goal-direct <objective> to create one immediately.", "warning");
+				ctx.ui.notify(`No goal is set. Use ${commandHint("goal", core.loadedCommands)} to draft one, or ${commandHint("goal-direct", core.loadedCommands)} <objective> to create one immediately.`, "warning");
 				return;
 			}
 		}
 		const currentGoal = core.state.goal;
 		if (!currentGoal) return;
 		if (currentGoal.status === "complete") {
-			ctx.ui.notify("Goal is complete. Use /goal to draft a new one, or /goal-direct <objective> to create one immediately.", "warning");
+			ctx.ui.notify(`Goal is complete. Use ${commandHint("goal", core.loadedCommands)} to draft a new one, or ${commandHint("goal-direct", core.loadedCommands)} <objective> to create one immediately.`, "warning");
 			return;
 		}
 		const trimmed = replacement.trim();
 		if (!trimmed) {
-			ctx.ui.notify("Describe the requested change: /goal-tweak <change>, for example remove the token budget", "info");
+			ctx.ui.notify(`Describe the requested change: ${commandHint("goal-tweak", core.loadedCommands)} <change>, for example remove the token budget`, "info");
 			return;
 		}
 		const max = loadGoalSettings(ctx.cwd).objectiveMaxChars;
@@ -760,19 +780,19 @@ export function registerGoalCommands(core: GoalCore): void {
 	}
 
 	// /goal and /sisyphus are the guided default. -direct commands are the explicit bypass.
-	pi.registerCommand("goal", {
+	define("goal", {
 		description: "Draft a regular goal with clarification, task planning, and confirmation.",
 		handler: async (rawArgs, ctx) => {
 			await startGoalDrafting(core, ctx, "goal", rawArgs);
 		},
 	});
-	pi.registerCommand("sisyphus", {
+	define("sisyphus", {
 		description: "Draft a Sisyphus goal with clarification, task planning, and confirmation.",
 		handler: async (rawArgs, ctx) => {
 			await startGoalDrafting(core, ctx, "sisyphus", rawArgs);
 		},
 	});
-	pi.registerCommand("goal-cancel", {
+	define("goal-cancel", {
 		description: "Cancel the in-progress guided draft without creating or modifying a goal.",
 		handler: async (_rawArgs, ctx) => {
 			if (!hasActiveDraft(core)) {
@@ -784,15 +804,15 @@ export function registerGoalCommands(core: GoalCore): void {
 			ctx.ui.notify("Draft cancelled; no goal was created. The execution profile is restored.", "info");
 		},
 	});
-	pi.registerCommand("goal-direct", {
+	define("goal-direct", {
 		description: "Create and start a regular goal immediately, without drafting.",
 		handler: async (rawArgs, ctx) => { handleDirectGoalSet(rawArgs, ctx, "goal"); },
 	});
-	pi.registerCommand("sisyphus-direct", {
+	define("sisyphus-direct", {
 		description: "Create and start a Sisyphus goal immediately, without drafting.",
 		handler: async (rawArgs, ctx) => { handleDirectGoalSet(rawArgs, ctx, "sisyphus"); },
 	});
-	pi.registerCommand("goal-list", {
+	define("goal-list", {
 		description: "List all open goals and the current focus.",
 		handler: async (_rawArgs, ctx) => {
 			core.reconcileFocusedGoalFromDisk(ctx);
@@ -800,64 +820,92 @@ export function registerGoalCommands(core: GoalCore): void {
 			core.updateUI(ctx);
 		},
 	});
-	pi.registerCommand("goal-status", {
+	define("goal-status", {
 		description: "Show the unified goal dashboard (read-only). Append \"verbose\" for full detail or \"health\" for storage/runtime checks.",
 		handler: async (rawArgs, ctx) => {
 			await showGoalStatus(rawArgs ?? "", ctx);
 		},
 	});
-	pi.registerCommand("goal-refresh", {
+	define("goal-refresh", {
 		description: "Re-read goal storage caches (pool, ledger, settings) from disk and report what changed. Picks up external edits to .pi files — no file watchers needed.",
 		handler: async (_rawArgs, ctx) => {
 			await runGoalRefresh(ctx);
 		},
 	});
-	pi.registerCommand("goal-recovery", {
+	define("goal-recovery", {
 		description: "Read-only storage/recovery report (malformed goal files, malformed ledger lines, stale locks, orphaned snapshot data). Append \"repair\" to remove stale locks and refresh the pool snapshot after confirmation (with backup).",
 		handler: async (rawArgs, ctx) => {
 			await runGoalRecovery((rawArgs ?? "").trim(), ctx);
 		},
 	});
-	pi.registerCommand("goal-focus", {
+	define("goal-focus", {
 		description: "Choose which open goal this session focuses on.",
 		handler: async (_rawArgs, ctx) => {
 			await focusGoalCommand(ctx);
 		},
 	});
-	pi.registerCommand("goal-unfocus", {
+	define("goal-unfocus", {
 		description: "Stop focusing the current goal (session only; goal stays open).",
 		handler: async (_rawArgs, ctx) => {
 			unfocusGoalCommand(ctx);
 		},
 	});
-	pi.registerCommand("goal-settings", {
-		description: "Open pi-goal settings (auditor provider/model/thinking level).",
-		handler: async (_rawArgs, ctx) => {
-			await handleSettingsMenu(ctx);
+	define("goal-settings", {
+		description: "Goal settings and controls; accepts controls for commands, keys and pause order.",
+		handler: async (rawArgs, ctx) => {
+			if (rawArgs.trim() === "controls") await showGoalControls(core, ctx);
+			else await handleSettingsMenu(ctx);
 		},
 	});
-	pi.registerCommand("goal-tweak", {
+	define("goal-tweak", {
 		description: "Revise the current goal or its token budget with confirmation.",
 		handler: async (rawArgs, ctx) => {
 			await runGoalTweak(rawArgs, ctx);
 		},
 	});
-	pi.registerCommand("goal-clear", {
+	define("goal-clear", {
 		description: "Archive the current goal after confirmation (user-owned abandonment).",
 		handler: async (_rawArgs, ctx) => {
 			await handleGoalClear(ctx);
 		},
 	});
-	pi.registerCommand("goal-pause", {
-		description: "Pause the currently running goal. Esc also pauses while running.",
+	define("goal-pause", {
+		description: "Pause the currently running goal and stop its turn.",
 		handler: async (_rawArgs, ctx) => {
 			await handleGoalPause(ctx);
 		},
 	});
-	pi.registerCommand("goal-resume", {
+	define("goal-resume", {
 		description: "Continue now and renew the configured autonomous-run allowance.",
 		handler: async (_rawArgs, ctx) => {
 			await handleGoalResume(ctx);
 		},
 	});
+	const configured = loadGoalSettings(process.cwd()).commands;
+	const problems = commandProblems(configured);
+	core.loadedCommands = problems.length ? undefined : configured;
+	core.controlWarnings = problems;
+	const routes = commandRoutes(core.loadedCommands);
+	core.invokeGoalCommand = async (id, args, ctx) => {
+		const action = actions.get(id);
+		if (!action) return;
+		core.enterGoalModal();
+		try { await action.handler(args, ctx); }
+		finally { core.exitGoalModal(); }
+	};
+	const roots = [...actions.keys()].flatMap(id => commandPaths(core.loadedCommands, id).map(route => route.split(" ")[0]!));
+	for (const root of new Set([...roots, "goal-settings"])) {
+		const rootRoutes = routes.filter(route => route.path.split(" ")[0] === root);
+		const direct = rootRoutes.find(route => route.path === root);
+		pi.registerCommand(root, {
+			description: direct ? actions.get(direct.id)!.description : `Goal actions: ${rootRoutes.map(route => route.path.slice(root.length + 1)).join(", ")}`,
+			getArgumentCompletions: prefix => rootRoutes.filter(route => route.path !== root && route.path.slice(root.length + 1).startsWith(prefix)).map(route => ({ value: route.path.slice(root.length + 1), label: route.path.slice(root.length + 1), description: GOAL_COMMANDS.find(([id]) => id === route.id)![1] })),
+			handler: async (args, ctx) => {
+				const match = matchCommandRoute(routes, root, args);
+				if (match) await core.invokeGoalCommand!(match.id, match.args, ctx);
+				else ctx.ui.notify(`Choose a goal command: ${rootRoutes.map(route => `/${route.path}`).join(", ")}`, "info");
+			},
+		});
+	}
+
 }

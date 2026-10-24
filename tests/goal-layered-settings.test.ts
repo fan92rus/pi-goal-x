@@ -63,6 +63,26 @@ describe("path resolution", () => {
 });
 
 describe("layering matrix", () => {
+	it("idle backoff defaults off and preserves explicit project false, inheritance and reopen", () => {
+		withTempDir(dir => {
+			const env = { PI_GOAL_GLOBAL_SETTINGS_FILE: path.join(dir, "global.json") };
+			invalidateGoalSettingsCache();
+			assert.equal(loadGoalSettings(dir, env).idleContinuationBackoff, false);
+			const change = (scope: SettingsScope, mutation: Parameters<typeof mutateSettingsLayer>[0]["mutation"]) => mutateSettingsLayer({ scope, cwd: dir, env, mutation });
+			for (const invalid of [1, null, "enabled"]) assert.throws(() => change("project", { op: "set", path: ["idleContinuationBackoff"], value: invalid }), SettingsMutationError);
+			change("global", { op: "set", path: ["idleContinuationBackoff"], value: true });
+			assert.equal(loadSettingsSnapshot(dir, env).provenance.get("idleContinuationBackoff")?.source, "global");
+			assert.equal(loadGoalSettings(dir, env).idleContinuationBackoff, true);
+			change("project", { op: "set", path: ["idleContinuationBackoff"], value: false });
+			invalidateGoalSettingsCache();
+			assert.equal(loadGoalSettings(dir, env).idleContinuationBackoff, false);
+			assert.equal(loadSettingsSnapshot(dir, env).provenance.get("idleContinuationBackoff")?.source, "project");
+			change("project", { op: "unset", path: ["idleContinuationBackoff"] });
+			assert.equal(loadGoalSettings(dir, env).idleContinuationBackoff, true);
+			change("global", { op: "unset", path: ["idleContinuationBackoff"] });
+			assert.equal(loadGoalSettings(dir, env).idleContinuationBackoff, false);
+		});
+	});
 	it("no global file behaves identically to project-only resolution", () => {
 		withTempDir((dir) => {
 			const env = { PI_GOAL_GLOBAL_SETTINGS_FILE: path.join(dir, "no-global.json") };

@@ -14,7 +14,7 @@ const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'scheduler-sdk-'));
 fs.mkdirSync(path.join(cwd, '.pi'));
 const implicit = process.argv.includes('--implicit');
 const uncapped = process.argv.includes('--uncapped');
-fs.writeFileSync(path.join(cwd, '.pi', 'pi-goal-x-settings.json'), JSON.stringify({ ...(!implicit ? { strictExecutionContract: true } : {}), ...(!uncapped ? { maxAutonomousRuns: 4 } : {}) }));
+fs.writeFileSync(path.join(cwd, '.pi', 'pi-goal-x-settings.json'), JSON.stringify({ ...(!implicit ? { strictExecutionContract: true } : { idleContinuationBackoff: true }), ...(!uncapped && !implicit ? { maxAutonomousRuns: 4 } : {}) }));
 process.env.PI_GOAL_GLOBAL_SETTINGS_FILE = path.join(cwd, 'absent-global');
 let session, core, piApi;
 const requests = [];
@@ -63,10 +63,25 @@ try {
 	session.subscribe(event => { if (event.type === 'auto_retry_start') retries++; });
 	await session.prompt('Run the fixture.');
 	if (implicit) {
-		await until(() => core.state.goal?.status === 'paused' && session.isIdle);
-		assert.equal(workRequests, 5, 'host execution plus four declaration-free continuations');
-		assert.equal(core.state.goal.scheduler.used, 4);
+		const paced = () => core.state.goal?.scheduler?.idle?.runs === 2 && core.state.goal.scheduler.idle.nextAt > Date.now() && session.isIdle;
+		await until(paced);
+		assert.equal(workRequests, 2, 'host execution plus one immediate reasoning-only continuation');
+		assert.equal(core.state.goal.scheduler.used, 1);
+		assert.equal(core.state.goal.status, 'active');
+		await delay(250);
+		assert.equal(workRequests, 2, 'idle replies do not trigger more provider requests while paced');
+		piApi.sendMessage({ customType: 'producer-finished', content: 'The background producer completed.', display: false }, { triggerTurn: true, deliverAs: 'followUp' });
+		await until(() => workRequests === 4 && paced());
+		assert.equal(core.state.goal.scheduler.used, 2, 'producer host run does not spend allowance');
+		assert.equal(core.scheduler.resume(session.extensionRunner.createContext()), true);
+		await until(() => workRequests === 6 && paced());
+		assert.equal(core.state.goal.scheduler.used, 2, 'resume renews allowance and promptly dispatches kickoff plus idle grace');
+		fs.writeFileSync(path.join(cwd, '.pi', 'pi-goal-x-settings.json'), JSON.stringify({ maxAutonomousRuns: 2 }));
+		core.scheduler.schedule(session.extensionRunner.createContext());
+		assert.equal(core.state.goal.status, 'paused');
 		assert.match(core.state.goal.pauseReason, /allowance exhausted/);
+		await delay(250);
+		assert.equal(workRequests, 6, 'lowered allowance cancels pending idle work');
 		assert.ok(!JSON.stringify(requests).includes('This is the only repair prompt'));
 	} else {
 	await until(() => core.state.goal?.scheduler?.phase === 'waiting' && session.isIdle);

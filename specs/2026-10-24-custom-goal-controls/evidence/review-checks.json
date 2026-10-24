@@ -1,0 +1,118 @@
+{
+  "tests": 1186,
+  "failures": 0,
+  "skips": 0,
+  "suites": [
+    {
+      "name": "tests",
+      "passed": true,
+      "code": 0,
+      "elapsedMs": 62556
+    },
+    {
+      "name": "controls-cli",
+      "passed": true,
+      "code": 0,
+      "elapsedMs": 70137
+    },
+    {
+      "name": "lifecycle-cli",
+      "passed": true,
+      "code": 0,
+      "elapsedMs": 2285
+    }
+  ],
+  "minimumNode": [
+    {
+      "node": "v22.15.0",
+      "results": [
+        {
+          "sdk": "0.83.0",
+          "passed": true,
+          "phases": [
+            {
+              "phase": "install",
+              "passed": true
+            },
+            {
+              "phase": "typecheck",
+              "passed": true
+            },
+            {
+              "phase": "sdk",
+              "passed": true
+            },
+            {
+              "phase": "providers",
+              "passed": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "node": "v22.19.0",
+      "results": [
+        {
+          "sdk": "1.4.0",
+          "passed": true,
+          "phases": [
+            {
+              "phase": "typecheck",
+              "passed": true
+            },
+            {
+              "phase": "sdk",
+              "passed": true
+            },
+            {
+              "phase": "providers",
+              "passed": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "workflowTests": 11,
+  "rankingTests": 5,
+  "actionlint": "1.7.12",
+  "typecheck": "passed",
+  "lint": "passed",
+  "context": "passed",
+  "packageDryRun": "passed",
+  "productionAudit": "0 vulnerabilities",
+  "baselineActions": {
+    "run": 40084436857,
+    "jobs": 8,
+    "elapsedSeconds": 226,
+    "jobSeconds": 552
+  },
+  "newActionsJobs": 3,
+  "pathCorrectedRun": {
+    "tests": 1186,
+    "skips": 0,
+    "localExecutableRegression": "passed",
+    "skipRejectionRegression": "passed",
+    "suites": [
+      {
+        "name": "tests",
+        "passed": true,
+        "code": 0,
+        "elapsedMs": 49208
+      },
+      {
+        "name": "controls-cli",
+        "passed": true,
+        "code": 0,
+        "elapsedMs": 68470
+      },
+      {
+        "name": "lifecycle-cli",
+        "passed": true,
+        "code": 0,
+        "elapsedMs": 2298
+      }
+    ]
+  }
+}

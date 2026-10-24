@@ -14,7 +14,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { GoalRecord, GoalTask, GoalTaskList } from "./goal-record.ts";
 import { countTaskSubtree } from "./goal-task-count.ts";
-import { loadGoalSettings, type GoalSettings, type ThinkingLevel } from "./goal-settings.ts";
+import { GOAL_THINKING_LEVELS, loadGoalSettings, type GoalSettings, type ThinkingLevel } from "./goal-settings.ts";
 import { statusLabel } from "./goal-core.ts";
 
 export interface AuditorProgress {
@@ -47,7 +47,7 @@ export interface GoalAuditorResult {
 	error?: string;
 }
 
-const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh"]);
+const THINKING_LEVELS = new Set<string>(GOAL_THINKING_LEVELS);
 
 function asNonEmptyString(value: unknown): string | undefined {
 	return typeof value === "string" && value.trim() ? value.trim() : undefined;

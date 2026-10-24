@@ -1,0 +1,20 @@
+ │
+ ╰─ Run /goal-status verbose for full deta…── Ctrl+Shift+A: toggle
+ auditor ● ─╯
+
+ ├─ Recent activity
+ ──────────────────────────────────────────────────────────┤
+ │ · Created and focused the goal.
+ │
+ │ · Paused the goal — user
+ │
+
+╭─ pi-goal-x ─ Create greeting.txt containing exactly Hello from goa…──╮
+│ goal: paused                                                         │
+│ File     .pi/goals/active_goal_2026102409350921_mvm58f1a-33d246.md   │
+╰─ Ctrl+Shift+T: expand tasks───────── Ctrl+Shift+A: toggle auditor ● ─╯
+────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────
+~/projects/pi-goal-x/experiments/runs/continuation-defaults/pi14-term...
+1.7%/200k                                                        fixture

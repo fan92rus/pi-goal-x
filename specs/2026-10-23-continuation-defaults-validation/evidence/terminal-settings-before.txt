@@ -1,0 +1,32 @@
+<approved/>
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+ Goal settings
+
+ → ─── Editing: project
+ (/Users/tom/projects/pi-goal-x/experiments/runs/continuation-defaults/terminal/.pi/pi-goal-x-settings.json)
+ ───
+   ─── Goal behavior ───
+     autoSelectSingleGoal: false (default)
+     hideUnfocusedBanner: false (default)
+     hideUnfocusedPrompt: false (default)
+     disableContracts: false (default)
+     explicit execution contracts (opt-in): false (default)
+     autonomous run allowance: unlimited (default) (default)
+     show autonomous runs line: true (default)
+     stall timeout (minutes): 0 (default)
+     max objective length (0 = none): 0 (default)
+   ─── Task tracking ───
+     disableTasks: false (default)
+     subtaskDepth: 1 (default)
+   ─── Completion auditor ───
+     auditor disabled: false (default)
+     provider: (default) (default)
+     model: (default) (default)
+     thinking_level: (default) (default)
+   ─── Blocker Oracle ───
+     oracle enabled: false (default)
+     oracle provider/model: [object Object] (default)
+     oracle thinking_level: (default) (default)
+     oracle project resources: false (default)
+~/projects/pi-goal-x/experiments/runs/continuation-defaults/terminal (codex/fix-open-issues-90-100)

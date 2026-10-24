@@ -1,3 +1,5 @@
+import type { GoalKeybinding } from "../goal-controls.ts";
+import { bindingKeys, commandHint, type GoalCommands } from "../goal-controls.ts";
 /**
  * Unified dashboard renderer (plan §5, §4).
  *
@@ -293,7 +295,7 @@ export function renderCompactDashboard(
 	model: GoalDashboardModel,
 	theme: Theme,
 	width: number,
-	opts: { footerHint?: string; scrollOffset?: number; keybindings?: GoalDashboardKeybindings } = {},
+	opts: { footerHint?: string; scrollOffset?: number; keybindings?: GoalDashboardKeybindings; auditorKey?: GoalKeybinding } = {},
 ): string[] {
 	const safeWidth = Math.max(10, width);
 	const mode = layoutMode(safeWidth);
@@ -307,10 +309,10 @@ export function renderCompactDashboard(
 	if (model.status.code === "complete") {
 		lines.push(boxLine(theme, safeWidth, `${success(theme, "✓")} ${success(theme, "All required work is complete.")}`));
 	} else {
-		lines.push(boxLine(theme, safeWidth, statusLine(theme, model)));
+		lines.push(boxLine(theme, safeWidth, model.idlePacing ? fit(model.idlePacing, inner) : statusLine(theme, model)));
 	}
 
-	for (const row of model.scheduling ?? []) lines.push(boxLine(theme, safeWidth, muted(theme, fit(row, inner))));
+	for (const row of model.scheduling ?? []) if (row !== model.idlePacing) lines.push(boxLine(theme, safeWidth, muted(theme, fit(row, inner))));
 
 	// Budget (when configured): fuel gauge + amount, amber until the budget is
 	// exhausted, then soft red.
@@ -408,7 +410,7 @@ export function renderCompactDashboard(
 	const scrollHint = usesDefaultScrollKeys
 		? mode === "minimal" ? "↑↓" : "Ctrl+Shift+↑↓"
 		: scrollShortcut;
-	const expandHint = mode === "wide" || mode === "medium"
+	const expandHint = !bindingKeys(keybindings.toggleExpand).length ? "" : mode === "wide" || mode === "medium"
 		? `${toggleShortcut}: expand tasks`
 		: `${toggleShortcut}: expand`;
 	const footerHint = opts.footerHint
@@ -424,9 +426,10 @@ export function renderCompactDashboard(
 	// just the dot. The boxFooter right slot pushes both to the right edge,
 	// so the chord and its note are right-aligned by construction.
 	const auditorDot = model.auditorEnabled ? success(theme, "●") : muted(theme, "●");
+	const auditorKey = opts.auditorKey ?? "ctrl+shift+a";
 	const right =
-		mode === "wide" || mode === "medium"
-			? `${frame(theme, "Ctrl+Shift+A: toggle auditor")} ${auditorDot}`
+		(mode === "wide" || mode === "medium") && bindingKeys(auditorKey).length
+			? `${frame(theme, `${formatGoalKeybinding(auditorKey)}: toggle auditor`)} ${auditorDot}`
 			: auditorDot;
 	lines.push(boxFooter(theme, safeWidth, footerHint, right));
 	return lines;
@@ -510,8 +513,8 @@ export function renderExpandedDashboard(
 		lines.push(...renderActivityBlock(model.recentActivity, theme, safeWidth));
 	}
 
-	const toggleShortcut = formatGoalKeybinding(opts.keybindings?.toggleExpand ?? DEFAULT_GOAL_KEYBINDINGS.dashboard.toggleExpand);
-	lines.push(boxFooter(theme, safeWidth, `Esc/${toggleShortcut}: collapse`));
+		const closeKeys = [opts.keybindings?.collapse ?? "escape", opts.keybindings?.toggleExpand ?? DEFAULT_GOAL_KEYBINDINGS.dashboard.toggleExpand].flatMap(bindingKeys);
+	lines.push(boxFooter(theme, safeWidth, closeKeys.length ? `${closeKeys.map(formatGoalKeybinding).join("/")}: collapse` : ""));
 	return lines;
 }
 
@@ -581,13 +584,13 @@ function wrappedBlock(theme: Theme, width: number, label: string, text: string):
  * Shown when open goals exist but none is focused. The widget's default
  * no-goal branch renders nothing (surfaces without goals).
  */
-export function renderUnfocusedDashboard(openGoalCount: number, theme: Theme, width: number): string[] {
+export function renderUnfocusedDashboard(openGoalCount: number, theme: Theme, width: number, commands?: GoalCommands): string[] {
 	const safeWidth = Math.max(10, width);
 	const lines: string[] = [];
 	lines.push(boxHeader(theme, safeWidth, frame(theme, "pi-goal-x ─ Goal focus required")));
 	const goals = openGoalCount === 1 ? "1 open goal is available." : `${openGoalCount} open goals are available.`;
 	lines.push(boxLine(theme, safeWidth, muted(theme, goals)));
-	lines.push(boxLine(theme, safeWidth, muted(theme, "Run /goal-focus to choose the goal for this session.")));
+	lines.push(boxLine(theme, safeWidth, muted(theme, `Run ${commandHint("goal-focus", commands)} to choose the goal for this session.`)));
 	lines.push(boxFooter(theme, safeWidth, ""));
 	return lines;
 }
@@ -616,7 +619,7 @@ export function renderAuditorDashboard(
 	model: AuditorDashboardModel,
 	theme: Theme,
 	width: number,
-	opts: { showToolDetails?: boolean } = {},
+	opts: { showToolDetails?: boolean; interruptKey?: GoalKeybinding } = {},
 ): string[] {
 	const safeWidth = Math.max(10, width);
 	const inner = safeWidth - 2;
@@ -650,7 +653,7 @@ export function renderAuditorDashboard(
 		}
 	}
 
-	lines.push(boxFooter(theme, safeWidth, model.active ? "Esc: stop audit" : ""));
+	lines.push(boxFooter(theme, safeWidth, model.active && bindingKeys(opts.interruptKey ?? "escape").length ? `${formatGoalKeybinding(opts.interruptKey ?? "escape")}: stop audit` : ""));
 	return lines;
 }
 

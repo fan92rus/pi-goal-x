@@ -1,0 +1,32 @@
+
+ For /goal, propose a normal goal in this shape when ready:
+ === Goal ===
+ Objective: <one-sentence outcome>
+ Success criteria: <observable evidence the goal is done>
+ Boundaries: <in scope / out of scope>
+ Constraints: <hard rules>
+ Verification contract: <optional — what verification evidence is required before marking complete, e.g. 'Run
+ npm test (0 failures), grep for remaining references, re-read requirements and confirm every item is
+ addressed'>
+ If blocked: <default = stop and ask the user>
+ Call propose_goal_draft with sisyphus=false and autoContinue=true unless the user asked otherwise.
+
+
+
+ goal_questionnaire
+
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ←  ■ first   ■ second   ✓ Submit  →
+
+ Ready to submit
+
+ first: (wrote) aqnp
+ second: (wrote) Second answer.
+
+ Press F6 to submit
+
+ N / Ctrl+A/P navigate • ↑↓ select • F6 confirm • Q cancel
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/projects/pi-goal-x/experiments/runs/goal-controls/answer-editing-78298-1792837857652 (codex/custom-goal-c...
+1.5%/200k                                                                                              fixture

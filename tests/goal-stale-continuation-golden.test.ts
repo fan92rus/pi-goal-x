@@ -139,7 +139,7 @@ async function startSession(handlers: HandlerMap, ctx: ExtensionContext, entries
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-test("golden: stale checkpoint for a non-focused goal aborts the turn and injects GOAL STALE", async () => {
+for (const custom of [false, true]) test(`golden: stale ${custom ? "custom" : "prompt"} checkpoint for a non-focused goal aborts the turn and injects GOAL STALE`, async () => {
 	const { cwd, goal } = fixtureCwd();
 	const h = createHarness(cwd);
 	try {
@@ -151,7 +151,8 @@ test("golden: stale checkpoint for a non-focused goal aborts the turn and inject
 		// A checkpoint claims a goal that is not focused/active in this session.
 		await bas({
 			systemPrompt: "base",
-			prompt: '<pi_goal_continuation goal_id="ghost-goal" kind="checkpoint">continue',
+			...(custom ? { messageType: "custom", message: { customType: "pi-goal-event", details: { goalId: "ghost-goal" }, content: "Checkpoint" } }
+				: { prompt: '<pi_goal_continuation goal_id="ghost-goal" kind="checkpoint">continue' }),
 			systemPromptOptions: {},
 		}, h.ctx);
 
@@ -165,7 +166,7 @@ test("golden: stale checkpoint for a non-focused goal aborts the turn and inject
 	}
 });
 
-test("golden: matching checkpoint proceeds without stale handling", async () => {
+for (const custom of [false, true]) test(`golden: matching ${custom ? "custom" : "prompt"} checkpoint proceeds without stale handling`, async () => {
 	const { cwd, goal } = fixtureCwd();
 	const h = createHarness(cwd);
 	try {
@@ -176,7 +177,8 @@ test("golden: matching checkpoint proceeds without stale handling", async () => 
 
 		await bas({
 			systemPrompt: "base",
-			prompt: `<pi_goal_continuation goal_id="${goal.id}" kind="checkpoint">continue`,
+			...(custom ? { messageType: "custom", message: { customType: "pi-goal-event", details: { goalId: goal.id }, content: "Checkpoint" } }
+				: { prompt: `<pi_goal_continuation goal_id="${goal.id}" kind="checkpoint">continue` }),
 			systemPromptOptions: {},
 		}, h.ctx);
 
@@ -385,8 +387,9 @@ test("successful agent_end waits for agent_settled before queuing a continuation
 	}
 });
 
-test("empty no-tool runs continue implicitly after agent_settled", async () => {
+for (const optIn of [false, true]) test(`empty no-tool runs continue implicitly; pacing opt-in=${optIn}`, async () => {
 	const { cwd, goal } = fixtureCwd();
+	saveGoalSettingsFileConfig(cwd, { idleContinuationBackoff: optIn });
 	const h = createHarness(cwd);
 	try {
 		await startSession(h.handlers, h.ctx, sessionEntriesFor(goal));
@@ -406,8 +409,14 @@ test("empty no-tool runs continue implicitly after agent_settled", async () => {
 		await h.handlers["message_start"]!({ message: { ...h.sentMessages.at(-1), role: "custom" } }, idleCtx(h.ctx));
 		await h.handlers["agent_end"]!({ messages: [{ role: "assistant", stopReason: "end_turn", content: [{ type: "text", text: "Still no action." }] }] }, idleCtx(h.ctx));
 		await h.handlers["agent_settled"]!({}, idleCtx(h.ctx));
-		assert.equal(await countCheckpoints(h), 2, "missing declarations never require repair in default mode");
+		assert.equal(await countCheckpoints(h), optIn ? 1 : 2, "only an explicit opt-in defers repeated idle replies");
 		assert.equal(h.core.state.goal?.status, "active");
+		assert.equal(h.core.state.goal?.scheduler?.phase, optIn ? "ready" : "claimed", "continuation stays authorized without a declaration");
+		assert.equal(h.core.state.goal?.scheduler?.repairUsed, false, "default mode does not require repair");
+		if (optIn) {
+			assert.equal(h.core.state.goal?.scheduler?.idle?.runs, 2);
+			assert.ok(h.core.state.goal!.scheduler!.idle!.nextAt > Date.now());
+		} else assert.equal(h.core.state.goal?.scheduler?.idle, undefined);
 	} finally {
 		h.core.scheduler.shutdown();
 		h.core.runtime.clearContinuationState();

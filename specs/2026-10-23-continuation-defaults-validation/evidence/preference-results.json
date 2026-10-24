@@ -1,0 +1,42 @@
+{
+  "evidence": "SDK settings data checks; not a UI walkthrough",
+  "passed": true,
+  "observations": [
+    {
+      "label": "absent",
+      "value": false,
+      "source": "default"
+    },
+    {
+      "label": "global opt-in",
+      "value": true,
+      "source": "global"
+    },
+    {
+      "label": "project explicit false",
+      "value": false,
+      "source": "project"
+    },
+    {
+      "label": "reopen cached settings",
+      "value": false,
+      "source": "project"
+    },
+    {
+      "label": "remove project override",
+      "value": true,
+      "source": "global"
+    },
+    {
+      "label": "remove global override",
+      "value": false,
+      "source": "default"
+    },
+    {
+      "label": "existing string-boolean compatibility",
+      "value": true,
+      "source": "project"
+    }
+  ],
+  "invalidValuesRejected": 3
+}

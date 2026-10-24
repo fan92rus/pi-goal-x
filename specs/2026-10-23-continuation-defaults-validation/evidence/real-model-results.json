@@ -1,0 +1,188 @@
+{
+  "meaning": "three observed runs of one model; cost is SDK-reported usage, not an invoice or a general performance comparison",
+  "results": [
+    {
+      "id": "current-openrouter",
+      "evidence": "real model, actual SDK, ordinary /goal confirmation choices; agent-operated RPC walkthrough",
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-v4-flash",
+      "thinking": "medium",
+      "ordinaryWording": false,
+      "passed": true,
+      "elapsedMs": 71368,
+      "requests": 19,
+      "executorRequests": 11,
+      "auditorRequests": 8,
+      "usageReportedCostUSD": 0.0026699061479999995,
+      "usage": {
+        "input": 39160,
+        "output": 5683,
+        "cacheRead": 66279,
+        "cacheWrite": 0
+      },
+      "extraSchedulingDeclarations": 0,
+      "commands": [
+        "/goal Fix normalizeName so it trims outer whitespace and collapses internal whitespace to one space. Add tests for tabs/newlines and unchanged ordinary names, run all tests, and finish with the completion auditor. Keep the change focused and add no dependencies."
+      ],
+      "choices": [
+        {
+          "kind": "select",
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "kind": "select",
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "toolSequence": [
+        "bash",
+        "bash",
+        "read",
+        "read",
+        "read",
+        "bash",
+        "bash",
+        "propose_goal_draft",
+        "update_goal_task",
+        "write",
+        "write",
+        "bash",
+        "update_goal_task",
+        "update_goal_task",
+        "update_goal"
+      ],
+      "artifactTestsPass": true,
+      "independentAssertions": true,
+      "completed": true,
+      "noDependencies": true,
+      "finalSource": "export function normalizeName(input) {\n\treturn input.trim().replace(/\\s+/g, ' ');\n}",
+      "testOutput": "✔ trims and collapses name whitespace (0.506875ms)\n✔ collapses tabs and newlines to a single space (0.0605ms)\n✔ empty or whitespace input is empty (0.049083ms)\n✔ ordinary names are unchanged (0.4395ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 144.05125\n",
+      "errors": []
+    },
+    {
+      "id": "candidate-openrouter-2",
+      "evidence": "real model, actual SDK, ordinary /goal confirmation choices; agent-operated RPC walkthrough",
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-v4-flash",
+      "thinking": "medium",
+      "ordinaryWording": false,
+      "passed": true,
+      "elapsedMs": 66900,
+      "requests": 21,
+      "executorRequests": 16,
+      "auditorRequests": 5,
+      "usageReportedCostUSD": 0.004124750448000001,
+      "usage": {
+        "input": 79684,
+        "output": 5100,
+        "cacheRead": 43264,
+        "cacheWrite": 0
+      },
+      "extraSchedulingDeclarations": 0,
+      "commands": [
+        "/goal Fix normalizeName so it trims outer whitespace and collapses internal whitespace to one space. Add tests for tabs/newlines and unchanged ordinary names, run all tests, and finish with the completion auditor. Keep the change focused and add no dependencies."
+      ],
+      "choices": [
+        {
+          "kind": "select",
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "kind": "select",
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "toolSequence": [
+        "bash",
+        "bash",
+        "read",
+        "read",
+        "bash",
+        "bash",
+        "propose_goal_draft",
+        "propose_goal_draft",
+        "update_goal_task",
+        "edit",
+        "read",
+        "edit",
+        "update_goal_task",
+        "bash",
+        "update_goal_task",
+        "update_goal_task",
+        "bash",
+        "bash",
+        "bash",
+        "update_goal_task",
+        "update_goal"
+      ],
+      "artifactTestsPass": true,
+      "independentAssertions": true,
+      "completed": true,
+      "noDependencies": true,
+      "finalSource": "export function normalizeName(input) {\n  return input.trim().replace(/\\s+/g, ' ');\n}\n",
+      "testOutput": "✔ trims and collapses name whitespace (0.595ms)\n✔ collapses tabs and newlines (0.09225ms)\n✔ collapses mixed whitespace (0.068417ms)\n✔ unchanged ordinary name (0.092459ms)\n✔ single name unchanged (0.081666ms)\n✔ empty or whitespace input is empty (0.051416ms)\nℹ tests 6\nℹ suites 0\nℹ pass 6\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 184.9965\n",
+      "errors": []
+    },
+    {
+      "id": "candidate-openrouter-ordinary",
+      "evidence": "real model, actual SDK, ordinary /goal confirmation choices; agent-operated RPC walkthrough",
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-v4-flash",
+      "thinking": "medium",
+      "ordinaryWording": true,
+      "passed": true,
+      "elapsedMs": 74080,
+      "requests": 12,
+      "executorRequests": 8,
+      "auditorRequests": 4,
+      "usageReportedCostUSD": 0.001534662948,
+      "usage": {
+        "input": 23811,
+        "output": 3507,
+        "cacheRead": 29184,
+        "cacheWrite": 0
+      },
+      "extraSchedulingDeclarations": 0,
+      "commands": [
+        "/goal Fix normalizeName so it trims outer whitespace and collapses internal whitespace to one space. Add tests for tabs/newlines and unchanged ordinary names, and run all tests. Keep the change focused and add no dependencies."
+      ],
+      "choices": [
+        {
+          "kind": "select",
+          "title": "Completion auditor (currently enabled)",
+          "answer": "Enabled — require independent approval"
+        },
+        {
+          "kind": "select",
+          "title": "Confirm Goal Draft",
+          "answer": "1. Confirm — create this goal now (Recommended)"
+        }
+      ],
+      "toolSequence": [
+        "bash",
+        "bash",
+        "read",
+        "read",
+        "read",
+        "propose_goal_draft",
+        "edit",
+        "edit",
+        "bash",
+        "read",
+        "read",
+        "update_goal"
+      ],
+      "artifactTestsPass": true,
+      "independentAssertions": true,
+      "completed": true,
+      "noDependencies": true,
+      "finalSource": "export function normalizeName(input) {\n  return input.trim().replace(/\\s+/g, ' ');\n}\n",
+      "testOutput": "✔ trims and collapses name whitespace (0.528375ms)\n✔ empty or whitespace input is empty (0.081542ms)\n✔ handles tabs and newlines (0.058583ms)\n✔ unchanged ordinary name passes through (0.368625ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 141.1165\n",
+      "errors": []
+    }
+  ]
+}

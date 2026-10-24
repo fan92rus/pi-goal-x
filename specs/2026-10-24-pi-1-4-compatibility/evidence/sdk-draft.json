@@ -1,0 +1,177 @@
+{
+  "passed": true,
+  "mode": "draft",
+  "command": "/goal Create result.txt containing exactly verified result followed by a newline, verify it and finish.",
+  "choices": [
+    {
+      "title": "Completion auditor (currently enabled)",
+      "answer": "Enabled — require independent approval"
+    },
+    {
+      "title": "Confirm Goal Draft",
+      "answer": "1. Confirm — create this goal now (Recommended)"
+    }
+  ],
+  "requests": [
+    {
+      "phase": "draft",
+      "action": "propose_goal_draft",
+      "hash": "bf211bd82026d2bd5f6803634c815bcbd334d81404992195f6da7674d3433a50",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "goal_question",
+        "goal_questionnaire",
+        "propose_goal_draft"
+      ]
+    },
+    {
+      "phase": "execution",
+      "action": "text",
+      "hash": "138e00bba3ff192bfc963617e28db6db5a13af24454fff5915a3898630448f20",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "create_goal",
+        "get_goal",
+        "update_goal",
+        "set_goal_tasks"
+      ]
+    },
+    {
+      "phase": "execution",
+      "action": "text",
+      "hash": "138e00bba3ff192bfc963617e28db6db5a13af24454fff5915a3898630448f20",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "create_goal",
+        "get_goal",
+        "update_goal",
+        "set_goal_tasks"
+      ]
+    },
+    {
+      "phase": "execution",
+      "action": "publish_report",
+      "hash": "138e00bba3ff192bfc963617e28db6db5a13af24454fff5915a3898630448f20",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "create_goal",
+        "get_goal",
+        "update_goal",
+        "set_goal_tasks"
+      ]
+    },
+    {
+      "phase": "execution",
+      "action": "text",
+      "hash": "138e00bba3ff192bfc963617e28db6db5a13af24454fff5915a3898630448f20",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "create_goal",
+        "get_goal",
+        "update_goal",
+        "set_goal_tasks"
+      ]
+    },
+    {
+      "phase": "execution",
+      "action": "write",
+      "hash": "138e00bba3ff192bfc963617e28db6db5a13af24454fff5915a3898630448f20",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "create_goal",
+        "get_goal",
+        "update_goal",
+        "set_goal_tasks"
+      ]
+    },
+    {
+      "phase": "execution",
+      "action": "read",
+      "hash": "138e00bba3ff192bfc963617e28db6db5a13af24454fff5915a3898630448f20",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "create_goal",
+        "get_goal",
+        "update_goal",
+        "set_goal_tasks"
+      ]
+    },
+    {
+      "phase": "execution",
+      "action": "update_goal",
+      "hash": "138e00bba3ff192bfc963617e28db6db5a13af24454fff5915a3898630448f20",
+      "tools": [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "publish_report",
+        "create_goal",
+        "get_goal",
+        "update_goal",
+        "set_goal_tasks"
+      ]
+    },
+    {
+      "phase": "audit",
+      "action": "read",
+      "hash": "d9f4e667a8833ae114a91ee1d7e28db3df1cb0d3eb107177fa71f7b1ef0cda2a",
+      "tools": [
+        "read",
+        "grep",
+        "find",
+        "ls",
+        "bash"
+      ]
+    },
+    {
+      "phase": "audit",
+      "action": "text",
+      "hash": "d9f4e667a8833ae114a91ee1d7e28db3df1cb0d3eb107177fa71f7b1ef0cda2a",
+      "tools": [
+        "read",
+        "grep",
+        "find",
+        "ls",
+        "bash"
+      ]
+    }
+  ],
+  "initialExecutionPromptCorrect": true,
+  "executorPrefixStable": true,
+  "nativePromptPreparation": true,
+  "externalPromptInstructionPreserved": true,
+  "artifact": "verified result\n",
+  "report": "section 1\n",
+  "paused": false,
+  "reloadedWhilePaused": false,
+  "errors": []
+}

@@ -1,0 +1,71 @@
+{
+  "sdk": "1.4.0",
+  "meaning": "native host behavior with two fixture tools; pi-goal-x is not imported; historical SDK observations are not overwritten",
+  "results": [
+    {
+      "scenario": "custom trigger after a terminating profile change",
+      "goalExtensionLoaded": false,
+      "nativePreparation": true,
+      "initialPromptCorrect": true,
+      "requests": [
+        {
+          "phase": "draft",
+          "leadingMessages": 1,
+          "hasDraftGuidance": true,
+          "hasWorkGuidance": false,
+          "tools": [
+            "confirm_plan"
+          ]
+        },
+        {
+          "phase": "execution",
+          "leadingMessages": 1,
+          "hasDraftGuidance": false,
+          "hasWorkGuidance": true,
+          "tools": [
+            "finish_work"
+          ]
+        },
+        {
+          "phase": "execution",
+          "leadingMessages": 1,
+          "hasDraftGuidance": false,
+          "hasWorkGuidance": true,
+          "tools": [
+            "finish_work"
+          ]
+        }
+      ],
+      "artifact": "correct\n",
+      "errors": []
+    },
+    {
+      "scenario": "fresh custom trigger",
+      "goalExtensionLoaded": false,
+      "nativePreparation": true,
+      "initialPromptCorrect": true,
+      "requests": [
+        {
+          "phase": "execution",
+          "leadingMessages": 1,
+          "hasDraftGuidance": false,
+          "hasWorkGuidance": true,
+          "tools": [
+            "finish_work"
+          ]
+        },
+        {
+          "phase": "execution",
+          "leadingMessages": 1,
+          "hasDraftGuidance": false,
+          "hasWorkGuidance": true,
+          "tools": [
+            "finish_work"
+          ]
+        }
+      ],
+      "artifact": "correct\n",
+      "errors": []
+    }
+  ]
+}

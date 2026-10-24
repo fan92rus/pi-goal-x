@@ -1,3 +1,4 @@
+import { commandInstructions } from "./goal-controls.ts";
 import { randomUUID } from "node:crypto";
 import type { ExtensionContext, AgentToolResult } from "@earendil-works/pi-coding-agent";
 import type { GoalCore } from "./goal-state.ts";
@@ -25,6 +26,9 @@ export class GoalScheduler {
 	private armedGeneration: string | undefined;
 	private declared = false;
 	private runGoalId: string | undefined;
+	private runGoalContent: string | undefined;
+	private runHadWork = false;
+	private runPacingEnabled = false;
 	private denied = false;
 	private unsubscribe: (() => void) | undefined;
 	private unsubscribeAsyncComplete: (() => void) | undefined;
@@ -48,13 +52,31 @@ export class GoalScheduler {
 		s.phase = "ready"; s.dispatch = undefined; s.generation = randomUUID();
 		s.decision = { kind: "ready", purpose: "ready" };
 	}
+	private goalContent(goal: GoalRecord | null): string | undefined {
+		return goal ? JSON.stringify([goal.objective, goal.sisyphus, goal.verificationContract, goal.taskList, goal.currentTaskId]) : undefined;
+	}
+	private paceIdle(s: GoalSchedulerState, goal: GoalRecord): void {
+		if (this.runHadWork || this.goalContent(goal) !== this.runGoalContent) {
+			s.idle = undefined;
+			return;
+		}
+		// One immediate reasoning-only continuation, then 30s, 60s, 120s,
+		// 240s and 300s. Saturate the streak to keep long-running state bounded.
+		const runs = Math.min(6, (s.idle?.runs ?? 0) + 1);
+		const delay = runs === 1 ? 0 : Math.min(300_000, 30_000 * 2 ** (runs - 2));
+		s.idle = { runs, nextAt: Date.now() + delay };
+	}
+	private idleDelay(s: GoalSchedulerState): number {
+		return s.phase === "ready" && s.decision?.kind === "ready" && s.decision.purpose === "ready"
+			? Math.max(0, (s.idle?.nextAt ?? 0) - Date.now()) : 0;
+	}
 	private available(ctx: ExtensionContext, s: GoalSchedulerState): boolean {
 		const limit = this.limit(ctx);
 		return limit === undefined || s.used < limit;
 	}
 	private state(ctx: ExtensionContext, goal: GoalRecord): GoalSchedulerState {
 		const s = goal.scheduler ?? newGoalScheduler(this.owner(ctx));
-		if (s.owner !== this.owner(ctx) || s.phase === "interrupted") throw new Error("Goal scheduling belongs to another session or was interrupted. Use /goal-resume to take ownership.");
+		if (s.owner !== this.owner(ctx) || s.phase === "interrupted") throw new Error(commandInstructions("Goal scheduling belongs to another session or was interrupted. Use /goal-resume to take ownership.", this.core.loadedCommands));
 		return s;
 	}
 	private write(ctx: ExtensionContext, change: (g: GoalRecord) => GoalRecord): GoalRecord {
@@ -102,7 +124,7 @@ export class GoalScheduler {
 		ctx.ui.notify(reason, "warning");
 	}
 	private allowanceReason(ctx: ExtensionContext): string {
-		return this.limit(ctx) === 0 ? "Automatic continuation disabled by maxAutonomousRuns=0. Change the setting in /goal-settings, then use /goal-resume." : "Autonomous-run allowance exhausted. Increase or remove maxAutonomousRuns, or use /goal-resume to renew.";
+		return this.limit(ctx) === 0 ? commandInstructions("Automatic continuation disabled by maxAutonomousRuns=0. Change the setting in /goal-settings, then use /goal-resume.", this.core.loadedCommands) : commandInstructions("Autonomous-run allowance exhausted. Increase or remove maxAutonomousRuns, or use /goal-resume to renew.", this.core.loadedCommands);
 	}
 
 	/** Bind once per live session. The event is deliberately not a triggerTurn message. */
@@ -137,13 +159,28 @@ export class GoalScheduler {
 			const goal = this.core.state.goal;
 			if (!goal || goal.status !== "active" || !goal.autoContinue || !goal.scheduler) return;
 			const s = goal.scheduler;
-			if (s.owner !== this.owner(ctx)) { ctx.ui.notify("Goal owned by another session. Use /goal-resume to take ownership.", "info"); return; }
+			if (s.owner !== this.owner(ctx)) { ctx.ui.notify(commandInstructions("Goal owned by another session. Use /goal-resume to take ownership.", this.core.loadedCommands), "info"); return; }
 			if (["claimed", "running", "interrupted"].includes(s.phase)) {
-				this.pause(ctx, "Previous autonomous execution was interrupted. Use /goal-resume; its dispatch will not be replayed.");
+				this.pause(ctx, commandInstructions("Previous autonomous execution was interrupted. Use /goal-resume; its dispatch will not be replayed.", this.core.loadedCommands));
 				return;
 			}
 			this.schedule(ctx);
 		});
+	}
+
+	/** Persist a stopped turn without renewing allowance or scheduling work. */
+	interrupt(ctx: ExtensionContext): void {
+		this.cancelTimer();
+		this.safe(ctx, () => this.update(ctx, s => {
+			s.phase = "interrupted"; s.generation = randomUUID(); s.dispatch = undefined; s.decision = undefined; s.wait = undefined;
+		}));
+	}
+	releaseInterrupt(ctx: ExtensionContext): void {
+		this.safe(ctx, () => this.write(ctx, g => {
+			const s = g.scheduler;
+			if (!s || s.owner !== this.owner(ctx) || s.phase !== "interrupted") return g;
+			return { ...g, scheduler: { ...s, phase: "idle", generation: randomUUID() } };
+		}));
 	}
 
 	/** Only explicit user resume resets spent allowance, including while already active/waiting. */
@@ -158,6 +195,7 @@ export class GoalScheduler {
 				return { ...g, status: "active", autoContinue: true, stopReason: undefined, pauseReason: undefined, pauseSuggestedAction: undefined,
 					scheduler: { ...newGoalScheduler(this.owner(ctx)), phase: "ready", decision: { kind: "ready", purpose: "kickoff" } } };
 			});
+			this.core.interruption.resumed(ctx);
 			// A resume during host work waits for settlement; another model turn
 			// still invalidates it through turn(), just like a declaration.
 			this.declared = this.inRun;
@@ -182,10 +220,11 @@ export class GoalScheduler {
 			invalidateGoalSettingsCache(); // an agent may have just configured the allowance
 			const goal = this.update(ctx, s => {
 				if (!this.available(ctx, s)) throw new Error(this.allowanceReason(ctx));
+				if (this.strict(ctx, s)) s.idle = undefined;
 				if (input.kind === "ready") {
 					s.phase = "ready"; s.decision = { kind: "ready", purpose: "ready" }; s.wait = undefined;
 				} else if (input.kind === "wait") {
-					if (!this.strict(ctx, s)) throw new Error("New waits require strictExecutionContract=true in /goal-settings. This is a user preference; continue pursuing the goal without a wait unless the user opts in.");
+					if (!this.strict(ctx, s)) throw new Error(commandInstructions("New waits require strictExecutionContract=true in /goal-settings. This is a user preference; continue pursuing the goal without a wait unless the user opts in.", this.core.loadedCommands));
 					if (typeof input.reason !== "string" || !input.reason.trim() || input.reason.length > 2000) throw new Error("wait requires a nonempty reason (at most 2000 characters).");
 					const deadline = Date.parse(input.deadline);
 					if (!/T.*(?:Z|[+-]\d\d:\d\d)$/.test(input.deadline) || !Number.isSafeInteger(deadline) || deadline <= Date.now()) throw new Error("wait requires a future ISO deadline with a timezone.");
@@ -209,7 +248,7 @@ export class GoalScheduler {
 			this.declared = true;
 			this.core.runtime.markTurnStopped(goal.id);
 			const wait = goal.scheduler?.wait;
-			return { content: [{ type: "text", text: `Scheduling decision saved. Stop this execution.\n${schedulerSummary(goal.scheduler, this.limit(ctx), loadGoalSettings(ctx.cwd).showAutonomousRuns)}${wait ? `\nWake token: ${wait.token}. Register this token with the producer before completion; adapters must retain early results.` : ""}` }], details: { goal, ...(wait ? { wait_id: wait.id, waitToken: wait.token } : {}) }, terminate: true };
+			return { content: [{ type: "text", text: `Scheduling decision saved. Stop this execution.\n${schedulerSummary(goal.scheduler, this.limit(ctx), loadGoalSettings(ctx.cwd).showAutonomousRuns, loadGoalSettings(ctx.cwd).idleContinuationBackoff === true, this.core.loadedCommands)}${wait ? `\nWake token: ${wait.token}. Register this token with the producer before completion; adapters must retain early results.` : ""}` }], details: { goal, ...(wait ? { wait_id: wait.id, waitToken: wait.token } : {}) }, terminate: true };
 		} catch (error) { return { content: [{ type: "text", text: `Scheduling decision NOT saved: ${error instanceof Error ? error.message : String(error)}` }], details: { error: true }, terminate: false }; }
 	}
 
@@ -219,9 +258,14 @@ export class GoalScheduler {
 		if (this.inRun) { this.core.runningGoalId = this.core.state.goal?.id ?? null; return; }
 		this.inRun = true; this.declared = false; this.denied = false;
 		this.runGoalId = this.core.state.goal?.id;
+		this.runPacingEnabled = loadGoalSettings(ctx.cwd).idleContinuationBackoff === true;
+		this.runGoalContent = this.runPacingEnabled ? this.goalContent(this.core.state.goal) : undefined;
+		this.runHadWork = false;
 		this.cancelTimer(); this.core.runtime.clearContinuationTimer();
 		this.core.runningGoalId = this.core.state.goal?.id ?? null;
 	}
+	/** Work in any tool turn counts until the entire logical execution settles. */
+	recordWork(): void { if (this.inRun && this.runPacingEnabled) this.runHadWork = true; }
 	turn(ctx: ExtensionContext): void {
 		if (!this.declared) return;
 		this.declared = false;
@@ -260,6 +304,7 @@ export class GoalScheduler {
 		this.safe(ctx, () => this.update(ctx, state => {
 			state.generation = randomUUID(); state.phase = "idle"; state.decision = undefined; state.dispatch = undefined; state.wait = undefined;
 			state.repairUsed = false;
+			state.idle = undefined;
 		}));
 	}
 	settled(ctx: ExtensionContext, successful = true): void {
@@ -269,14 +314,17 @@ export class GoalScheduler {
 		this.safe(ctx, () => {
 			const goal = this.core.state.goal;
 			if (!goal || goal.status !== "active" || !goal.autoContinue || !successful) return;
-			if (this.declared && goal.scheduler?.decision) { this.schedule(ctx); return; }
 			const s = this.state(ctx, goal);
-			if (!this.strict(ctx, s)) {
-				this.update(ctx, state => this.implicitReady(state));
+			const strict = this.strict(ctx, s);
+			if (this.declared && s.decision) {
+				if (strict || (s.decision.kind === "ready" && s.decision.purpose !== "ready")) { this.schedule(ctx); return; }
+			}
+			if (!strict) {
+				this.update(ctx, (state, current) => { this.implicitReady(state); if (loadGoalSettings(ctx.cwd).idleContinuationBackoff && this.runPacingEnabled) this.paceIdle(state, current); else state.idle = undefined; });
 				this.schedule(ctx); return;
 			}
 			if (s.repairUsed || !this.available(ctx, s)) {
-				this.pause(ctx, !this.available(ctx, s) ? this.allowanceReason(ctx) : "No execution disposition after the contract-repair prompt. Use /goal-resume to continue.");
+				this.pause(ctx, !this.available(ctx, s) ? this.allowanceReason(ctx) : commandInstructions("No execution disposition after the contract-repair prompt. Use /goal-resume to continue.", this.core.loadedCommands));
 				return;
 			}
 			this.update(ctx, state => {
@@ -302,14 +350,28 @@ export class GoalScheduler {
 			if (!this.inRun) this.schedule(ctx);
 		});
 	}
+	/** Apply an explicit preference edit without renewing runs or lifecycle state. */
+	refreshSettings(ctx: ExtensionContext): void {
+		invalidateGoalSettingsCache();
+		if (this.inRun && !loadGoalSettings(ctx.cwd).idleContinuationBackoff) {
+			this.runPacingEnabled = false;
+			const s = this.core.state.goal?.scheduler;
+			if (s?.idle && s.owner === this.owner(ctx)) this.safe(ctx, () => this.update(ctx, state => { state.idle = undefined; }));
+		}
+		this.schedule(ctx);
+		// Keep the explicit refresh snapshot warm so the next /goal-refresh can
+		// distinguish an external edit from the state just shown to the user.
+		loadGoalSettings(ctx.cwd);
+	}
 	schedule(ctx: ExtensionContext): void {
-		if (this.inRun) return;
+		if (this.inRun || this.core.interruption.isHeld()) return;
 		invalidateGoalSettingsCache();
 		this.safe(ctx, () => {
 			this.core.reconcileFocusedGoalFromDisk(ctx);
 			const g = this.core.state.goal;
 			if (!g || g.status !== "active" || !g.autoContinue || !g.scheduler) return;
 			let s = this.state(ctx, g);
+			if (!loadGoalSettings(ctx.cwd).idleContinuationBackoff && s.idle) s = this.update(ctx, state => { state.idle = undefined; }).scheduler!;
 			if (s.phase === "ready" && s.decision?.kind === "ready" && s.decision.purpose === "repair" && !this.strict(ctx, s)) {
 				s = this.update(ctx, state => this.implicitReady(state)).scheduler!;
 			}
@@ -325,6 +387,12 @@ export class GoalScheduler {
 					const due = Math.min(s.wait.deadline, s.wait.nextCheckAt ?? Infinity);
 					this.later(ctx, due - Date.now(), () => this.schedule(ctx)); return;
 				}
+			}
+			const idleDelay = this.idleDelay(s);
+			if (idleDelay > 0) {
+				this.core.runtime.clearContinuationTimer();
+				this.core.clearActiveAccounting();
+				this.later(ctx, idleDelay, () => this.schedule(ctx)); return;
 			}
 			if (s.phase === "ready" && this.subagentRpcReady && this.core.pi?.events) {
 				if (this.subagentActivity === undefined && !this.subagentProbeInFlight) {
@@ -361,17 +429,21 @@ export class GoalScheduler {
 		this.safe(this.ctx, () => this.schedule(this.ctx!));
 	}
 	claim(ctx: ExtensionContext): Record<string, unknown> | null {
+		if (this.core.interruption.isHeld()) return null;
 		const generation = this.armedGeneration;
 		if (!generation) return null;
 		this.armedGeneration = undefined;
 		invalidateGoalSettingsCache();
 		try {
 			let result: Record<string, unknown> | null = null;
+			let deferred = false;
 			this.update(ctx, (s, g) => {
 				if (s.generation !== generation) throw new Error("Scheduling generation changed.");
 				if (g.status !== "active" || !g.autoContinue || budgetReached(g) || !this.available(ctx, s)) throw new Error(this.allowanceReason(ctx));
 				if (s.wait && Date.now() >= s.wait.deadline) throw new Error("Wait deadline reached.");
 				if (s.phase === "ready" && s.decision?.kind === "ready" && s.decision.purpose === "repair" && !this.strict(ctx, s)) this.implicitReady(s);
+				if (!loadGoalSettings(ctx.cwd).idleContinuationBackoff) s.idle = undefined;
+				if (this.idleDelay(s) > 0) { deferred = true; return; }
 				let kind = s.phase === "ready" && s.decision?.kind === "ready" ? s.decision.purpose : undefined;
 				if (s.phase === "waiting" && s.wait) {
 					if (s.wait.signalled) kind = "wake";
@@ -384,6 +456,7 @@ export class GoalScheduler {
 				if (s.wait) { s.wait.signalled = false; s.wait.token = randomUUID(); }
 				result = { generation: s.generation, dispatchId: s.dispatch.id };
 			});
+			if (deferred) this.schedule(ctx);
 			return result;
 		} catch (error) {
 			const current = this.core.state.goal?.scheduler;
@@ -393,8 +466,11 @@ export class GoalScheduler {
 		}
 	}
 	failedDispatch(ctx: ExtensionContext): void {
-		this.safe(ctx, () => this.pause(ctx, "Goal checkpoint delivery failed after claiming allowance. Use /goal-resume; it will not be replayed."));
+		this.safe(ctx, () => this.pause(ctx, commandInstructions("Goal checkpoint delivery failed after claiming allowance. Use /goal-resume; it will not be replayed.", this.core.loadedCommands)));
 	}
-	isWaiting(): boolean { return !this.inRun && this.core.state.goal?.scheduler?.phase === "waiting"; }
+	isWaiting(): boolean {
+		const s = this.core.state.goal?.scheduler;
+		return !this.inRun && !!s && (s.phase === "waiting" || (!!this.ctx && loadGoalSettings(this.ctx.cwd).idleContinuationBackoff === true && this.idleDelay(s) > 0));
+	}
 	isDenied(): boolean { return this.denied; }
 }

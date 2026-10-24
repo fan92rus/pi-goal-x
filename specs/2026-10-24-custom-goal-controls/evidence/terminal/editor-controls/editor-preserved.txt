@@ -1,0 +1,32 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+[Extensions]
+  goal.ts, ready-observer.mjs
+
+
+ Warning: fd not found. Offline mode enabled, skipping download.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Keep this unsent draft while changing goal controls.
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/projects/pi-goal-x/experiments/runs/goal-controls/editor-controls-52622-1792834808211 (codex/custom-goal-...
+0.0%/200k                                                                                              fixture

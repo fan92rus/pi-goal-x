@@ -100,6 +100,7 @@ test("runGoalCompletionAuditor passes parent modelRuntime into createSession", a
 });
 
 test("parseGoalSettings supports provider/model and thinking_level aliases", () => {
+	assert.deepEqual(parseGoalSettings({ thinking_level: "max", oracle: { thinking_level: "max" } }), { thinkingLevel: "max", oracle: { thinkingLevel: "max" } });
 	assert.deepEqual(parseGoalSettings({ provider: "fireworks", model: "accounts/fireworks/routers/kimi", thinking_level: "high" }), {
 		provider: "fireworks",
 		model: "accounts/fireworks/routers/kimi",

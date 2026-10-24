@@ -1,3 +1,4 @@
+import { commandInstructions, type GoalCommands } from "./goal-controls.ts";
 import type { GoalTask, GoalTaskList } from "./goal-record.ts";
 import { promptSafeObjective } from "./goal-contract.ts";
 import { renderConfirmationTasks } from "./goal-task-confirmation.ts";
@@ -132,7 +133,7 @@ export function validateGoalDraftProposal(input: DraftProposalInput): DraftPropo
 	return { ok: true, objective, expectedSisyphus };
 }
 
-export function goalDraftingPrompt(topic: string, focus: GoalDraftingFocus): string {
+export function goalDraftingPrompt(topic: string, focus: GoalDraftingFocus, commands?: GoalCommands): string {
 	const safeTopic = promptSafeObjective(topic.trim() || "(no topic provided — ask the user what they want to accomplish)");
 	const header = focus === "sisyphus"
 		? "[GOAL CONFIRMATION focus=sisyphus]\nThe user invoked Sisyphus intent discussion (/sisyphus). Help turn their request into a confirmed goal contract. Do NOT start substantive work yet."
@@ -182,7 +183,7 @@ export function goalDraftingPrompt(topic: string, focus: GoalDraftingFocus): str
 	];
 
 	return [
-		header,
+		commandInstructions(header, commands),
 		"",
 		"Topic the user provided:",
 		"<goal_topic>",
@@ -191,7 +192,7 @@ export function goalDraftingPrompt(topic: string, focus: GoalDraftingFocus): str
 		"",
 		...commonProtocol,
 		"",
-		...(focus === "sisyphus" ? sisyphusFocusItems : goalFocusItems),
+		...(focus === "sisyphus" ? sisyphusFocusItems : goalFocusItems).map(line => commandInstructions(line, commands)),
 	].join("\n");
 }
 

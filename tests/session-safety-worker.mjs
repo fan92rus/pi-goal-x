@@ -22,6 +22,9 @@ let settled = false;
 const transcript = [];
 const child = mode.startsWith('child-');
 const history = mode.startsWith('history-');
+const staleReload = mode === 'stale-reload';
+let reloaded = false;
+const extensionErrors = [];
 const api = mode === 'history-responses' ? 'openai-responses' : 'openai-completions';
 const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
 const server = http.createServer(async (req, res) => {
@@ -114,6 +117,13 @@ try {
 	const runtime = await ModelRuntime.create({ authPath: path.join(work, 'auth.json'), modelsPath: null, allowModelNetwork: false, refreshOnCreate: false });
 	runtime.registerProvider('fixture', { baseUrl: `http://127.0.0.1:${server.address().port}/v1`, api, apiKey: 'fixture-only', models: [{ id: 'fixture', name: 'fixture', reasoning: false, input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 200000, maxTokens: 512 }] });
 	const loader = new DefaultResourceLoader({ cwd, agentDir: work, noExtensions: true, noSkills: true, noThemes: true, noPromptTemplates: true, noContextFiles: true, extensionFactories: [pi => {
+		// Reload from an earlier handler after Pi has captured the settlement
+		// context. The remaining old handlers receive a genuinely stale ctx.
+		if (staleReload) pi.on('agent_settled', async () => {
+			if (reloaded) return;
+			reloaded = true;
+			await session.reload();
+		});
 		goalExtension(pi, { runCompletionAuditor: async () => {
 			assert.equal(transcript.length, 0, 'audit messages must wait for the completion tool result');
 			return { approved: mode === 'approve', disapproved: mode === 'reject', output: mode === 'approve' ? 'Evidence verified\n<approved/>' : 'More evidence needed\n<disapproved/>', ...(mode === 'abort' ? { error: 'Auditor aborted.' } : mode === 'error' ? { error: 'Fixture auditor error' } : {}) };
@@ -130,9 +140,21 @@ try {
 		}
 	});
 	await session.bindExtensions({});
+	const originalRunner = session.extensionRunner;
+	originalRunner.onError(error => extensionErrors.push(error));
 	await session.prompt(child ? 'Complete only this delegated assignment.' : 'Complete the goal.');
 	assert.ok(settled);
-	if (child) {
+	if (staleReload) {
+		assert.equal(reloaded, true);
+		assert.notEqual(session.extensionRunner, originalRunner);
+		assert.throws(() => originalRunner.createContext().sessionManager, /This extension ctx is stale/);
+		assert.deepEqual(extensionErrors, [], 'stale audit settlement must not become an extension error');
+		assert.equal(core.state.goal, null, 'completed goal stays archived after reload');
+		assert.equal(transcript.length, 0, 'old audit messages cannot enter the replacement session');
+		const before = calls.length;
+		await session.prompt('Report the resulting state after reload.');
+		assert.equal(calls.length, before + 1, 'replacement context remains usable');
+	} else if (child) {
 		assert.equal(core, undefined);
 		assert.equal(calls.length, 1, 'one assignment must produce exactly one request');
 		assert.ok(!session.getActiveToolNames().some(name => ['create_goal', 'get_goal', 'update_goal', 'set_goal_tasks', 'update_goal_task'].includes(name)));

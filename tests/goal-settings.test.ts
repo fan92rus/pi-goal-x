@@ -131,6 +131,17 @@ test("parseGoalSettings: multiple unknown keys rejected with the full list", () 
 
 // ── goalSettingsPath ────────────────────────────────────────────────────
 
+test("idleContinuationBackoff uses the existing strict boolean normalization", () => {
+	for (const [input, expected] of [[true, true], [false, false], ["true", true], ["false", false]] as const) {
+		assert.deepEqual(parseGoalSettings({ idleContinuationBackoff: input }), { idleContinuationBackoff: expected });
+	}
+	for (const invalid of [1, null, "enabled", {}, []]) {
+		const parsed = parseSettingsLayer({ idleContinuationBackoff: invalid }, "project", "inline");
+		assert.equal(parsed.layer.idleContinuationBackoff, undefined);
+		assert.ok(parsed.diagnostics.some(d => d.code === "invalid_value" && d.settingPath === "idleContinuationBackoff"));
+	}
+});
+
 test("goalSettingsPath: resolves under .pi/ with new filename", () => {
 	const p = goalSettingsPath("/tmp/project");
 	assert.ok(p.endsWith(path.join(".pi", "pi-goal-x-settings.json")));

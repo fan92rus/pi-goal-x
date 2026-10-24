@@ -1,0 +1,32 @@
+
+ ▀▀█  v1.4.0
+ █▀ █ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+[Extensions]
+  goal.ts, ready-observer.mjs
+
+
+ Reloaded keybindings, extensions, skills, prompts, themes, and context files
+
+ Warning: No goal is set. Use /goal to draft one, or /goal-direct <objective> to create one immediately.
+
+
+
+
+┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Goal controls  · This project                                                                      │
+│  Commands   [Keys]   Pausing                                                                       │
+│ Pause / interrupt                                                                                  │
+│                                                                                                    │
+│ Ctrl+Shift+A                                                                                       │
+│                                                                                                    │
+│ Enter to save · Esc to cancel                                                                      │
+│ ────────────────────────────────────────────────────────────────────────────────────────────────── │
+│ ctrl+shift+a is also assigned to Toggle completion auditor.                                        │
+│ Enter save · Esc cancel                                                                            │
+└────────────────────────────────────────────────────────────────────────────────────────────────────┘
+~/projects/pi-goal-x/experiments/runs/goal-controls/controls-ui-78298-1792837799892 (codex/custom-goal-cont...
+0.0%/200k                                                                                              fixture

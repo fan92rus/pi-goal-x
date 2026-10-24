@@ -1,3 +1,4 @@
+import { commandHint, commandInstructions, type GoalCommands } from "./goal-controls.ts";
 import { randomUUID } from "node:crypto";
 
 export type GoalDispatchKind = "ready" | "check" | "wake" | "repair" | "kickoff" | "recovery";
@@ -21,6 +22,8 @@ export interface GoalSchedulerState {
 	wait?: GoalWait;
 	dispatch?: { id: string; kind: GoalDispatchKind; claimedAt: number };
 	repairUsed: boolean;
+	/** Optional idle pacing, effective only with idleContinuationBackoff=true. */
+	idle?: { runs: number; nextAt: number };
 }
 export type GoalContinuation =
 	| { kind: "ready" }
@@ -39,6 +42,7 @@ export function normalizeGoalScheduler(raw: unknown): GoalSchedulerState | undef
 	const integer = (n: unknown) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
 	const text = (v: unknown) => typeof v === "string" && v.length > 0 && v.length <= 2000;
 	if (s.version !== 1 || !text(s.owner) || !text(s.generation) || !integer(s.used) || typeof s.repairUsed !== "boolean" || !["idle", "ready", "waiting", "claimed", "running", "interrupted"].includes(s.phase)) return invalid();
+	if (s.idle !== undefined && (!s.idle || typeof s.idle !== "object" || !integer(s.idle.runs) || s.idle.runs < 1 || s.idle.runs > 6 || !integer(s.idle.nextAt) || s.idle.nextAt > 8_640_000_000_000_000)) return invalid();
 	// Goals saved before next actions were removed still carry decision.nextAction.
 	// The field is stripped after validation and never makes a goal invalid:
 	// rejecting one would strand it as interrupted with spent allowance.
@@ -65,24 +69,32 @@ export function normalizeGoalScheduler(raw: unknown): GoalSchedulerState | undef
  * omission, so a retained stale copy would keep issuing a cancelled order:
  * they belong with the reset-on-change state, never with retained counters.
  */
-export function schedulerSummaryParts(s: GoalSchedulerState | undefined, limit?: number, showRuns = true): { runs: string; instructions: string } {
+export function schedulerSummaryParts(s: GoalSchedulerState | undefined, limit?: number, showRuns = true, idleBackoff = false, commands?: GoalCommands): { runs: string; instructions: string; idlePacing?: string } {
 	// An unlimited allowance has no limit to report, so the runs line is left
 	// empty rather than rendered as "used/unlimited". A finite allowance is
 	// reported unless showAutonomousRuns is off. Enforcement reads the limit
 	// elsewhere; this is display only.
 	const runs = limit !== undefined && showRuns ? `Autonomous runs: ${s?.used ?? 0}/${limit}${limit === 0 ? " (automatic continuation disabled)" : ""}.` : "";
 	const lines: string[] = [];
+	let idlePacing: string | undefined;
 	if (s) {
+		if (idleBackoff && s.phase === "ready" && s.decision?.kind === "ready" && s.decision.purpose === "ready" && s.idle && s.idle.nextAt > Date.now()) {
+			const seconds = Math.ceil((s.idle.nextAt - Date.now()) / 1000);
+			const time = new Date(s.idle.nextAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
+			idlePacing = `Next automatic attempt in ${seconds}s (${time} local). ${commandHint("goal-resume", commands)} now.`;
+			lines.push(idlePacing);
+		}
 		if (s.wait) {
 			lines.push(`Waiting: ${s.wait.reason}; wait_id=${s.wait.id}; deadline=${new Date(s.wait.deadline).toISOString()}.`);
 			if (s.wait.nextCheckAt !== undefined) lines.push(`Next check: ${new Date(s.wait.nextCheckAt).toISOString()}; ${s.wait.remainingChecks} checks remaining.`);
 		}
-		if (s.phase === "interrupted" || s.phase === "claimed") lines.push("Execution requires dispatch admission or explicit /goal-resume after interruption.");
+		if (s.phase === "interrupted") lines.push("Turn stopped. Resume or send a message to continue.");
+		if (s.phase === "claimed") lines.push(commandInstructions("Execution requires dispatch admission or explicit /goal-resume after interruption.", commands));
 	}
-	return { runs, instructions: lines.join("\n") };
+	return { runs, instructions: lines.join("\n"), idlePacing };
 }
 
-export function schedulerSummary(s: GoalSchedulerState | undefined, limit?: number, showRuns = true): string {
-	const { runs, instructions } = schedulerSummaryParts(s, limit, showRuns);
+export function schedulerSummary(s: GoalSchedulerState | undefined, limit?: number, showRuns = true, idleBackoff = false, commands?: GoalCommands): string {
+	const { runs, instructions } = schedulerSummaryParts(s, limit, showRuns, idleBackoff, commands);
 	return [runs, instructions].filter(Boolean).join("\n");
 }

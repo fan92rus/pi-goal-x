@@ -1,0 +1,69 @@
+{
+  "sdk": "1.0.0",
+  "meaning": "minimal host SDK behavior reproduced with two fixture tools; pi-goal-x is not imported; observations, not a claim about all supported SDK versions",
+  "results": [
+    {
+      "scenario": "custom trigger after a terminating profile change",
+      "goalExtensionLoaded": false,
+      "observed": true,
+      "requests": [
+        {
+          "phase": "draft",
+          "leadingMessages": 1,
+          "hasDraftGuidance": true,
+          "hasWorkGuidance": false,
+          "tools": [
+            "confirm_plan"
+          ]
+        },
+        {
+          "phase": "execution",
+          "leadingMessages": 1,
+          "hasDraftGuidance": true,
+          "hasWorkGuidance": false,
+          "tools": [
+            "finish_work"
+          ]
+        },
+        {
+          "phase": "execution",
+          "leadingMessages": 1,
+          "hasDraftGuidance": false,
+          "hasWorkGuidance": true,
+          "tools": [
+            "finish_work"
+          ]
+        }
+      ],
+      "artifact": "correct\n",
+      "errors": []
+    },
+    {
+      "scenario": "fresh custom trigger",
+      "goalExtensionLoaded": false,
+      "observed": true,
+      "requests": [
+        {
+          "phase": "execution",
+          "leadingMessages": 0,
+          "hasDraftGuidance": false,
+          "hasWorkGuidance": false,
+          "tools": [
+            "finish_work"
+          ]
+        },
+        {
+          "phase": "execution",
+          "leadingMessages": 1,
+          "hasDraftGuidance": false,
+          "hasWorkGuidance": true,
+          "tools": [
+            "finish_work"
+          ]
+        }
+      ],
+      "artifact": "correct\n",
+      "errors": []
+    }
+  ]
+}

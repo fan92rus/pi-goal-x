@@ -184,12 +184,14 @@ test("goal-settings renders sectioned rows with clearer auditor wording", async 
 		assert.ok(captured, "settings menu must call ui.select");
 		const opts: string[] = captured ?? [];
 		assert.ok(opts.some((l) => l.startsWith("─── Editing: project (")), "scope header names the edited layer");
+		assert.ok(opts.some((l) => l.startsWith("Scope: project")), "scope switch is selectable");
+		assert.ok(opts.includes("─── Advanced execution ───"));
 		assert.ok(opts.includes("─── Goal behavior ───"), "Goal behavior section header");
 		assert.ok(opts.includes("─── Task tracking ───"), "Task tracking section header");
 		assert.ok(opts.includes("─── Completion auditor ───"), "Completion auditor section header");
 		assert.ok(opts.some((l) => l.includes("auditor disabled (disable the completion auditor):")), "clearer auditor wording row");
 		assert.ok(opts.some((l) => l.includes("provider (auditor model provider):")) && opts.some((l) => l.includes("model (auditor model):")), "provider/model rows");
-		assert.equal(opts.filter((l) => l.startsWith("───")).length, 5, "editing header + exactly four sections (incl. Blocker Oracle)");
+		assert.equal(opts.filter((l) => l.startsWith("───")).length, 6, "editing header + five settings sections");
 		assert.ok(opts.includes("─── Blocker Oracle ───"), "Blocker Oracle section header");
 		assert.ok(opts.includes("Done"));
 	} finally {
@@ -345,7 +347,7 @@ function readFileSyncSafe(p: string): string | null {
 	}
 }
 
-test("goal-settings: execution-contract opt-in can be set and removed through the menu", async () => {
+for (const [key, label] of [["strictExecutionContract", "explicit execution contracts (opt-in)"], ["idleContinuationBackoff", "slow repeated idle replies (opt-in)"]] as const) test(`goal-settings: ${key} can be set and removed through the menu`, async () => {
  const cwd = mkdtempSync(path.join(tmpdir(), "goal-settings-contract-"));
  mkdirSync(path.join(cwd, ".pi"), {recursive: true});
  const h = createHarness(cwd);
@@ -356,13 +358,13 @@ test("goal-settings: execution-contract opt-in can be set and removed through th
    let step = 0;
    ui.select = async (_title, options) => {
     step++;
-    if (step === 1) return options.find(option => option.includes("explicit execution contracts (opt-in) (require"));
+    if (step === 1) return options.find(option => option.includes(label));
     if (step === 2) { assert.ok(options.includes(action)); return action; }
     return "Done";
    };
    await h.commands.get("goal-settings")!.handler("", h.ctx);
    const saved = JSON.parse(readFileSync(path.join(cwd, ".pi", "pi-goal-x-settings.json"), "utf8"));
-   assert.equal(saved.strictExecutionContract, action === "Use inherited value" ? undefined : action.endsWith("true"));
+   assert.equal(saved[key], action === "Use inherited value" ? undefined : action.endsWith("true"));
   }
  } finally { rmSync(cwd, {recursive: true, force: true}); }
 });

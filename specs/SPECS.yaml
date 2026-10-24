@@ -16,6 +16,41 @@ commands:
   finish: /spec-finish [spec-id-or-path]
   settings: /specs-settings
 specs:
+  - id: 2026-10-24-release-0-33-0
+    path: specs/2026-10-24-release-0-33-0
+    title: Release Pi integration and configurable controls as 0.33.0
+    status: validating
+    focused: false
+    last_audit: null
+    updated: 2026-10-24
+  - id: 2026-10-24-custom-goal-controls
+    path: specs/2026-10-24-custom-goal-controls
+    title: Configurable goal commands, shortcuts and pause order
+    status: completed
+    focused: false
+    last_audit: null
+    updated: 2026-10-24
+  - id: 2026-10-24-pi-1-4-compatibility
+    path: specs/2026-10-24-pi-1-4-compatibility
+    title: Current Pi development SDK and native host integration
+    status: completed
+    focused: false
+    last_audit: null
+    updated: 2026-10-24
+  - id: 2026-10-23-continuation-defaults-validation
+    path: specs/2026-10-23-continuation-defaults-validation
+    title: Standard continuation defaults and opt-in policy validation
+    status: completed
+    focused: false
+    last_audit: null
+    updated: 2026-10-24
+  - id: 2026-10-23-open-issue-resolution
+    path: specs/2026-10-23-open-issue-resolution
+    title: Resolve stale audit settlement and assess idle continuation controls
+    status: completed
+    focused: false
+    last_audit: null
+    updated: 2026-10-24
   - id: 2026-05-13-drafting-runtime-simplification
     path: specs/2026-05-13-drafting-runtime-simplification
     title: Simplify goal drafting while hardening runtime execution and audit

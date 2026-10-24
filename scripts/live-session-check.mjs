@@ -1,10 +1,7 @@
 /**
- * Live pi 1.0.0 goal-lifecycle check.
+ * Live goal-lifecycle check against the repository's installed Pi SDK.
  *
- * The test suite stubs the two SDK entry points that matter most here:
- * `createAgentSession` and `createExtensionRuntime` are never executed for real
- * (see tests/stubs/pi-coding-agent.ts and the injected `createSession` in
- * tests/goal-auditor.test.ts). This script closes that gap by driving a REAL
+ * Alongside the direct SDK tests, this script drives the installed
  * `pi --mode rpc` process with the extension loaded, backed by a local fake
  * OpenAI-completions provider, and walking one goal through
  *
@@ -23,13 +20,14 @@ import { createServer } from "node:http";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { piCLI, piVersion } from "./pi-host.mjs";
 
 const EXT_PATH = path.resolve(import.meta.dirname, "..", "extensions", "goal.ts");
 const TIMEOUT_MS = Number(process.env.LIFECYCLE_TIMEOUT_MS ?? 120_000);
 
-const version = spawnSync("pi", ["--version"], { encoding: "utf8" });
+const version = spawnSync(process.execPath, [piCLI, "--version"], { encoding: "utf8" });
 if (version.status !== 0) {
-	console.error("SKIP: pi CLI is not on PATH.");
+	console.error(`Could not run the installed Pi ${piVersion} CLI: ${version.stderr || version.error || "unknown error"}`);
 	process.exit(2);
 }
 const HOST_VERSION = version.stdout.trim();
@@ -60,7 +58,7 @@ const server = createServer((req, res) => {
 			step = {
 				tool: "propose_goal_draft",
 				args: {
-					objective: "Confirm pi 1.0.0 compatibility.\nSuccess criteria: the live session completes one goal lifecycle.",
+					objective: `Confirm Pi ${HOST_VERSION} compatibility.\nSuccess criteria: the live session completes one goal lifecycle.`,
 					sisyphus: false,
 				},
 			};
@@ -128,9 +126,9 @@ writeFileSync(path.join(agentDir, "models.json"), JSON.stringify({
 }));
 
 // ── Drive the live session ──────────────────────────────────────────────────
-const child = spawn("pi", ["--mode", "rpc", "-e", EXT_PATH, "-ne", "--no-session"], {
+const child = spawn(process.execPath, [piCLI, "--mode", "rpc", "-e", EXT_PATH, "-ne", "--no-session"], {
 	cwd: projectDir,
-	env: { ...process.env, PI_CODING_AGENT_DIR: agentDir, PI_OFFLINE: "1" },
+	env: { ...process.env, PI_CODING_AGENT_DIR: agentDir, PI_GOAL_GLOBAL_SETTINGS_FILE: path.join(work, "global.json"), PI_OFFLINE: "1" },
 	stdio: ["pipe", "pipe", "pipe"],
 });
 let stderr = "";
@@ -171,6 +169,7 @@ child.stdout.on("data", (chunk) => {
 				if (/Goal created and focused/i.test(text)) milestones.goalCreated = true;
 			}
 			if (event.message.toolName === "update_goal" && /complete/i.test(text)) milestones.executionStarted = true;
+			if (event.message.toolName === "update_goal" && /Goal complete\./i.test(text)) milestones.completed = true;
 		}
 		if (event.type === "message_end" && event.message?.role === "user" && /GOAL CONFIRMATION/.test(JSON.stringify(event.message.content ?? ""))) {
 			milestones.draftingPrompt = true;
@@ -194,7 +193,7 @@ child.stdout.on("data", (chunk) => {
 child.stdin.write(JSON.stringify({
 	id: "p1",
 	type: "prompt",
-	message: "/goal Confirm pi 1.0.0 compatibility with one live lifecycle",
+	message: `/goal Confirm Pi ${HOST_VERSION} compatibility with one live lifecycle`,
 }) + "\n");
 
 const deadline = Date.now() + TIMEOUT_MS;
@@ -237,7 +236,7 @@ milestones.completed =
 	ledgerTypes.includes("goal_archived") ||
 	archived.some((f) => f.endsWith(".md"));
 
-console.log("\n=== live pi 1.0.0 lifecycle result ===");
+console.log(`\n=== live Pi ${HOST_VERSION} lifecycle result ===`);
 console.log(`host version:            ${HOST_VERSION}`);
 console.log(`provider requests:       ${providerRequests.length} (drafting=${seen.drafting}, execution=${seen.execution}, audit=${seen.audit})`);
 console.log(`dialogs:                 ${observed.dialogs.map((d) => d.method).join(", ") || "(none)"}`);

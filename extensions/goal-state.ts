@@ -1,3 +1,5 @@
+import { GoalInterruption } from "./goal-interruption.ts";
+import { commandHint, type GoalCommandId, type GoalCommands } from "./goal-controls.ts";
 import * as path from "node:path";
 import { goalStorageContext, goalStorageRoot } from "./storage/goal-root.ts";
 import { type AgentToolResult, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -84,6 +86,10 @@ export interface GoalCore {
 	goalService: GoalService;
 	runtime: GoalRuntime;
 	scheduler: GoalScheduler;
+	interruption: GoalInterruption;
+	invokeGoalCommand?: (id: GoalCommandId, args: string, ctx: ExtensionContext) => Promise<void>;
+	loadedCommands?: GoalCommands;
+	controlWarnings?: string[];
 	auditMessages: GoalAuditMessages;
 	accounting: GoalAccounting;
 
@@ -260,14 +266,15 @@ export function createGoalCore(
 	let dashboardExpanded = false;
 
 	// Per-turn flags reset in turn_start (#4, C9 fix).
-	// goalWorkToolCalledThisTurn: tracks whether a real goal-work tool was called.
-	//   If false at turn_end, we don't queue another autoContinue (empty chat turn).
+	// goalWorkToolCalledThisTurn: tracks meaningful work attempts for Oracle.
+	// Scheduler idle pacing accumulates activity across the whole logical run.
 	// turn-stop guard, stale checkpoint, continuation scheduling, and one-time
 	// steering reminders live in `runtime` (extensions/goal-runtime.ts);
 	// token/time accounting lives in `accounting` (extensions/goal-accounting.ts).
 	let goalWorkToolCalledThisTurn = false;
 
 	let scheduler: GoalScheduler;
+	let interruption: GoalInterruption;
 	const runtime = new GoalRuntime({
 		authorize: ctx => scheduler.claim(ctx),
 		recover: ctx => scheduler.recover(ctx),
@@ -391,7 +398,7 @@ export function createGoalCore(
 	}
 
 	function isActionableContinuationGoal(goalId: string | null | undefined): goalId is string {
-		return !!goalId && state.goal?.id === goalId && state.goal.status === "active" && state.goal.autoContinue;
+		return !!goalId && state.goal?.id === goalId && state.goal.status === "active" && state.goal.autoContinue && !interruption?.isHeld(goalId);
 	}
 
 	function isStaleCheckpointBlockedToolCall(toolName: string): boolean {
@@ -425,7 +432,7 @@ export function createGoalCore(
 		opts: { recordLedger?: boolean } = {},
 	): void {
 		const previousGoalId = focusedGoalId;
-		if (previousGoalId !== goalId) scheduler.takeover(ctx);
+		if (previousGoalId !== goalId) { interruption?.reset(); if (ctx.hasUI) ctx.ui.setStatus("goal-interrupt", undefined); scheduler.takeover(ctx); }
 		if (previousGoalId !== goalId) goalService.flushTurn(ctx); // P1-3: persist the old buffer before switching focus
 		assignFocusedGoalId(goalId && goalsById.has(goalId) ? goalId : null);
 		if (previousGoalId !== focusedGoalId) {
@@ -468,7 +475,7 @@ export function createGoalCore(
 	}
 
 	function beginAccounting(): void {
-		if (scheduler?.isWaiting()) { clearActiveAccounting(); return; }
+		if (scheduler?.isWaiting() || interruption?.isHeld()) { clearActiveAccounting(); return; }
 		if (!state.goal || (state.goal.status !== "active")) {
 			clearActiveAccounting();
 			return;
@@ -510,7 +517,7 @@ export function createGoalCore(
 				try {
 					goalService.appendEvents(ctx, [{type: "goal_budget_warning", goalId: budgetGoal.id, budget: budgetGoal.tokenBudget, tokensUsed: budgetGoal.usage.tokensUsed, pct: Math.round(pct * 100), at: nowIso()}]);
 				} catch { /* Alert must never crash the turn. */ }
-				ctx.ui.notify(`Token budget ${Math.round(pct * 100)}% used (${budgetGoal.usage.tokensUsed}/${budgetGoal.tokenBudget} tokens). Use /goal-tweak to change or remove the budget.`, "warning");
+				ctx.ui.notify(`Token budget ${Math.round(pct * 100)}% used (${budgetGoal.usage.tokensUsed}/${budgetGoal.tokenBudget} tokens). Use ${commandHint("goal-tweak", core.loadedCommands)} to change or remove the budget.`, "warning");
 			}
 		}
 
@@ -652,6 +659,7 @@ export function createGoalCore(
 	}
 
 	function renderUI(ctx: ExtensionContext): void {
+		if (!interruption.isHeld()) ctx.ui.setStatus("goal-interrupt", undefined);
 		const goalCwd = ctx.cwd;
 		const storage = goalStorageContext(ctx);
 		const totalOpen = otherOpenGoalCount(goalsById, null);
@@ -667,7 +675,7 @@ export function createGoalCore(
 				clearGoalWidget(ctx);
 				return;
 			}
-			ctx.ui.setStatus("goal", `goal: unfocused [${totalOpen} open] - /goal-focus`);
+			ctx.ui.setStatus("goal", `goal: unfocused [${totalOpen} open] - ${commandHint("goal-focus", core.loadedCommands)}`);
 			if (!widgetRegistered) {
 				ctx.ui.setWidget(
 					GOAL_WIDGET_KEY,
@@ -675,7 +683,7 @@ export function createGoalCore(
 						getGoal: () => goalForDisplay() ?? state.goal,
 						getOpenGoalCount: () => otherOpenGoalCount(goalsById, null),
 						getAuditorProgress: () => auditProgress,
-						getSettings: () => loadGoalSettings(goalCwd),
+						getSettings: () => ({ ...loadGoalSettings(goalCwd), commands: core.loadedCommands }),
 						getDebugMode: () => debugMode,
 						getStalled: () => stallNotified,
 						getExpanded: () => dashboardExpanded,
@@ -706,7 +714,7 @@ export function createGoalCore(
 					getGoal: () => goalForDisplay() ?? state.goal,
 					getOpenGoalCount: () => otherOpenGoalCount(goalsById, null),
 					getAuditorProgress: () => auditProgress,
-					getSettings: () => loadGoalSettings(goalCwd),
+					getSettings: () => ({ ...loadGoalSettings(goalCwd), commands: core.loadedCommands }),
 					getDebugMode: () => debugMode,
 					getStalled: () => stallNotified,
 					getExpanded: () => dashboardExpanded,
@@ -1022,6 +1030,7 @@ export function createGoalCore(
 		goalService,
 		runtime,
 		get scheduler() { return scheduler; },
+		get interruption() { return interruption; },
 		auditMessages: new GoalAuditMessages(),
 		accounting,
 		assignFocusedGoalId,
@@ -1069,6 +1078,7 @@ export function createGoalCore(
 		checkStall,
 		replaceGoal,
 	};
+	interruption = new GoalInterruption(core);
 	scheduler = new GoalScheduler(core);
 	return core;
 }

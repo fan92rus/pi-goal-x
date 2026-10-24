@@ -62,13 +62,13 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+          cache: npm
       - name: Use verified OIDC-capable npm
         run: npm install --global npm@11.19.0
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
       - run: npm run check
       - run: npm run lint
-      - run: npm run test:all
-      - run: npm run test:selfcheck
+      - run: npm run test:all -- --selfcheck
       - run: npm run context:gate
       - run: npm run context:provider-check
       - run: npm audit --omit=dev

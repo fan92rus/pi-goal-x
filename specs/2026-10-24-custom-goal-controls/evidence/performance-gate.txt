@@ -1,0 +1,2 @@
+[B6] campaign=naf: gating 105 after rows against 105 before rows (same-runner reference; regression checks)
+[B6] PASS: no regressions, all claim-specific invariants hold.

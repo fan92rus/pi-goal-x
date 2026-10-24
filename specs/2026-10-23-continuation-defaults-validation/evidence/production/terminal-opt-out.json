@@ -1,0 +1,65 @@
+{
+  "beforeUsed": 3,
+  "afterUsed": 4,
+  "dispatchAfterSettingMs": 19.514404296875,
+  "artifact": "Hello from goal\n",
+  "settings": {
+    "idleContinuationBackoff": false
+  },
+  "requests": [
+    {
+      "at": 1792828778802,
+      "phase": "execution",
+      "action": "text",
+      "optedIn": true,
+      "systemPresent": true,
+      "executionPromptCorrect": true,
+      "systemSHA256": "24b45ffd83c1e7d9e2f488916ed230f6b2f606a6eb1442b1ad71f14f6bab96b6"
+    },
+    {
+      "at": 1792828778830,
+      "phase": "execution",
+      "action": "text",
+      "optedIn": true,
+      "systemPresent": true,
+      "executionPromptCorrect": true,
+      "systemSHA256": "24b45ffd83c1e7d9e2f488916ed230f6b2f606a6eb1442b1ad71f14f6bab96b6"
+    },
+    {
+      "at": 1792828808863,
+      "phase": "execution",
+      "action": "text",
+      "optedIn": true,
+      "systemPresent": true,
+      "executionPromptCorrect": true,
+      "systemSHA256": "24b45ffd83c1e7d9e2f488916ed230f6b2f606a6eb1442b1ad71f14f6bab96b6"
+    },
+    {
+      "at": 1792828820926,
+      "phase": "execution",
+      "action": "write",
+      "optedIn": false,
+      "systemPresent": true,
+      "executionPromptCorrect": true,
+      "systemSHA256": "24b45ffd83c1e7d9e2f488916ed230f6b2f606a6eb1442b1ad71f14f6bab96b6"
+    },
+    {
+      "at": 1792828826939,
+      "phase": "execution",
+      "action": "update_goal",
+      "optedIn": false,
+      "systemPresent": true,
+      "executionPromptCorrect": true,
+      "systemSHA256": "24b45ffd83c1e7d9e2f488916ed230f6b2f606a6eb1442b1ad71f14f6bab96b6"
+    },
+    {
+      "at": 1792828826945,
+      "phase": "audit",
+      "action": "text",
+      "optedIn": false,
+      "systemPresent": true,
+      "executionPromptCorrect": false,
+      "systemSHA256": "4a21f3c85048f25c70d7dc61442b9b2d623d83a0bff4cf17223368f165a26f38"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+/** Independent suites use separate processes and fixtures; benchmarks run afterwards. */
+import {spawn} from 'node:child_process';
+import {createWriteStream, mkdirSync, mkdtempSync, readFileSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {stripVTControlCharacters} from 'node:util';
+
+export async function runChecks(checks, {directory, cwd=process.cwd(), concurrency=2, quiet=false}={}) {
+ mkdirSync(directory,{recursive:true});
+ // Match npm run: CLI checks must find the checkout's Pi, even without a global install.
+ const env={...process.env,PATH:`${path.join(cwd,'node_modules','.bin')}${path.delimiter}${process.env.PATH??''}`};
+ const results=new Array(checks.length);
+ let next=0;
+ await Promise.all(Array.from({length:Math.min(concurrency,checks.length)},async()=>{
+  while(next<checks.length) {
+   const index=next++, check=checks[index], started=Date.now();
+   const log=path.join(directory,`${check.name}.log`);
+   const stream=createWriteStream(log);
+   let error;
+   const child=spawn(process.execPath,check.args,{cwd,env,stdio:['ignore','pipe','pipe'],timeout:180000});
+   child.stdout.pipe(stream,{end:false}); child.stderr.pipe(stream,{end:false});
+   child.once('error',value=>{error=String(value);});
+   const code=await new Promise(resolve=>child.once('close',resolve));
+   await new Promise(resolve=>stream.end(resolve));
+   const content=readFileSync(log,'utf8').trimEnd();
+   if(check.noSkippedTests && code===0) {
+    const summary=/^(?:ℹ|#)\s+skipped\s+(\d+)\s*$/m.exec(stripVTControlCharacters(content));
+    if(!summary || Number(summary[1])!==0) error=summary?`Full suite skipped ${summary[1]} tests.`:'Full suite did not report its skip count.';
+   }
+   const result={name:check.name,passed:code===0&&!error,code,error,elapsedMs:Date.now()-started,log};
+   results[index]=result;
+   if(!quiet) {
+    console.log(`${result.passed?'PASS':'FAIL'} ${check.name} (${(result.elapsedMs/1000).toFixed(1)}s)`);
+    console.log(result.passed?content.split('\n').slice(-14).join('\n'):content);
+    if(error) console.error(error);
+   }
+  }
+ }));
+ writeFileSync(path.join(directory,'results.json'),JSON.stringify(results,null,2)+'\n');
+ return results;
+}
+
+if(process.argv[1]===fileURLToPath(import.meta.url)) {
+ const directory=process.env.PI_GOAL_CI_LOG_DIR??mkdtempSync(path.join(tmpdir(),'pi-goal-ci-'));
+ console.log(`Validation logs: ${directory}`);
+ const results=await runChecks([
+  {name:'tests',args:['scripts/run-unit-tests.mjs','all','--selfcheck'],noSkippedTests:true},
+  {name:'controls-cli',args:['experiments/controls/cli-walkthrough.mjs']},
+  {name:'lifecycle-cli',args:['scripts/live-session-check.mjs']},
+ ],{directory});
+ process.exitCode=results.every(result=>result.passed)?0:1;
+}

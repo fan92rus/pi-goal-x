@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-24",
+  "sdk": "1.4.0",
+  "node": "v26.10.0",
+  "cleanInstall": true,
+  "fullSuite": {
+    "tests": 1150,
+    "pass": 1150,
+    "fail": 0,
+    "skipped": 0,
+    "files": 85,
+    "durationMs": 44113.320083
+  },
+  "typecheck": true,
+  "lint": true,
+  "contextFixtures": 24,
+  "providerPayloads": 6,
+  "responsesCompatibilityPayloads": 3,
+  "retentionMaxHistoryBytes": 4194304,
+  "runtimeBenchmarkRows": 105,
+  "hostMatrix": {
+    "versions": [
+      "0.83.0",
+      "0.84.1",
+      "0.85.1",
+      "0.86.0",
+      "0.87.0",
+      "1.0.0",
+      "1.4.0"
+    ],
+    "sdkChecksPerHost": 38
+  },
+  "minimumNodeChecks": [
+    {
+      "node": "22.15.0",
+      "sdk": "0.83.0",
+      "tests": 38,
+      "pass": 38
+    },
+    {
+      "node": "22.19.0",
+      "sdk": "1.4.0",
+      "tests": 38,
+      "pass": 38
+    }
+  ],
+  "dependencyAudit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "packageDryRun": true,
+  "cliSmoke": {
+    "sdk": "1.4.0",
+    "requests": 3,
+    "audited": true,
+    "archived": true
+  },
+  "publicationTests": 6,
+  "rankingTests": 5
+}
