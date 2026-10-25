@@ -63,16 +63,16 @@ const now = new Date();
 // regex was meant, so every run appended to one misnamed file ("2026-10-").
 const logFile = path.join(LOG_DIR, `pi-goalx-sync-${now.toISOString().replace(/[^0-9]/g, "").slice(0, 8)}.log`);
 fs.mkdirSync(LOG_DIR, { recursive: true });
-const logStream = fs.createWriteStream(logFile, { flags: "a" });
+// Synchronous appends: a buffered stream makes die() a no-op until the flush
+// callback fires — the top-level code keeps RUNNING after FATAL (seen live
+// 2026-10-25: a guard FATAL continued through fetch/merge/done because
+// logStream.end(cb) only exits on a later tick). Perf is irrelevant here.
 function log(msg) {
 	const line = `[${new Date().toISOString()}] ${msg}`;
 	console.log(line);
-	logStream.write(line + "\n");
+	fs.appendFileSync(logFile, line + "\n");
 }
-// end(cb) flushes the buffered lines before exit; a bare end()+exit() races
-// the flush and silently loses the run's log lines (seen under the hidden
-// wscript launcher, 2026-10-14).
-function die(code, msg) { log(`FATAL(${code}): ${msg}`); logStream.end(() => process.exit(code)); }
+function die(code, msg) { log(`FATAL(${code}): ${msg}`); process.exit(code); }
 
 function sh(cmd, args, opts = {}) {
 	const r = spawnSync(cmd, args, { cwd: REPO, encoding: "utf8", shell: false, ...opts });
@@ -142,7 +142,6 @@ try {
 		{ encoding: "utf8", shell: false, timeout: 30_000 });
 	if (gh.status === 0 && JSON.parse(gh.stdout || "[]").length > 0) {
 		log("GitHub upstream-sync run in progress — exiting to avoid a race");
-		logStream.end();
 		process.exit(0);
 	}
 } catch { /* gh not available — continue */ }
@@ -150,6 +149,14 @@ try {
 // ── fetch + latest tag ───────────────────────────────────────────────────────
 sh("git", ["fetch", UPSTREAM, "--tags"]);
 sh("git", ["fetch", ORIGIN]);
+// The SelfHeal resolver agent merges conflict tags in the AGENT checkout and pushes
+// to origin/main — this LOCAL main only learns about it via a pull. Without a
+// catch-up the ancestor check below reads a stale main, the same conflict re-fires
+// every run and /enqueue-conflict is re-posted for an already-merged tag (seen
+// 2026-10-24/25: hourly v0.34.0 spam after the agent had already merged it).
+// ff-only: never clobbers local commits — on divergence we continue on local main.
+const ff = sh("git", ["merge", "--ff-only", `${ORIGIN}/${BRANCH}`], { allowFail: true });
+if (ff.status !== 0) log(`ff-only catch-up from ${ORIGIN}/${BRANCH} skipped (local main diverged?) — continuing`);
 const tag = shOut("git", ["tag", "--list", "v*", `--sort=-v:refname`, "--merged", `${UPSTREAM}/${BRANCH}`]).split("\n")[0]?.trim();
 if (!tag) die(2, "no upstream release tags found");
 
@@ -266,4 +273,3 @@ for (const old of logs.slice(0, Math.max(0, logs.length - 14))) {
 	try { fs.rmSync(path.join(LOG_DIR, old), { force: true }); } catch {}
 }
 log("=== upstream-sync done ===");
-logStream.end();
