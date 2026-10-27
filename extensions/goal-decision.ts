@@ -31,7 +31,10 @@
  *     launch is appended to the record; any failed, refused, or blocking
  *     consultation escalates to ask-human. The per-goal cross-route cap
  *     (maxConsultationsPerGoal, shared with the blocker oracle) is checked
- *     before each wave and reserved per real launch.
+ *     before each wave and reserved per real launch. The token budget gates
+ *     every launch (E5.3): a launch with no budget left is refused, ends the
+ *     route with the budget line, and each finished consultant's usage is
+ *     charged to GoalAccounting under its decision-scoped key.
  *   - Cancellation (TECH §6, E5.2): the injected signal is passed to every
  *     consultant. Once it fires, no further wave or critic starts, the open
  *     record is invalidated (`cancelled`), and the route returns `cancelled`.
@@ -44,6 +47,7 @@
 import { Type, type Static } from "@earendil-works/pi-ai";
 import { Value } from "typebox/value";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { budgetLine, budgetRemaining, type BudgetLike, type GoalAccounting } from "./goal-accounting.ts";
 import type { ConsultantModel, ConsultantRole, ConsultantRunResult, CriticPayload, ResearcherPayload, runConsultant } from "./goal-decision-consultant.ts";
 import type { GoalDecisionCriticSettings, GoalDecisionSettings } from "./goal-decision-policy.ts";
 import { invalidateOpenDecision } from "./goal-decision-runtime.ts";
@@ -446,6 +450,12 @@ export interface ConsultationDeps {
 	runConsultant: ConsultantRunner;
 	/** Cancels the deliberation and every in-flight consultant (pause, interrupt, abort). */
 	signal?: AbortSignal;
+	/**
+	 * Token budget (TECH §3, §6, E5.3). `goal` is read before every launch; a launch needs
+	 * remaining > 0, or no budget set. `accounting` receives each finished consultant's
+	 * keyed usage, and its pending tokens count as spent. Absent ⇒ no gate and no charge.
+	 */
+	budget?: { goal: () => BudgetLike; accounting: GoalAccounting };
 }
 
 export type CriticModelResolution =
@@ -627,10 +637,18 @@ function consultantEntry(
 
 /**
  * Pre-launch gate (runConsultant calls it only after the model check, so config
- * refusals never count). Reserves one launch under the per-goal cap; a refusal
- * launches nothing and counts nothing.
+ * refusals never count). The token budget is checked first (TECH §3, E5.3): a
+ * launch with nothing left is refused with the budget line. Then one launch is
+ * reserved under the per-goal cap. A refusal launches nothing and counts nothing.
  */
 function reserveLaunch(flow: ConsultationFlow): { ok: true } | { ok: false; reason: string } {
+	const budget = flow.deps.budget;
+	if (budget) {
+		const goal = budget.goal();
+		const live: BudgetLike = { ...goal, usage: { tokensUsed: goal.usage.tokensUsed + budget.accounting.pendingKeyedTokens() } };
+		const remaining = budgetRemaining(live);
+		if (remaining !== null && remaining <= 0) return { ok: false, reason: budgetLine(live) ?? "token budget exhausted" };
+	}
 	const reserved = reserveConsultations(flow.storeCtx.storage, flow.storeCtx.goalId, flow.policy.limits.maxConsultationsPerGoal);
 	if (reserved.ok) return { ok: true };
 	return { ok: false, reason: reserved.error.code === "capped" ? reserved.error.message : storeFailure(reserved.error) };
@@ -672,7 +690,17 @@ async function launchConsultant<R extends ConsultantRole>(
 		result = { ok: false, errorCode: "provider", message: error instanceof Error ? error.message : String(error) };
 	}
 	const seconds = Number(((Date.now() - started) / 1000).toFixed(3));
+	if (flow.deps.budget) {
+		// Keyed per decision: childRunId restarts at consultant-1 in every deliberation. Seconds are not
+		// charged: the consultant runs inside the agent turn, whose elapsed time charge() already counts.
+		flow.deps.budget.accounting.chargeKeyed(`${flow.record.id}/${childRunId}`, keyedTokens(result), 0);
+	}
 	return { result, entry: consultantEntry(childRunId, args.role, modelKey(args.model) ?? "unknown", seconds, result) };
+}
+
+/** Tokens to charge for one finished launch: the reported total, or "unknown" (never estimated). */
+function keyedTokens(result: ConsultantRunResult<ConsultantRole>): number | "unknown" {
+	return result.ok && result.usage?.tokens !== undefined ? result.usage.tokens : "unknown";
 }
 
 /** Appends launch entries and new facts in one revision-checked write. Returns the store error text, if any. */

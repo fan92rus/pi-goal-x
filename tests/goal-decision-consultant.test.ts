@@ -426,4 +426,15 @@ describe("consultant usage", () => {
 		assert.equal(run.ok, true);
 		if (run.ok) assert.deepEqual(run.usage, { tokens: 50 });
 	});
+
+	it("an assistant message without usage makes the usage unknown instead of an undercounted total", async () => {
+		const harness = fakeHarness(async ({ submit, emit }) => {
+			emit({ type: "message_end", message: { role: "assistant", usage: { totalTokens: 42 } } });
+			emit({ type: "message_end", message: { role: "assistant" } });
+			await submit(CRITIC_OK);
+		});
+		const run = await runConsultant({ ctx: CTX, role: "critic", prompt: "Q", model: MODEL, deadlineMs: 5_000, createSession: harness.factory });
+		assert.equal(run.ok, true);
+		if (run.ok) assert.equal(run.usage, undefined);
+	});
 });

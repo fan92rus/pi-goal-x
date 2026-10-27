@@ -36,6 +36,16 @@
 - Tests: consultant 3, router 5, runtime 5, restart through the real `session_start` hook 1 (14 cases). `npm test` 1339/1339.
 - Not wired yet (E6): the `goal_decision` tool must pass its execute signal into `ConsultationDeps.signal`.
 
+## 2026-10-27 — E5.3 (keyed accounting + budget gating)
+
+- `GoalAccounting.chargeKeyed(childRunId, tokens | "unknown", seconds)`: accepted once per key (a repeat returns zero); `"unknown"` settles the key with no token charge; accepted amounts fold into the next `charge()` (the turn-level flush), and `pendingKeyedTokens()` exposes them to the gate.
+- Keys are decision-scoped (`<decisionId>/consultant-N`): `childRunId` restarts at `consultant-1` in every deliberation, so a bare childRunId key would drop the second deliberation's charge. Record `childRunId` values are unchanged.
+- Seconds are not charged from the router: a consultant runs inside the agent turn, whose elapsed time `charge()` already counts (charging again would double-count `activeSeconds`).
+- Budget gate (`reserveLaunch`, before the cap reservation): launch refused when `budgetRemaining` is 0 (pending keyed tokens counted); the route ends `ask-human` with the budget line. The gate is off when no budget is set.
+- Runner honesty fix: an assistant `message_end` without `totalTokens` makes the run's usage `unknown` (previously a partial sum was reported as known).
+- Not wired yet (E6): `ConsultationDeps.budget` needs the live goal view and the goal's `GoalAccounting`.
+- Tests: accounting 4 (new), consultant 1 (new), router budget/keyed 6 (new).
+
 ## Pre-existing issues tracked
 
 - gx-43n.5 (reparented to gx-773): 7 Windows-environment test failures (golden paths, shell harness, lock fault-injection, path asserts, recover bin) + manifest selfcheck red on HEAD Windows.

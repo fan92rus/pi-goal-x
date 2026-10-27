@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ConsultantModel, ConsultantRole, ConsultantRunResult, CriticPayload, ResearcherPayload, RunConsultantArgs } from "../extensions/goal-decision-consultant.ts";
+import { GoalAccounting } from "../extensions/goal-accounting.ts";
 import { DEFAULT_GOAL_DECISION_LIMITS, type GoalDecisionCriticSettings, type GoalDecisionMode, type GoalDecisionSettings } from "../extensions/goal-decision-policy.ts";
 import {
 	applyAskHuman,
@@ -982,4 +983,76 @@ test("a settled child carries no orphaned marker in the record", async t => {
 
 	const [record] = storedRecords(ctx);
 	assert.equal(record?.consultants[0] && "orphaned" in record.consultants[0], false);
+});
+
+// ── budget gating and keyed accounting (TECH §3, §6, E5.3) ──────────────────
+
+const budgetDeps = (fake: FakeRunner, cwd: string, tokenBudget: number | undefined, tokensUsed: number, accounting = new GoalAccounting()): ConsultationDeps => ({
+	...depsFor(fake, cwd),
+	budget: { goal: () => ({ tokenBudget, usage: { tokensUsed } }), accounting },
+});
+
+test("budget gate: an exhausted budget refuses the launch before any consultant starts and escalates with the budget line", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["write volume"] }), policy(), ctx, budgetDeps(fake, ctx.cwd, 100, 100));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind === "ask-human") assert.equal(resolved.reason, "consultant researcher budget: token budget: 100/100 used, 0 remaining");
+	assert.equal(fake.calls.length, 0, "the refused launch never starts");
+	assert.equal(countedLaunches(ctx), 0, "a budget refusal reserves no consultation");
+	assert.equal(storedRecords(ctx)[0]?.status, "escalated");
+});
+
+test("budget gate: consultant tokens charged to accounting count against the budget before the next launch", async t => {
+	const ctx = storeCtx(t);
+	const accounting = new GoalAccounting();
+	// The researcher reports 42 tokens; the critic gate then sees 50 - 42 = 8 left and still launches.
+	const fake = fakeRunner((args) => (args.role === "researcher" ? researcherAnswers() : { ok: true, payload: CRITIC_OK }));
+	const fits = await resolveDecision(RESEARCH_CRITIQUE(["u"]), criticPolicy(), ctx, budgetDeps(fake, ctx.cwd, 50, 0, accounting));
+	assert.equal(fits.kind, "consulted");
+	assert.deepEqual(fake.calls.map((call) => call.role), ["researcher", "critic"]);
+	assert.equal(accounting.pendingKeyedTokens(), 42, "the critic reported no usage: only the researcher's 42 tokens are charged");
+});
+
+test("budget gate: a critic launch is refused when earlier consultant usage already spent the budget", async t => {
+	const ctx = storeCtx(t);
+	const accounting = new GoalAccounting();
+	const fake = fakeRunner((args) => (args.role === "researcher" ? { ok: true, payload: RESEARCH_OK, usage: { tokens: 60 } } : { ok: true, payload: CRITIC_OK }));
+	const resolved = await resolveDecision(RESEARCH_CRITIQUE(["u"]), criticPolicy(), ctx, budgetDeps(fake, ctx.cwd, 50, 0, accounting));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind === "ask-human") assert.equal(resolved.reason, "consultant critic budget: token budget: 60/50 used, 0 remaining");
+	assert.deepEqual(fake.calls.map((call) => call.role), ["researcher"], "the critic never launches");
+	assert.equal(accounting.pendingKeyedTokens(), 60);
+});
+
+test("keyed accounting: two deliberations on one accounting each charge their consultant-1 (childRunId is keyed per decision)", async t => {
+	const ctx = storeCtx(t);
+	const accounting = new GoalAccounting();
+	const fake = fakeRunner(researcherAnswers);
+	const deps = budgetDeps(fake, ctx.cwd, undefined, 0, accounting);
+	const first = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u"] }), policy(), ctx, deps);
+	const second = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["v"] }), policy(), ctx, deps);
+	assert.equal(first.kind, "consulted");
+	assert.equal(second.kind, "consulted");
+	const records = storedRecords(ctx);
+	assert.deepEqual(records.map((record) => record.consultants[0]?.childRunId), ["consultant-1", "consultant-1"]);
+	assert.equal(accounting.pendingKeyedTokens(), 84);
+});
+
+test("keyed accounting: a consultant that reports no usage is recorded as unknown and charges no tokens", async t => {
+	const ctx = storeCtx(t);
+	const accounting = new GoalAccounting();
+	const fake = fakeRunner(() => ({ ok: true, payload: RESEARCH_OK }));
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u"] }), policy(), ctx, budgetDeps(fake, ctx.cwd, 10, 0, accounting));
+	assert.equal(resolved.kind, "consulted");
+	assert.equal(storedRecords(ctx)[0]?.consultants[0]?.usage, "unknown");
+	assert.equal(accounting.pendingKeyedTokens(), 0);
+});
+
+test("budget gate: without a budget the launch is never refused, whatever the usage so far", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u"] }), policy(), ctx, budgetDeps(fake, ctx.cwd, undefined, 999_999));
+	assert.equal(resolved.kind, "consulted");
+	assert.equal(fake.calls.length, 1);
 });

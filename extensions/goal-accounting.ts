@@ -24,6 +24,10 @@ export interface BudgetLike {
 export class GoalAccounting {
 	private activeGoalId: string | null = null;
 	private lastAccountedAt: number | null = null;
+	/** childRunIds already accepted by chargeKeyed: a repeated delivery never charges twice. */
+	private readonly settledKeys = new Set<string>();
+	/** Keyed charges accepted but not yet folded into a charge(). */
+	private pending: AccountingCharge = { tokens: 0, seconds: 0 };
 
 	/** Start accounting for a goal id (or clear when null). */
 	begin(goalId: string | null): void {
@@ -57,8 +61,30 @@ export class GoalAccounting {
 			? 0
 			: Math.max(0, Math.floor((now - this.lastAccountedAt) / 1000));
 		this.lastAccountedAt = now;
-		const tokens = Math.max(0, Math.trunc(opts.completedTurnTokens ?? 0));
-		return { tokens, seconds: elapsedSeconds };
+		const tokens = wholeNonNegative(opts.completedTurnTokens ?? 0);
+		const folded = { tokens: tokens + this.pending.tokens, seconds: elapsedSeconds + this.pending.seconds };
+		this.pending = { tokens: 0, seconds: 0 };
+		return folded;
+	}
+
+	/**
+	 * Keyed charge for one child run (TECH §6, E5.3). Accepted once per `childRunId`:
+	 * a repeated or out-of-order delivery returns zero and charges nothing. `"unknown"`
+	 * tokens (usage never reported) settle the key with no token charge; they are never
+	 * estimated. Accepted amounts are folded into the next charge(). Returns what this
+	 * call accepted.
+	 */
+	chargeKeyed(childRunId: string, tokens: number | "unknown", seconds: number): AccountingCharge {
+		if (this.settledKeys.has(childRunId)) return { tokens: 0, seconds: 0 };
+		this.settledKeys.add(childRunId);
+		const accepted = { tokens: tokens === "unknown" ? 0 : wholeNonNegative(tokens), seconds: wholeNonNegative(seconds) };
+		this.pending = { tokens: this.pending.tokens + accepted.tokens, seconds: this.pending.seconds + accepted.seconds };
+		return accepted;
+	}
+
+	/** Keyed tokens accepted but not yet folded into a charge(); the budget gate counts them as spent. */
+	pendingKeyedTokens(): number {
+		return this.pending.tokens;
 	}
 
 	/** Live elapsed whole seconds for display; does not advance the baseline. */
@@ -66,6 +92,11 @@ export class GoalAccounting {
 		if (this.lastAccountedAt === null) return 0;
 		return Math.max(0, Math.floor((now - this.lastAccountedAt) / 1000));
 	}
+}
+
+/** Non-finite or negative values count as zero; fractions are truncated. */
+function wholeNonNegative(value: number): number {
+	return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
 }
 
 /** Remaining token budget, or null when no budget is set. */

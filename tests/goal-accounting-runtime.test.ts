@@ -63,6 +63,44 @@ describe("GoalAccounting", () => {
 		const charge = acct.charge({ now: now + 7000 });
 		assert.equal(charge.seconds, 7);
 	});
+
+	it("chargeKeyed accepts a childRunId once: a repeated delivery adds nothing", () => {
+		const acct = new GoalAccounting();
+		acct.begin("g1");
+		assert.deepEqual(acct.chargeKeyed("dec-1/consultant-1", 40, 0), { tokens: 40, seconds: 0 });
+		assert.deepEqual(acct.chargeKeyed("dec-1/consultant-1", 40, 0), { tokens: 0, seconds: 0 });
+		assert.deepEqual(acct.chargeKeyed("dec-1/consultant-1", 999, 5), { tokens: 0, seconds: 0 });
+		assert.equal(acct.pendingKeyedTokens(), 40);
+	});
+
+	it("keyed charges are folded into the next charge() exactly once", () => {
+		const acct = new GoalAccounting();
+		acct.begin("g1");
+		acct.charge({ now: 1_000_000 });
+		acct.chargeKeyed("dec-1/consultant-1", 40, 3);
+		acct.chargeKeyed("dec-1/consultant-2", 2, 0);
+		const folded = acct.charge({ now: 1_000_000 + 9_000, completedTurnTokens: 5 });
+		assert.equal(folded.tokens, 47);
+		assert.equal(folded.seconds, 12);
+		assert.equal(acct.pendingKeyedTokens(), 0);
+		assert.deepEqual(acct.charge({ now: 1_000_000 + 9_000, completedTurnTokens: 0 }), { tokens: 0, seconds: 0 });
+	});
+
+	it("an unknown usage settles its childRunId without charging tokens", () => {
+		const acct = new GoalAccounting();
+		acct.begin("g1");
+		assert.deepEqual(acct.chargeKeyed("dec-1/consultant-1", "unknown", 0), { tokens: 0, seconds: 0 });
+		assert.deepEqual(acct.chargeKeyed("dec-1/consultant-1", 10, 0), { tokens: 0, seconds: 0 });
+		assert.equal(acct.pendingKeyedTokens(), 0);
+	});
+
+	it("keyed tokens are clamped to non-negative whole numbers", () => {
+		const acct = new GoalAccounting();
+		acct.begin("g1");
+		assert.deepEqual(acct.chargeKeyed("dec-1/consultant-1", -5, -2), { tokens: 0, seconds: 0 });
+		assert.deepEqual(acct.chargeKeyed("dec-1/consultant-2", 7.9, 1.5), { tokens: 7, seconds: 1 });
+		assert.equal(acct.pendingKeyedTokens(), 7);
+	});
 });
 
 // ── Budget helpers ──────────────────────────────────────────────────────────

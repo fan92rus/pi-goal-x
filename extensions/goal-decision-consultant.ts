@@ -107,11 +107,12 @@ const ROLE_SPECS: { readonly [R in ConsultantRole]: RoleSpec } = {
 export type ConsultantErrorCode = "config" | "budget" | "provider" | "aborted" | "invalid_output";
 
 export type ConsultantRunResult<R extends ConsultantRole> =
+	/** `usage` is omitted unless the whole run's token usage was reported; it is never estimated. */
 	| { ok: true; payload: ConsultantPayloadByRole[R]; usage?: { tokens?: number } }
 	/** `orphaned` (aborted only): the child did not reach idle within the grace period; it may still be running. */
 	| { ok: false; errorCode: ConsultantErrorCode; message: string; orphaned?: true };
 
-/** Result of the pre-launch budget gate (E5 supplies the real check). */
+/** Result of the pre-launch gate (the decision router supplies the budget and cap check, E5.3). */
 export type ConsultantLaunchGate = { ok: true } | { ok: false; reason: string };
 
 /** Minimal session surface the runner uses; the pi AgentSession satisfies it. */
@@ -169,12 +170,15 @@ function firstSchemaError(schema: TSchema, value: unknown): string | undefined {
 	return undefined;
 }
 
-/** Sum of assistant `totalTokens` from session events; undefined when none arrived. */
-function readAssistantTokens(event: unknown): number | undefined {
+/**
+ * Usage of one assistant `message_end`: its `totalTokens`, `"unknown"` when the message
+ * carries none, or undefined for every other event (not counted at all).
+ */
+function readAssistantTokens(event: unknown): number | "unknown" | undefined {
 	const message = (event as { type?: unknown; message?: { role?: unknown; usage?: { totalTokens?: unknown } } } | null)?.message;
 	if ((event as { type?: unknown } | null)?.type !== "message_end" || message?.role !== "assistant") return undefined;
 	const total = message.usage?.totalTokens;
-	return typeof total === "number" && Number.isFinite(total) ? total : undefined;
+	return typeof total === "number" && Number.isFinite(total) ? total : "unknown";
 }
 
 /**
@@ -235,6 +239,8 @@ export async function runConsultant<R extends ConsultantRole>(args: RunConsultan
 		aborting?: Promise<boolean>;
 		submitted?: { payload: unknown };
 		tokens?: number;
+		/** An assistant message arrived without usage: the sum is incomplete, so no usage is reported. */
+		tokensUnknown?: true;
 	} = {};
 	let wakeCancelled: () => void = () => {};
 	const cancelled = new Promise<undefined>((resolve) => {
@@ -305,7 +311,9 @@ export async function runConsultant<R extends ConsultantRole>(args: RunConsultan
 		}
 		unsubscribe = run.session.subscribe?.((event) => {
 			const tokens = readAssistantTokens(event);
-			if (tokens !== undefined) run.tokens = (run.tokens ?? 0) + tokens;
+			if (tokens === undefined) return;
+			if (tokens === "unknown") run.tokensUnknown = true;
+			else run.tokens = (run.tokens ?? 0) + tokens;
 		});
 		await Promise.race([run.session.prompt(buildConsultantPrompt(args.role, args.prompt)), cancelled]);
 	} catch (error) {
@@ -324,6 +332,6 @@ export async function runConsultant<R extends ConsultantRole>(args: RunConsultan
 	return {
 		ok: true,
 		payload: run.submitted.payload as ConsultantPayloadByRole[R],
-		...(run.tokens === undefined ? {} : { usage: { tokens: run.tokens } }),
+		...(run.tokens === undefined || run.tokensUnknown ? {} : { usage: { tokens: run.tokens } }),
 	};
 }
