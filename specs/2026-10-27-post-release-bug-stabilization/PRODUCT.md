@@ -127,7 +127,7 @@ The requested inclusion of #112 supersedes its earlier deferral in this spec's i
 - Keep Pi 1.4 as the minimum supported host and Node 22.19 as the minimum runtime.
 - Do not redesign the public tool schemas, scheduling policy, task status model or command surface in this patch. Do not ship an unproven live-tail policy/facts split; a cache-internal change must satisfy the stricter safety and reuse gates above.
 - Do not expand README. Record implementation and validation here, detailed troubleshooting in `docs/` only if a fix creates a genuine documentation need, and release notes in `CHANGELOG.md`.
-- Preserve contributor credit for adapted work from PRs #109, #111, #112, #116 and #117. Do not represent a substantially rewritten patch as merged unchanged.
+- Preserve contributor credit for adapted work from PRs #109, #111, #112, #116 and #117, including GitHub co-author attribution on the corresponding fix commits. Verify the original commit identities and GitHub's account association. Description mentions alone are insufficient. Do not represent a substantially rewritten patch as merged unchanged.
 - Describe PR #118 in plain language and name the original contributors alongside their work. Once the updated checks pass, close the superseded PRs and fixed reports with individual explanations linking the fix and tests. State clearly that the fix is awaiting merge/release. Keep the unresolved cache design discussion (#108) and deferred feature (#96) open.
 
 ## Completion criteria

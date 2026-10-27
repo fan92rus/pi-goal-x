@@ -363,3 +363,20 @@ The PR will credit @adlternative (#109), @Nyarlathoteppppp (#111), @Has-X (#112)
 Local validation of the revised runner passed on macOS/Node 26.10/Pi 1.4: all eight checks completed in 77.1 seconds, including 1,298 source tests in 97 files with zero skips, all eleven Pi controls cases, the three-request draft/execution/audit lifecycle, 133 installed-package tests, 24 context fixtures, nine real adapter payload checks, 408 release cache scenarios, 276 exact approved context-line removals, 1,000 bounded transitions and retention measurements. Type checking, lint, twelve workflow/runner tests, five ranking tests, dependency audit and diff whitespace checks also passed. Evidence: `/var/folders/2_/4klqy60x2rb_vpg4whtr27f40000gn/T/pi-goal-ci-ruP5Qq`. Required Linux/minimum-Node validation and benchmark results are recorded in [PR #118's checks](https://github.com/tmonk/pi-goal-x/pull/118/checks); local results do not substitute for that run. No production file or dependency changed in this cleanup.
 
 Disposition comments will use immutable links to the tested commit's regression files. Their issue/PR timelines record the actual closures, independently of the pending 0.34.1 merge and publication. The PR description records the final CI run and contributor credit.
+
+
+## GitHub co-author attribution
+
+The user clarified that PR-description mentions are insufficient: the contributors must receive GitHub's commit attribution. Verified each name/email against the GitHub-associated author of the original PR commit. Added `Co-authored-by` to the five corresponding fix commits for @adlternative, @Nyarlathoteppppp, @Has-X and @expoli. This credits the retained or adapted contributions without changing the recorded keep/rewrite decisions or importing any source PR head.
+
+| Source PR | Contributor | Original fix commit | Commit with attribution |
+| --- | --- | --- | --- |
+| #109 | @adlternative | `1a49f52` | `946906d` |
+| #117 | @expoli | `5acd25f` | `1561434` |
+| #111 | @Nyarlathoteppppp | `0bc8acc` | `eb72b0a` |
+| #116 | @expoli | `eddef67` | `084ec43` |
+| #112 | @Has-X | `3e43a76` | `d2d7024` |
+
+All 19 existing commit trees were checked byte for byte during the metadata rewrite; their authors, committers, timestamps and file contents were preserved. The previous head `3ff6537` is retained under a local recovery ref. Only PRODUCT.md, TECH.md and this attribution record change after the rewrite. The runtime and cache code are identical to the successful Linux validation in [CI run 40537519838](https://github.com/tmonk/pi-goal-x/actions/runs/40537519838). GitHub's PR commit-author records will verify the four account associations after the guarded push; the final PR checks track the updated head.
+
+The previous cleanup is complete: PRs #109/#111/#112/#116/#117 and issues #110/#113/#114/#115 were closed with individual thanks, immutable fix/test links and a clear statement that merge/release is pending. #108 remains open and #96 remains deferred.

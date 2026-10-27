@@ -517,7 +517,7 @@ The hunk ledger belongs in `MILESTONES.md` during implementation: source PR/head
 | #96 | Reject from campaign | Feature work; no hunk or changelog fragment enters stabilization. |
 | #112 | Adapt the small existing-path implementation; no unchanged merge | Default `false` in resolution and omitted-settings rendering; complete settings/reporting and save/reset/reload coverage; registered accounting/compaction invariants; explicit-true counter equivalence; default/toggle/retry cache evidence. Exclude README and unnecessary abstractions. |
 
-Keep one implementation commit per behavior track, plus separate harness and optional cache-optimization commits. This creates clean review and rollback boundaries. Co-author trailers are used only when the final commit contains material authored code; issue/PR references and release credit cover useful diagnosis or design when code is rewritten.
+Keep one implementation commit per behavior track, plus separate harness and optional cache-optimization commits. This creates clean review and rollback boundaries. Per the user's attribution correction, add `Co-authored-by` trailers to the corresponding fix commits for the retained or adapted contributions, including the original proposals behind rewritten fixes. Use each contributor's name/email from a GitHub-associated source commit and verify GitHub resolves the co-author to the intended account. Reword only commit metadata, preserve every existing commit tree, and push with an exact expected-head lease. Keep the hunk ledger's keep/rewrite decisions accurate; attribution does not mean an unchanged merge.
 
 ### 5.3 Concrete gaps in the reviewed proposals
 
