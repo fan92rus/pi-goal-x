@@ -1,11 +1,11 @@
 # Post-release bug stabilization
 
-Status: implemented; verified release candidate ready for review
+Status: implemented; release candidate ready for review
 
 Proposed release: 0.34.1, bug fixes first  
 Planning baseline: `fe0e38f` (0.34.0 main)
 
-Rechecked on 2026-10-27 against all five open issues and six source PRs. The released `v0.34.0` tag points to `8f0c28b`; its runtime, dependencies and tests are identical to `fe0e38f`. The implementation is in [PR #118](https://github.com/tmonk/pi-goal-x/pull/118). Final runtime commit `584a469` passed the complete Linux/minimum-Node and native Windows gates; `MILESTONES.md` records the fixes, review decisions and artifact evidence. The older open-PR disposition document is historical. Version 0.34.1 is prepared and tested, not published.
+Rechecked on 2026-10-27 against all five open issues and six source PRs. The released `v0.34.0` tag points to `8f0c28b`; its runtime, dependencies and tests are identical to `fe0e38f`. The implementation is in [PR #118](https://github.com/tmonk/pi-goal-x/pull/118). Runtime commit `584a469` passed the integrated gates; `MILESTONES.md` records the fixes, review decisions and artifact evidence. The user's latest direction removes Windows from CI and validation, superseding the earlier platform requirement. The older open-PR disposition document is historical. Version 0.34.1 is prepared and tested, not published.
 
 ## Why this work comes first
 
@@ -88,6 +88,8 @@ The requested inclusion of #112 supersedes its earlier deferral in this spec's i
 
 ### Validation reliability
 
+- Use one Linux CI job on minimum Node 22.19/Pi 1.4. Remove the Windows job, command mode and native test harness entirely. Earlier Windows results remain historical evidence, not a continuing release requirement.
+- Run independent checks through the existing bounded runner and reuse npm's download cache. Keep benchmarks separate from concurrent suites so timing comparisons remain useful. Pack and install the actual package once rather than adding a redundant package dry run. Preserve every required runtime, provider, cache and publication check.
 - Context capture commands own distinct temporary workspaces and clean only their own files.
 - Running the context gate and provider cross-check concurrently must produce the same result as running them sequentially.
 - A regression test must fail for each reported bug on the 0.34.0 baseline and pass only after its corresponding fix.
@@ -126,6 +128,7 @@ The requested inclusion of #112 supersedes its earlier deferral in this spec's i
 - Do not redesign the public tool schemas, scheduling policy, task status model or command surface in this patch. Do not ship an unproven live-tail policy/facts split; a cache-internal change must satisfy the stricter safety and reuse gates above.
 - Do not expand README. Record implementation and validation here, detailed troubleshooting in `docs/` only if a fix creates a genuine documentation need, and release notes in `CHANGELOG.md`.
 - Preserve contributor credit for adapted work from PRs #109, #111, #112, #116 and #117. Do not represent a substantially rewritten patch as merged unchanged.
+- Describe PR #118 in plain language and name the original contributors alongside their work. Once the updated checks pass, close the superseded PRs and fixed reports with individual explanations linking the fix and tests. State clearly that the fix is awaiting merge/release. Keep the unresolved cache design discussion (#108) and deferred feature (#96) open.
 
 ## Completion criteria
 

@@ -1,6 +1,6 @@
 # Technical plan
 
-Implementation status: verified release candidate in [PR #118](https://github.com/tmonk/pi-goal-x/pull/118), runtime commit `584a469152bae62ca1fae59a158e12f75011a3c3`. [CI run 40532597453](https://github.com/tmonk/pi-goal-x/actions/runs/40532597453) passed the full Linux Node 22.19/Pi 1.4 gates and focused native Windows persistence gates. The following sections preserve the acceptance contract and intake baseline; final evidence and deviations are in `MILESTONES.md`. Publication is a subsequent release operation.
+Implementation status: release candidate in [PR #118](https://github.com/tmonk/pi-goal-x/pull/118), runtime commit `584a469152bae62ca1fae59a158e12f75011a3c3`. Prior integrated validation is recorded in `MILESTONES.md`. The user's final cleanup removes Windows CI and its native harness; the revised Linux Node 22.19/Pi 1.4 checks must pass before closing superseded work. Publication remains a subsequent release operation.
 
 ## 1. Evidence baseline
 
@@ -557,20 +557,14 @@ Run on the exact combined commit:
 
 1. `npm run check`
 2. `npm run lint`
-3. `node scripts/ci-checks.mjs` — already runs `test:all -- --selfcheck`, controls CLI and the lifecycle CLI; do not duplicate the entire suite as another identical release step.
+3. `node scripts/ci-checks.mjs` — run the full suite/manifest, controls CLI, lifecycle CLI, installed-package regressions, context gate, provider cross-check, cache comparison and retention check through the existing two-worker runner. Each check keeps its own log; package/cache evidence goes into that run's directory. Failure or skipped required tests fails the command. Do not repeat these as separate CI steps.
 4. `node --test scripts/test-ci.mjs scripts/test-publish-workflow.mjs`
-5. `npm run context:gate`
-6. `npm run context:provider-check`
-7. `node --experimental-strip-types experiments/context/retention-check.mjs`
-8. the new concurrent context/provider isolation regression (record its result from the full suite if registered there; no duplicate run is required)
-9. the new `npm run context:cache-gate` (0.34.0-versus-candidate comparison, including required scenario completeness)
-10. `npm run bench:naf -- after naf` on baseline and candidate with the same dependency/fixture versions, then `npm run bench:gate:naf` using `PI_GOAL_BENCH_REFERENCE` pointed at that baseline run, as CI does. Include retention CPU/memory and local-cache read/rebuild measurements where the change touches those paths.
-11. `npm pack --dry-run`
-12. `npm audit --omit=dev`
+5. `npm run bench:naf -- after naf` on baseline and candidate with the same dependency/fixture versions, then `npm run bench:gate:naf` using `PI_GOAL_BENCH_REFERENCE` pointed at that baseline run, as CI does. Run the two measurements sequentially after the other suites finish to avoid competing benchmark load. Include retention CPU/memory and local-cache read/rebuild measurements where the change touches those paths.
+6. `npm audit --omit=dev`
 
 CI repeats runtime gates on the declared minimum Node 22.19 with Pi 1.4. Results from local Node 26.10 remain supporting evidence only.
 
-Run the focused storage/teardown tests on native Windows as well because the session/service work touches persistence recently changed for sharing failures. Reuse the existing native atomic-rename coverage and a temporary validation run if needed; no permanent seven-version compatibility matrix is proposed. Keep Linux minimum-runtime and local macOS results distinct from actual Windows evidence. Record unsupported or unrun host scenarios explicitly rather than calling a mock a platform pass.
+Remove the Windows job, `--windows` runner branch and `tests/windows` harness. Keep existing platform-independent persistence/error-path coverage and prior validation history. Linux is the sole CI platform; local macOS results remain separate supporting evidence. Keep the lockfile-keyed npm download cache and fail-safe runtime change detection. Retain successful evidence under one accurately named artifact. The installed-package check already packs the package, so remove `npm pack --dry-run` from CI.
 
 ### 6.3 Cache-specific release evidence
 
@@ -631,10 +625,10 @@ For the reviewed release candidate that has passed the integrated gates:
 
    Assert the loaded extension path belongs to the extracted/installed tarball, not a symlink or import back into the source checkout. Pin the host/runtime used in the smoke and record tarball digest, package version, source SHA and results. Keep the package under test identical to the package published; any later runtime/manifest change reruns its affected gates.
 5. Publish only after trusted-publishing validation succeeds on the tag. Verify registry metadata, tarball contents and the release workflow.
-6. Close issues #110, #113, #114 and #115, plus superseded PRs, with exact fix/test links.
+6. After the updated PR checks pass, close issues #110, #113, #114 and #115 and superseded PRs #109, #111, #112, #116 and #117. Use individual comments thanking each contributor, linking the relevant implementation/tests in #118, and stating that merge/release is still pending. Credit @adlternative, @Nyarlathoteppppp, @Has-X and @expoli in the PR description for the work actually retained or adapted.
 7. Close or continue #108 according to evidence: close only if a proven optimization ships; otherwise link the cache report and follow-up scope. Record #112's adapted default-off implementation and credit with its exact tests when disposing of that PR. Leave #96 deferred.
 
-Implementation, publication, PR comments and issue closures are future execution steps; none is performed by this planning revision. After publication, verify the installed registry artifact against the recorded digest and the same bug scenarios before declaring the release verified. Keep the previous published version and per-track commits as rollback references; a cache optimization can be removed independently if release evidence contradicts its measured benefit.
+Implementation and prior validation are recorded in the implementation log; the final CI cleanup and issue/PR disposition follow the latest user request. After publication, verify the installed registry artifact against the recorded digest and the same bug scenarios before declaring the release verified. Keep the previous published version and per-track commits as rollback references; a cache optimization can be removed independently if release evidence contradicts its measured benefit.
 
 ## 8. Stop conditions
 

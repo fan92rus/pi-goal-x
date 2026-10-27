@@ -9,7 +9,7 @@ import {runChecks} from './ci-checks.mjs';
 
 test('only known prose/assets skip runtime checks; uncertainty and mixed changes run them',()=>{
  assert.equal(needsRuntimeChecks(['README.md','docs/controls.md','specs/feature/TECH.md','assets/ranking.json']),false);
- for(const file of ['extensions/goal.ts','tests/goal-controls.test.ts','experiments/context/cache-report.mjs','experiments/context/capture-context.mjs','tests/windows/atomic-rename.test.ts','package-lock.json','.github/workflows/ci.yml','scripts/ci-scope.mjs','unknown.file']) {
+ for(const file of ['extensions/goal.ts','tests/goal-controls.test.ts','experiments/context/cache-report.mjs','experiments/context/capture-context.mjs','tests/goal-atomic-rename.test.ts','package-lock.json','.github/workflows/ci.yml','scripts/ci-scope.mjs','unknown.file']) {
   assert.equal(needsRuntimeChecks(['docs/controls.md',file]),true,file);
  }
  assert.equal(needsRuntimeChecks([]),true);
