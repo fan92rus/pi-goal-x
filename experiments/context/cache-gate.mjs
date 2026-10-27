@@ -8,7 +8,7 @@ import {buildReport} from './cache-report.mjs';
 import {compareReports} from './cache-compare.mjs';
 
 const root=fileURLToPath(new URL('../../',import.meta.url));
-const ref='fe0e38f8cd03bfacc9baca730e9a902d3cff116e';
+const ref='c9125dc0f286bacf3deb075ceb5a5b520c5488b9';
 const output=process.env.PI_GOAL_CACHE_REPORT_DIR??mkdtempSync(path.join(tmpdir(),'goal-cache-evidence-'));
 mkdirSync(output,{recursive:true});
 const baselineRoot=mkdtempSync(path.join(tmpdir(),'goal-cache-baseline-'));
