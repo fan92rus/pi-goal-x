@@ -1,6 +1,10 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { GOAL_AUDIT_ENTRY, goalEventMessageId } from "./goal-format.ts";
 
+export function isStaleExtensionContextError(error: unknown): boolean {
+ return error instanceof Error && error.message.startsWith("This extension ctx is stale after session replacement or reload.");
+}
+
 /** pi-subagents marks fresh, forked, resumed and nested worker processes. */
 export function isDelegatedGoalSession(env: Record<string, string | undefined> = process.env): boolean {
 	const depth = Number(env.PI_SUBAGENT_DEPTH);
@@ -54,7 +58,7 @@ export class GoalAuditMessages {
 			for (const item of pending) pi.sendMessage(item.message, { triggerTurn: false });
 			return true;
 		} catch (error) {
-			if (error instanceof Error && error.message.startsWith("This extension ctx is stale after session replacement or reload.")) return false;
+			if (isStaleExtensionContextError(error)) return false;
 			throw error;
 		}
 	}

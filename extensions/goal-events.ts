@@ -1,3 +1,4 @@
+import { goalStorageContext, type GoalStorageContext } from "./storage/goal-root.ts";
 import { commandHint, commandInstructions } from "./goal-controls.ts";
 import { cacheGoalHistory } from "./goal-prompt-cache.ts";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -34,7 +35,7 @@ import {
 import { hasActiveDraft, rehydrateDraft } from "./goal-drafting.ts";
 import { syncTerminalInputPause } from "./goal-widget.ts";
 import type { GoalCore } from "./goal-state.ts";
-import { filterGoalSessionContext } from "./goal-session-safety.ts";
+import { filterGoalSessionContext, isStaleExtensionContextError } from "./goal-session-safety.ts";
 import { registerGoalContext } from "./goal-context.ts";
 import type { GoalMutationOutcome } from "./goal-service.ts";
 
@@ -69,7 +70,15 @@ export function registerGoalEvents(core: GoalCore): void {
 	const liveRetention = new LiveTailRetention();
 	const sessionKeyFor = (ctx?: ExtensionContext): string =>
 		ctx?.sessionManager?.getSessionId?.() ? JSON.stringify([ctx.sessionManager.getSessionId(), ctx.model?.provider, ctx.model?.id]) : "unidentified";
-	pi.on("before_provider_request", (event, ctx) => cacheGoalHistory(event.payload, liveRetention.contents(sessionKeyFor(ctx as ExtensionContext | undefined))));
+ type SessionOwner = {ctx: ExtensionContext; manager: ExtensionContext["sessionManager"]; storage: GoalStorageContext; keys: Set<string>};
+ let session: SessionOwner | undefined;
+ const contexts = new WeakMap<object, SessionOwner>();
+ const leases = new Map<string, SessionOwner>();
+ pi.on("before_provider_request", (event, ctx) => {
+  if (ctx && contexts.has(ctx) && contexts.get(ctx) !== session) return;
+  try { return cacheGoalHistory(event.payload, liveRetention.contents(sessionKeyFor(ctx))); }
+  catch (error) { if (!isStaleExtensionContextError(error)) throw error; }
+ });
 	let continuationAfterSettleFor: string | null = null;
 	let networkErrorRecoveryAfterSettleFor: string | null = null;
 
@@ -80,7 +89,15 @@ export function registerGoalEvents(core: GoalCore): void {
 		const filtered = filterGoalSessionContext(input);
 		const messages = compactGoalCheckpointContext(filtered ?? input, core.state.goal) ?? filtered;
 		const base = messages ?? input;
+  if (contexts.has(ctx) && contexts.get(ctx) !== session) return messages;
+  if (session) contexts.set(ctx, session);
 		const sessionKey = sessionKeyFor(ctx);
+  if (session) {
+   leases.set(sessionKey, session);
+   session.keys.add(sessionKey);
+   if (leases.size > 16) leases.delete(leases.keys().next().value!);
+   if (session.keys.size > 16) session.keys.delete(session.keys.values().next().value!);
+  }
 		if (sessionKey === "unidentified") liveRetention.clear(sessionKey);
 		const parts = currentGoalContextParts(ctx);
 		if (parts) {
@@ -271,25 +288,58 @@ export function registerGoalEvents(core: GoalCore): void {
 		}
 	});
 
-	pi.on("session_start", async (event, ctx) => {
-		core.interruption.settled();
-		core.interruption.reset();
-		if (ctx.hasUI) ctx.ui.setStatus("goal-interrupt", undefined);
-		if (core.controlWarnings?.length) ctx.ui.notify(`Goal command settings were not applied: ${core.controlWarnings.join(" ")} Open /goal-settings controls to correct them.`, "warning");
-		core.auditMessages.clear();
-		continuationAfterSettleFor = null;
-		networkErrorRecoveryAfterSettleFor = null;
-		// NAF: the zero-op read caches are session-scoped — a new session always
-		// re-reads settings/pool/ledger fresh from disk (cross-process and
-		// hand-edited changes are picked up at the session boundary).
-		invalidateGoalSettingsCache();
-		invalidateGoalPoolCache();
-		invalidateGoalLedgerCache();
-		core.goalService.flushTurn(ctx); // P1-3: persist any buffered transaction before reload
-		await core.loadState(ctx);
-		core.installGoalToolProfile(!loadGoalSettings(ctx.cwd).disableTasks);
-		rehydrateDraft(core, ctx);
-		syncTerminalInputPause(core, ctx);
+ /** Detach first; every local cleanup runs even when host or persistence throws. */
+ function teardown(ctx: ExtensionContext): void {
+  const outgoing = session;
+  session = undefined;
+  let failure: unknown;
+  const run = (action: () => void) => {
+   try {action();} catch (error) {if (!isStaleExtensionContextError(error)) failure ??= error;}
+  };
+  run(() => core.invalidateSession());
+  continuationAfterSettleFor = null;
+  networkErrorRecoveryAfterSettleFor = null;
+  run(() => core.interruption.settled());
+  run(() => core.interruption.reset());
+  run(() => core.auditMessages.clear());
+  run(() => core.scheduler.shutdown());
+  if (outgoing) run(() => core.accountProgress(outgoing.ctx));
+  run(() => core.goalService.endSession(outgoing?.storage));
+  run(() => core.clearContinuationState());
+  run(() => core.clearActiveAccounting());
+  run(() => core.stopAuditAnimation());
+  run(() => core.clearAuditResult());
+  core.auditProgress = null;
+  core.goalModalDepth = 0;
+  const unsubscribe = core.terminalInputUnsubscribe;
+  core.terminalInputUnsubscribe = null;
+  run(() => unsubscribe?.());
+  if (outgoing && core.state.goal) run(() => {core.goalService.persist(outgoing.storage);});
+  run(() => core.clearGoalWidget(outgoing?.ctx ?? ctx));
+  if (outgoing) for (const key of outgoing.keys) {
+   if (leases.get(key) !== outgoing) continue;
+   liveRetention.clear(key);
+   leases.delete(key);
+  }
+  if (failure) throw failure;
+ }
+
+ async function startSession(event: {reason?: string}, ctx: ExtensionContext): Promise<void> {
+  teardown(ctx);
+  try {
+   const owner: SessionOwner = {ctx, manager: ctx.sessionManager, storage: goalStorageContext(ctx), keys: new Set()};
+   session = owner;
+   contexts.set(ctx, owner);
+   invalidateGoalSettingsCache();
+   invalidateGoalPoolCache();
+   invalidateGoalLedgerCache();
+   await core.loadState(ctx);
+   if (session !== owner) return;
+   if (ctx.hasUI) ctx.ui.setStatus("goal-interrupt", undefined);
+   if (core.controlWarnings?.length) ctx.ui.notify(`Goal command settings were not applied: ${core.controlWarnings.join(" ")} Open /goal-settings controls to correct them.`, "warning");
+   core.installGoalToolProfile(!loadGoalSettings(ctx.cwd).disableTasks);
+   rehydrateDraft(core, ctx);
+   syncTerminalInputPause(core, ctx);
 		if (event.reason === "resume" && !core.state.goal && !core.hasExplicitSessionFocus && otherOpenGoalCount(core.goalsById, null) > 1 && ctx.hasUI) {
 			// Prompt the user to pick which open goal to focus (mirrors /goal-focus).
 			const open = core.openGoals();
@@ -299,25 +349,28 @@ export function registerGoalEvents(core: GoalCore): void {
 			try {
 				const selected = await ctx.ui.select("Focus open goal", labels);
 				const selectedId = selected ? byLabel.get(selected) : undefined;
-				if (selectedId) {
+				if (selectedId && session === owner) {
 					core.setFocusedGoalId(selectedId, ctx, "selected");
 					core.armFocusedContinuation(ctx);
 				}
 			} finally {
-				core.exitGoalModal();
+				if (session === owner) core.exitGoalModal();
 			}
 		}
 		// Codex behavior: prompt before reactivating a paused goal on resume.
 		if (event.reason === "resume" && core.state.goal?.status === "paused" && ctx.hasUI) {
 			const current = core.state.goal;
 			const shouldResume = await ctx.ui.confirm("Resume paused goal?", `Goal: ${current.objective}`);
-			if (shouldResume) {
+			if (shouldResume && session === owner) {
 				core.scheduler.resume(ctx);
 			}
 		}
-		core.beginAccounting();
-		core.scheduler.restore(ctx);
-	});
+   if (session !== owner) return;
+   core.beginAccounting();
+   core.scheduler.restore(ctx);
+  } catch (error) {if (!isStaleExtensionContextError(error)) throw error;}
+ }
+ pi.on("session_start", startSession);
 
 	pi.on("session_before_compact", async (_event, ctx) => {
 		core.accountProgress(ctx);
@@ -350,20 +403,7 @@ export function registerGoalEvents(core: GoalCore): void {
 		);
 	});
 
-	pi.on("session_tree", async (_event, ctx) => {
-		core.interruption.reset();
-		core.interruption.settled();
-		if (ctx.hasUI) ctx.ui.setStatus("goal-interrupt", undefined);
-		core.auditMessages.clear();
-		continuationAfterSettleFor = null;
-		networkErrorRecoveryAfterSettleFor = null;
-		core.goalService.flushTurn(ctx); // P1-3: persist any buffered transaction before reload
-		await core.loadState(ctx);
-		rehydrateDraft(core, ctx);
-		syncTerminalInputPause(core, ctx);
-		core.beginAccounting();
-		core.scheduler.restore(ctx);
-	});
+ pi.on("session_tree", (_event, ctx) => startSession({}, ctx));
 
 	pi.on("before_agent_start", async (event, ctx) => {
 		core.advanceTurnSeq();
@@ -613,19 +653,11 @@ export function registerGoalEvents(core: GoalCore): void {
 		);
 	});
 
-	pi.on("session_shutdown", async (_event, ctx) => {
-		core.interruption.reset();
-		core.interruption.settled();
-		core.auditMessages.clear();
-		core.scheduler.shutdown();
-		continuationAfterSettleFor = null;
-		networkErrorRecoveryAfterSettleFor = null;
-		core.accountProgress(ctx);
-		core.clearContinuationState();
-		core.terminalInputUnsubscribe?.();
-		core.terminalInputUnsubscribe = null;
-		if (core.state.goal) core.persist(ctx);
-		core.clearGoalWidget(ctx); // Cancel UI work queued by final accounting before ctx is invalidated.
-		liveRetention.clear(sessionKeyFor(ctx));
-	});
+ pi.on("session_shutdown", async (_event, ctx) => {
+  // A delayed shutdown of a previously observed owner cannot touch its successor.
+  if (contexts.has(ctx) && contexts.get(ctx) !== session) return;
+  try {if (session && ctx.sessionManager !== session.manager) return;}
+  catch (error) {if (!isStaleExtensionContextError(error)) throw error;}
+  teardown(ctx);
+ });
 }

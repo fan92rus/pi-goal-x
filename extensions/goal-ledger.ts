@@ -17,9 +17,9 @@ export type GoalLedgerEvent =
   | { type: "goal_tweaked"; goalId: string; changeSummary: string; at: string }
   | { type: "auditor_toggled"; goalId: string; enabled: boolean; at: string }
   | { type: "completion_requested"; goalId: string; summary?: string; at: string }
-  | { type: "audit_started"; goalId: string; provider?: string; model?: string; thinkingLevel?: string; at: string }
-  | { type: "audit_result"; goalId: string; verdict: "approved" | "disapproved" | "error"; report: string; at: string }
-  | { type: "audit_skipped"; goalId: string; reason: "disabled" | "user_aborted"; provider?: string; model?: string; thinkingLevel?: string; at: string }
+  | { type: "audit_started"; goalId: string; auditId?: string; provider?: string; model?: string; thinkingLevel?: string; at: string }
+  | { type: "audit_result"; goalId: string; auditId?: string; verdict: "approved" | "disapproved" | "error"; report: string; at: string }
+  | { type: "audit_skipped"; goalId: string; auditId?: string; reason: "disabled" | "user_aborted"; provider?: string; model?: string; thinkingLevel?: string; at: string }
   | { type: "goal_completed"; goalId: string; archivePath?: string; at: string }
   | { type: "goal_archived"; goalId: string; archivePath: string; at: string }
   | { type: "goal_archive_failed"; goalId: string; message: string; at: string }
@@ -54,6 +54,7 @@ export interface ReconstructedGoalState {
   latestFocus: boolean;
   latestPauseReason?: string;
   latestPauseSuggestedAction?: string;
+  latestAuditId?: string;
   latestAuditorResult?: { verdict: "approved" | "disapproved" | "error"; report: string; at: string };
   /** Issue #26: bounded latest Oracle disposition for this goal. */
   latestOracleResult?: { fingerprint: string; adviceId: string; disposition: "actionable" | "needs_human" | "insufficient_context"; summary: string; at: string };
@@ -320,6 +321,7 @@ function checkpointToJson(cp: LedgerCheckpoint): unknown {
     latestPauseReason: s.latestPauseReason,
     latestPauseSuggestedAction: s.latestPauseSuggestedAction,
     latestAuditorResult: s.latestAuditorResult,
+    latestAuditId: s.latestAuditId,
     latestOracleResult: s.latestOracleResult,
     createdAt: s.createdAt,
     completedAt: s.completedAt,
@@ -364,6 +366,7 @@ function parseGoalState(value: unknown): ReconstructedGoalState | null {
     goalId: o.goalId,
     latestStatus,
     latestFocus: o.latestFocus === true,
+    latestAuditId: typeof o.latestAuditId === "string" ? o.latestAuditId : undefined,
     latestOracleResult: oracle as ReconstructedGoalState["latestOracleResult"],
     latestPauseReason: typeof o.latestPauseReason === "string" ? o.latestPauseReason : undefined,
     latestPauseSuggestedAction: typeof o.latestPauseSuggestedAction === "string" ? o.latestPauseSuggestedAction : undefined,
@@ -689,6 +692,7 @@ function isValidLedgerEvent(value: unknown): value is GoalLedgerEvent {
   if (typeof obj.type !== "string") return false;
   if (typeof obj.at !== "string") return false;
   const type = obj.type as GoalLedgerEvent["type"];
+  if ((type === "audit_started" || type === "audit_result" || type === "audit_skipped") && obj.auditId !== undefined && (typeof obj.auditId !== "string" || !obj.auditId)) return false;
   switch (type) {
     case "goal_created":
       return typeof obj.goalId === "string" && typeof obj.objective === "string" && typeof obj.sisyphus === "boolean" && typeof obj.autoContinue === "boolean";
@@ -858,18 +862,14 @@ function applyLedgerEvents(acc: ReconstructAccumulator, events: GoalLedgerEvent[
         // No status change until audit_result or goal_completed
         break;
       }
-      case "audit_started": {
-        // No state change
-        break;
-      }
-      case "audit_skipped": {
-        // audit was skipped; goal continues as-is
-        break;
-      }
+      case "audit_started":
+      case "audit_skipped":
       case "audit_result": {
         const state = goals.get(event.goalId) ?? terminalGoals.get(event.goalId);
-        if (state) {
-          state.latestAuditorResult = { verdict: event.verdict, report: event.report, at: event.at };
+        if (state && auditApplies(state.latestAuditId, event)) {
+          state.latestAuditId = event.auditId;
+          state.latestAuditorResult = event.type === "audit_result"
+            ? {verdict: event.verdict, report: event.report, at: event.at} : undefined;
         }
         break;
       }
@@ -953,7 +953,27 @@ function cloneAccumulator(acc: ReconstructAccumulator): ReconstructAccumulator {
   };
 }
 
-export function latestAuditorResultForGoal(events: GoalLedgerEvent[], goalId: string): { verdict: "approved" | "disapproved" | "error"; report: string; at: string } | undefined {
+type AuditEvent = Extract<GoalLedgerEvent, {type: "audit_started" | "audit_result" | "audit_skipped"}>;
+
+/** New attempts supersede old verdicts; overlapping attempts match by identity. */
+function auditApplies(latestId: string | undefined, event: AuditEvent): boolean {
+ return event.type === "audit_started" || (event.type === "audit_skipped" && event.reason === "disabled") || latestId === undefined || event.auditId === latestId;
+}
+
+export function latestAuditForGoal(events: GoalLedgerEvent[], goalId: string): AuditEvent | undefined {
+ let latest: AuditEvent | undefined;
+ for (const event of events) {
+  if ((event.type === "audit_started" || event.type === "audit_result" || event.type === "audit_skipped") && event.goalId === goalId && auditApplies(latest?.auditId, event)) latest = event;
+ }
+ return latest;
+}
+
+export function latestAuditorResultForGoal(events: GoalLedgerEvent[], goalId: string): {verdict: "approved" | "disapproved" | "error"; report: string; at: string} | undefined {
+ const latest = latestAuditForGoal(events, goalId);
+ return latest?.type === "audit_result" ? {verdict: latest.verdict, report: latest.report, at: latest.at} : undefined;
+}
+
+export function latestSettledAuditorResultForGoal(events: GoalLedgerEvent[], goalId: string): { verdict: "approved" | "disapproved" | "error"; report: string; at: string } | undefined {
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i]!
     if (event.type === "audit_result" && event.goalId === goalId) {

@@ -46,6 +46,7 @@ The requested inclusion of #112 supersedes its earlier deferral in this spec's i
 - Successful storage produces one outcome; a failed ledger write is reported, and a hard kill can leave an honest “no recorded result.” In-memory settlement must not be presented as proof of a durable write. Existing optimistic-write protection and task/verification requirements remain enforced when completion commits.
 - If a process dies before an outcome can be written, status/history must say that the latest audit has no recorded result. An older verdict must never hide a newer unfinished audit.
 - Persisted goal and ledger formats remain readable. Do not require a migration for existing goals or historical audit events.
+- Overlapping audits of the same persisted goal must be correlated by an optional audit-attempt ID on new ledger events. The registered two-session reproducer demonstrated that an older result otherwise masquerades as the latest attempt's outcome. Legacy records without IDs retain chronological interpretation; the ID is internal and never changes provider prompts, schemas or cache keys.
 
 ### `update_goal` inputs
 

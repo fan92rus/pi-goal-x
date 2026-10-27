@@ -60,6 +60,7 @@
     ".tests/goal-session-safety.test.ts",
     ".tests/goal-settings-race.test.ts",
     ".tests/goal-settings.test.ts",
+    ".tests/goal-stabilization-lifecycle.test.ts",
     ".tests/goal-stale-continuation-golden.test.ts",
     ".tests/goal-status.test.ts",
     ".tests/goal-storage-root.test.ts",

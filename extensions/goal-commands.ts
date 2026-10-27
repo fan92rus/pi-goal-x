@@ -169,7 +169,7 @@ export function registerGoalCommands(core: GoalCore): void {
 		core.runningGoalId = null;
 		core.runtime.setCheckpoint(null);
 		core.runtime.clearPostCompactReminder();
-		if (core.auditAbortController) core.auditAbortController.abort();
+		core.activeAudit?.cancel("Goal cleared during completion audit.");
 		if (detachedGoalId && wasBusy) {
 			try {
 				ctx.abort?.();

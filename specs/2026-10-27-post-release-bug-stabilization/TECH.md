@@ -255,7 +255,7 @@ The finalizer claims the outcome synchronously before any awaited work, writes o
 
 Keep persistence best-effort and observable: distinguish an in-memory terminal attempt from a confirmed ledger append. On write failure, report diagnostics and leave disk-derived readers truthful; do not keep retrying an ambiguous append and create duplicates. Completion still requires the current goal/focus and authoritative revision, task and contract checks. A recorded audit approval is not proof that the subsequent completion/archive write succeeded. Never restore an old goal snapshot over a newer task list or resurrect an archived/deleted goal.
 
-Keep the disk schema compatible and the token in memory unless a failing race proves persistence is necessary. Include two live sessions auditing the same persisted goal in the race investigation: the existing uncorrelated ledger cannot safely be assumed to pair overlapping starts/results. If the current ownership/revision rules do not exclude that case, resolve it explicitly before claiming exactly-once attribution; record any needed backward-compatible attempt identity or serialization decision in PRODUCT/TECH before implementation.
+The registered two-session regression now proves that both audits can overlap and an older rejection is attributed to the newer unfinished audit. Add an optional `auditId` to new start/result/skip events, using one UUID per attempt. Derive latest lifecycle by the newest start and its matching outcome; old records without IDs retain chronological interpretation. Keep the same in-memory attempt record as the callback authority. No goal-file migration, prompt field, provider identity or additional session framework is needed.
 
 #### B4. Derive newest audit state consistently
 

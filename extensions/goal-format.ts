@@ -9,7 +9,7 @@ import {
 } from "./goal-core.ts";
 import { buildTaskSummary } from "./goal-policy.ts";
 import { countTaskSubtree } from "./goal-task-count.ts";
-import { latestAuditorResultForGoal, latestEventsForGoal, type GoalLedgerEvent } from "./goal-ledger.ts";
+import { latestAuditorResultForGoal, latestAuditForGoal, latestEventsForGoal, type GoalLedgerEvent } from "./goal-ledger.ts";
 import { GOAL_PROGRESS_TOOL_NAMES } from "./goal-tool-names.ts";
 import {
 	asRecord,
@@ -331,6 +331,7 @@ export function buildGoalHistoryBlock(goal: GoalRecord | null, ledgerEvents: Goa
 	if (!goal) return "";
 	const lines: string[] = [];
 	const audit = latestAuditorResultForGoal(ledgerEvents, goal.id);
+ if (latestAuditForGoal(ledgerEvents, goal.id)?.type === "audit_started") lines.push("Latest audit: no recorded result.");
 	if (audit) {
 		lines.push(`Last audit: ${audit.verdict} (${audit.at.slice(0, 10)}) — ${truncateText(audit.report, 90)}`);
 	}
