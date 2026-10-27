@@ -43,9 +43,9 @@ if (wantWriteManifest) {
 	writeFileSync(manifestPath, JSON.stringify({
 		version: 1,
 		note: "Expected test-entry manifest for the runner self-check (npm run test:selfcheck). Regenerate with: node scripts/run-unit-tests.mjs --write-manifest",
-		unitFiles: unitFiles.map((file) => file.replace(projectRoot, ".").replace(/\\/g, "/")),
-		integrationFiles: integrationFiles.map((file) => file.replace(projectRoot, ".").replace(/\\/g, "/")),
-		e2eFiles: e2eFiles.map((file) => file.replace(projectRoot, ".").replace(/\\/g, "/")),
+		unitFiles: unitFiles.map((file) => "./" + relative(projectRoot, file).replace(/\\/g, "/")),
+		integrationFiles: integrationFiles.map((file) => "./" + relative(projectRoot, file).replace(/\\/g, "/")),
+		e2eFiles: e2eFiles.map((file) => "./" + relative(projectRoot, file).replace(/\\/g, "/")),
 	}, null, 2) + "\n");
 	console.log("Wrote " + manifestPath + " (" + unitFiles.length + " unit, " + integrationFiles.length + " integration, " + e2eFiles.length + " e2e entries).");
 	process.exit(0);
@@ -56,7 +56,7 @@ if (wantSelfCheck) {
 		throw new Error("Missing " + manifestPath + ". Run: node scripts/run-unit-tests.mjs --write-manifest");
 	}
 	const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-	const rel = (file) => file.replace(projectRoot, ".").replace(/\\/g, "/");
+	const rel = (file) => "./" + relative(projectRoot, file).replace(/\\/g, "/");
 	const expectedUnit = new Set(manifest.unitFiles ?? []);
 	const expectedIntegration = new Set(manifest.integrationFiles ?? []);
 	const expectedE2e = new Set(manifest.e2eFiles ?? []);
