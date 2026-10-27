@@ -106,3 +106,9 @@
 - Docs: `docs/adaptive-decisions.md` (modes, routes, floors, consultants, authority derivation, limits, record and journal, final residual limitations). Linked from `docs/advanced-usage.md`; `docs/adaptive-decisions.md` added to `package.json` `files`. README not expanded (AGENTS.md).
 - Release: `0.35.1` → `0.36.0` (`package.json`, `package-lock.json` via `npm version --no-git-tag-version`); CHANGELOG `[0.36.0]` states that 0.35.0 and 0.35.1 were never published. No publish, no tag.
 - Gate: `npm test` 1448/1448 (1446 before the two new cases); `npm run check` clean; eslint clean on the changed TypeScript files; `npm pack --dry-run` 0.36.0, 87 files, includes the docs page.
+## 2026-10-27 — E7 (gx-ypw, agile_run + ремонтный лист)
+
+- gx-ypw.1 сценарная приёмка S01–S22: 31 e2e-кейс против живого piGoalExtension; найден и минимально исправлен реальный дефект — settle() передавал застывший снимок цели вместо живого readGoal (теперь fail-closed goal-not-active); npm pack --dry-run 0.35.0. Коммит e4d5bbd.
+- gx-ypw.2 fault-injection F01–F11: порча sidecar, конкуренция за лок, stale snapshot/generation, дедлайн-аборт, orphan-grace, double-charge, сбой записи настроек — 16 кейсов, продакшен не тронут. Коммит 76dcabb.
+- gx-ypw.3 docs/adaptive-decisions.md + CHANGELOG + version bump 0.35.0 + pack dry-run; README не расширен. Решение владельца: материальная критика нескипаема (self-certified skip = дыра против S03; адаптивность — research-скипы и advisory). Коммит 6b65e38.
+- gx-ypw.4 (ремонт): test:all + lint зелёные на Windows — chmod-ловушки на win32 были no-op (портативные порчи: файл-вместо-директории, 0o444 на активный файл), таймауты stale-dispatch по соседям, env-чистка спавн-воркера, no-empty в upstream-sync. Гейты: check 0, lint 0, npm test 1448/1448, test:all exit 0 ×2 (1510 pass, 2 штатных skip). Ревью glm-5.3-flash ok + мутационная проверка обеих ловушек.
