@@ -76,7 +76,10 @@ export function registerGoalEvents(core: GoalCore): void {
  const leases = new Map<string, SessionOwner>();
  pi.on("before_provider_request", (event, ctx) => {
   if (ctx && contexts.has(ctx) && contexts.get(ctx) !== session) return;
-  try { return cacheGoalHistory(event.payload, liveRetention.contents(sessionKeyFor(ctx))); }
+  try {
+   if (session && ctx && ctx.sessionManager !== session.manager) return;
+   return cacheGoalHistory(event.payload, liveRetention.contents(sessionKeyFor(ctx)));
+  }
   catch (error) { if (!isStaleExtensionContextError(error)) throw error; }
  });
 	let continuationAfterSettleFor: string | null = null;

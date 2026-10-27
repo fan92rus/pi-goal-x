@@ -261,6 +261,8 @@ The registered two-session regression now proves that both audits can overlap an
 
 Create a single latest-audit lifecycle derivation over `audit_started`, `audit_result` and `audit_skipped`. Migrate user/model-facing readers in `goal-status.ts`, `goal-format.ts`, `goal-compaction.ts` and `goal-events.ts` to that lifecycle.
 
+Keep the latest start and matching terminal event in the existing bounded runtime index, alongside the last settled result needed for historical rejection context. The long-running-audit regression proves a start can otherwise fall out of the 12-event window. Derived ledger checkpoints advance to version 4 and rebuild once from the unchanged JSONL ledger; they do not migrate authoritative records or clear provider retention. Reuse one matching predicate in reconstruction, indexing and lifecycle readers.
+
 `[old result, newer audit_started]` means “latest audit has no recorded result,” never the old verdict. Persisted history cannot distinguish a live in-process audit from a hard-death orphan, so disk-derived wording stays neutral. Runtime UI may say “running” only when its token matches the active record. Keep a separately named latest-settled-result helper for prior-rejection context.
 
 #### B5. Lifecycle regression matrix
@@ -360,9 +362,9 @@ Run the cache comparison immediately after this track.
 
 Add a narrow tri-state focus adapter: main editor, foreign focused surface, or unknown. Pi 1.4 publicly exposes `getFocusedComponent()` and supports `OverlayOptions.nonCapturing`; its `isOverlayFocused()` is protected, so do not assume it is a supported public extension API. Prefer verified editor identity or a narrow adapter over `hasOverlay()`, because a visible non-capturing overlay can coexist with editor ownership. Structural text accessors alone do not prove ownership: a custom foreign editor can implement `getText`/`setText` too. Establish the available host seam with a real Pi fixture before choosing the implementation; avoid broad private-field dependencies.
 
-At the start of the terminal listener—after the existing Goal-owned modal guard and before Kitty repeat handling—return unhandled for a foreign owner. Apply the boundary to:
-
 Implementation seam verified in the installed Pi 1.4 source: `CustomEditor.actionHandlers` is public, and Pi installs `app.clear` plus `onSubmit` on its main editor, copying them when replacing it with another CustomEditor. Query `getFocusedComponent()` through the widget's actual renderer and require this host app wiring; text accessors alone do not qualify. Missing renderer/focus access retains the embedding fallback. Native dialogs, foreign text editors and capturing overlays do not have the main editor's app wiring; a non-capturing overlay leaves the main editor focused. No protected focus field or editor wrapper is needed.
+
+At the start of the terminal listener—after the existing Goal-owned modal guard and before Kitty repeat handling—return unhandled for a foreign owner. Apply the boundary to:
 
 - pause and host-interrupt bookkeeping;
 - auditor interrupt;

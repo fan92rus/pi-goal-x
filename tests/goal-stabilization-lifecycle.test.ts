@@ -4,6 +4,7 @@ import {stabilizationHarness, deferred} from "./stabilization-utils.ts";
 import {latestAuditorResultForGoal} from "../extensions/goal-ledger.ts";
 import {buildGoalHistoryBlock} from "../extensions/goal-format.ts";
 import {readGoalLedger} from "../extensions/goal-ledger.ts";
+import {goalRuntimeEvents, invalidateGoalLedgerCache} from "../extensions/goal-ledger.ts";
 import {writeActiveGoalFile} from "../extensions/storage/goal-files.ts";
 import {mkdirSync, rmSync} from "node:fs";
 import path from "node:path";
@@ -224,4 +225,30 @@ test("late shutdown cannot evict a replacement prefix with the same cache identi
   await h.event("session_shutdown", {}, h.ctx);
   assert.deepEqual((await h.event("context_with_system", {messages: base}, incoming.ctx)).messages, advanced);
  } finally {await h.event("session_shutdown", {}, incoming.ctx); await h.cleanup(); await incoming.cleanup();}
+});
+
+test("a long-running audit stays authoritative beyond the bounded recent-event window and cache reload", async () => {
+ const h = stabilizationHarness();
+ try {
+  await h.start();
+  const events: any[] = [
+   {type: "audit_started", goalId: h.goal.id, auditId: "old", at: "2026-10-26T00:00:00Z"},
+   {type: "audit_result", goalId: h.goal.id, auditId: "old", verdict: "approved", report: "old result", at: "2026-10-26T00:00:01Z"},
+   {type: "audit_started", goalId: h.goal.id, auditId: "other-session", at: "2026-10-26T00:00:02Z"},
+   {type: "audit_started", goalId: h.goal.id, auditId: "current", at: "2026-10-27T00:00:00Z"},
+   ...Array.from({length: 20}, (_, n) => ({type: "task_complete", goalId: h.goal.id, taskId: `task-${n}`, at: "2026-10-27T00:00:01Z"})),
+  ];
+  h.core.goalService.appendEvents(h.ctx, events, {immediate: true});
+  for (const reload of [false, true]) {
+   if (reload) invalidateGoalLedgerCache();
+   const bounded = goalRuntimeEvents(h.ctx, h.goal.id);
+   assert.equal(latestAuditorResultForGoal(bounded, h.goal.id), undefined);
+   assert.match(buildGoalHistoryBlock(h.goal, bounded), /no recorded result/i);
+   assert.ok(bounded.length <= 16);
+  }
+  h.core.goalService.appendEvents(h.ctx, [{type: "audit_result", goalId: h.goal.id, auditId: "current", verdict: "approved", report: "current result", at: "2026-10-27T00:00:02Z"}, ...events.slice(-20)], {immediate: true});
+  h.core.goalService.appendEvents(h.ctx, [{type: "audit_result", goalId: h.goal.id, auditId: "other-session", verdict: "error", report: "obsolete late failure", at: "2026-10-27T00:00:03Z"}], {immediate: true});
+  invalidateGoalLedgerCache();
+  assert.equal(latestAuditorResultForGoal(goalRuntimeEvents(h.ctx, h.goal.id), h.goal.id)?.report, "current result");
+ } finally {await h.cleanup();}
 });

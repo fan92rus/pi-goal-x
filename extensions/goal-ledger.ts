@@ -1,6 +1,6 @@
 import { goalStoragePath, ensureGoalStorageDirectory, isExternalGoalStorage, type GoalStorageContext } from "./storage/goal-root.ts";
 import { indexedActivityEvents } from "./goal-activity.ts";
-import { buildLedgerIndex, indexLedgerEvent, type GoalLedgerIndex } from "./goal-ledger-index.ts";
+import { buildLedgerIndex, indexLedgerEvent, auditApplies, type GoalLedgerIndex } from "./goal-ledger-index.ts";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { renameAtomicSync } from "./storage/atomic-rename.ts";
@@ -261,7 +261,7 @@ function parseLedgerLines(content: string): GoalLedgerReadResult {
 // ---------------------------------------------------------------------------
 
 export const LEDGER_CHECKPOINT_FILE = ".goal-ledger-checkpoint.json";
-export const LEDGER_CHECKPOINT_VERSION = 3;
+export const LEDGER_CHECKPOINT_VERSION = 4;
 const CHECKPOINT_RECENT_CAP = 12;
 
 /** In-memory ledger checkpoint (maps in native form). */
@@ -424,7 +424,7 @@ function checkpointFromJson(value: unknown): LedgerCheckpoint | null {
     if (!entry || !Array.isArray(entry.recent) || !Array.isArray(entry.activity) || !Array.isArray(entry.oracle)) return null;
     if (entry.recent.length > 12 || entry.activity.length > 64) return null;
     if (entry.activity.length > 0 && !entry.lastActivityEvent) return null;
-    if (![...entry.recent, ...entry.activity, ...[entry.audit, entry.completion, entry.lifecycle, entry.lastActivityEvent].filter(Boolean)].every(isValidLedgerEvent)) return null;
+    if (![...entry.recent, ...entry.activity, ...[entry.audit, entry.auditStarted, entry.settledAudit, entry.completion, entry.lifecycle, entry.lastActivityEvent].filter(Boolean)].every(isValidLedgerEvent)) return null;
     if (!entry.oracle.every((p: unknown[]) => {
      if (!Array.isArray(p) || p.length !== 2 || typeof p[0] !== "string" || !p[1] || typeof p[1] !== "object") return false;
      const state = p[1] as Record<string, unknown>;
@@ -602,7 +602,12 @@ export function goalRuntimeEvents(ctx: GoalLedgerContext, goalId: string): GoalL
  const entry = runtimeIndex(ctx).get(goalId);
  if (!entry) return [];
  const recent = entry.recent;
- return [...[entry.audit, entry.completion].filter((e): e is GoalLedgerEvent => !!e && !recent.includes(e)), ...recent];
+ const same = (a: GoalLedgerEvent | undefined, b: GoalLedgerEvent | undefined) => a === b || !!a && !!b && a.type === b.type && a.at === b.at && JSON.stringify(a) === JSON.stringify(b);
+ const prior = same(entry.settledAudit, entry.audit) ? undefined : entry.settledAudit;
+ const pinned = [prior, entry.completion, entry.auditStarted, entry.audit];
+ return [...pinned.filter((event, index): event is GoalLedgerEvent => !!event
+  && !recent.some(other => same(event, other))
+  && !pinned.slice(0, index).some(other => same(event, other))), ...recent];
 }
 export function goalOracleState(ctx: GoalLedgerContext, goalId: string, fingerprint: string) {
  const state = runtimeIndex(ctx).get(goalId)?.oracle.get(fingerprint);
@@ -956,10 +961,6 @@ function cloneAccumulator(acc: ReconstructAccumulator): ReconstructAccumulator {
 type AuditEvent = Extract<GoalLedgerEvent, {type: "audit_started" | "audit_result" | "audit_skipped"}>;
 
 /** New attempts supersede old verdicts; overlapping attempts match by identity. */
-function auditApplies(latestId: string | undefined, event: AuditEvent): boolean {
- return event.type === "audit_started" || (event.type === "audit_skipped" && event.reason === "disabled") || latestId === undefined || event.auditId === latestId;
-}
-
 export function latestAuditForGoal(events: GoalLedgerEvent[], goalId: string): AuditEvent | undefined {
  let latest: AuditEvent | undefined;
  for (const event of events) {
