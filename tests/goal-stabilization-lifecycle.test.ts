@@ -8,6 +8,7 @@ import {goalRuntimeEvents, invalidateGoalLedgerCache} from "../extensions/goal-l
 import {writeActiveGoalFile, parseGoalFile} from "../extensions/storage/goal-files.ts";
 import {mkdirSync, rmSync} from "node:fs";
 import path from "node:path";
+import {mutateSettingsLayer} from "../extensions/goal-settings.ts";
 
 const approved = {approved: true, output: "Evidence checked. <approved/>", model: "fixture"};
 const stale = () => {throw new Error("This extension ctx is stale after session replacement or reload.");};
@@ -223,6 +224,44 @@ test("a retired resume selector cannot open a dialog for the replacement's pause
   assert.equal(h.core.state.goal?.status, "paused");
   assert.equal(h.core.goalModalDepth, 0);
  } finally {selected.resolve(undefined); await resuming; await h.event("session_shutdown", {}, incoming.ctx); await h.cleanup(); await incoming.cleanup();}
+});
+
+for (const response of ["answer", "cancel", "error"]) test(`a retired command shortcut ${response} cannot dispatch or release a replacement modal`, async () => {
+ const h = stabilizationHarness(), incoming = stabilizationHarness();
+ const answer = deferred<any>(), shown = deferred<any>();
+ let calls = 0;
+ try {
+  h.ctx.hasUI = true;
+  mutateSettingsLayer({scope: "project", cwd: h.cwd, mutation: {op: "set", path: ["keybindings", "commands", "goal-direct"], value: "f8"}});
+  h.ctx.ui.input = async () => {shown.resolve(null); return answer.promise;};
+  h.core.invokeGoalCommand = async () => {calls++;};
+  await h.start();
+  h.input("\x1b[19~"); await shown.promise;
+  assert.equal(h.core.goalModalDepth, 1);
+  await h.event("session_start", {}, incoming.ctx);
+  h.core.goalModalDepth = 1;
+  const notices = h.notices.length;
+  if (response === "error") answer.reject(new Error("old dialog failed"));
+  else answer.resolve(response === "cancel" ? undefined : "Old topic");
+  await new Promise<void>(resolve => setImmediate(resolve));
+  assert.equal(calls, 0, "an old answer cannot invoke a command against replacement state");
+  assert.equal(h.core.goalModalDepth, 1, "an old finally cannot release replacement ownership");
+  assert.equal(h.notices.length, notices, "an old rejection cannot notify through the invalidated host");
+ } finally {answer.resolve(undefined); await new Promise<void>(resolve => setImmediate(resolve)); await h.event("session_shutdown", {}, incoming.ctx); await h.cleanup(); await incoming.cleanup();}
+});
+
+test("a command shortcut releases its own modal when the command changes focus", async () => {
+ const h = stabilizationHarness();
+ const dispatched = deferred<any>();
+ try {
+  h.ctx.hasUI = true;
+  mutateSettingsLayer({scope: "project", cwd: h.cwd, mutation: {op: "set", path: ["keybindings", "commands", "goal-direct"], value: "f8"}});
+  h.ctx.ui.input = async () => "New topic";
+  h.core.invokeGoalCommand = async () => {h.core.setFocusedGoalId(null, h.ctx, "selected"); dispatched.resolve(null);};
+  await h.start(); h.input("\x1b[19~"); await dispatched.promise;
+  await new Promise<void>(resolve => setImmediate(resolve));
+  assert.equal(h.core.goalModalDepth, 0, "legitimate command focus changes still release their modal");
+ } finally {await h.cleanup();}
 });
 
 test("audit approval cannot overwrite tasks changed by another writer", async () => {

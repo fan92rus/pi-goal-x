@@ -296,6 +296,7 @@ export function registerGoalEvents(core: GoalCore): void {
  function teardown(ctx: ExtensionContext): void {
   const outgoing = session;
   session = undefined;
+  core.sessionOwner = null;
   let failure: unknown;
   const run = (action: () => void) => {
    try {action();} catch (error) {if (!isStaleExtensionContextError(error)) failure ??= error;}
@@ -333,6 +334,7 @@ export function registerGoalEvents(core: GoalCore): void {
   try {
    const owner: SessionOwner = {ctx, manager: ctx.sessionManager, storage: goalStorageContext(ctx), keys: new Set()};
    session = owner;
+   core.sessionOwner = owner;
    contexts.set(ctx, owner);
    invalidateGoalSettingsCache();
    invalidateGoalPoolCache();

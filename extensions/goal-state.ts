@@ -71,6 +71,7 @@ export interface GoalCore {
 	readonly goalsById: Map<string, GoalRecord>;
 	readonly focusedGoalId: string | null;
 	readonly focusRevision: number;
+	sessionOwner: object | null;
 	hasExplicitSessionFocus: boolean;
 	runningGoalId: string | null;
 	auditProgress: AuditorWidgetProgress | null;
@@ -953,6 +954,7 @@ export function createGoalCore(
 		pi,
 		dependencies,
 		state,
+		sessionOwner: null,
 		get goalsById() {
 			return goalsById;
 		},

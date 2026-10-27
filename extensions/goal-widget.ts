@@ -165,15 +165,17 @@ export function syncTerminalInputPause(core: GoalCore, ctx: ExtensionContext): v
 			for (const action of COMMAND_KEYS) {
 				if (!bindingKeys(keyActionBinding(settings, action)).some(key => matchesKey(data, key))) continue;
 				const id = action.path[2] as GoalCommandId;
+				const revision = core.focusRevision;
+				const owner = core.sessionOwner;
 				void (async () => {
 					core.enterGoalModal();
 					try {
 						const prompt = GOAL_COMMAND_INPUTS[id];
 						const args = prompt ? await ctx.ui.input(prompt) : "";
-						if (args === undefined || (prompt && !args.trim())) return;
+						if (core.focusRevision !== revision || args === undefined || (prompt && !args.trim())) return;
 						await core.invokeGoalCommand?.(id, args, ctx);
-					} finally { core.exitGoalModal(); }
-				})().catch(error => ctx.ui.notify(String(error), "error"));
+					} finally { if (core.sessionOwner === owner) core.exitGoalModal(); }
+				})().catch(error => {if (core.sessionOwner === owner) ctx.ui.notify(String(error), "error");});
 				return { consume: true };
 			}
 
