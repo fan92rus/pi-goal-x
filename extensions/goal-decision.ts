@@ -26,20 +26,26 @@
  *     validator never picks an option. Only `bounded-auto` may record it.
  *   - `ask-human` / escalation: applyAskHuman writes an `escalated` record and
  *     returns the instruction to fall back to goal_question / the blocker ladder.
- *   - `research` / `critique` / `research+critique`: consultants are not built
- *     yet. resolveConsultationRoute is a STUB that returns "consultations-pending";
- *     E4 (goal-decision-consultant.ts) replaces it.
+ *   - `research` / `critique` / `research+critique`: resolveConsultations runs
+ *     the read-only consultants (goal-decision-consultant.ts, TECH §5). Every
+ *     launch is appended to the record; any failed, refused, or blocking
+ *     consultation escalates to ask-human.
  *
- * This module does not register any tool (E6) and imports no host runtime. It
- * writes only through goal-decision-record.ts.
+ * This module does not register any tool (E6). It writes only through
+ * goal-decision-record.ts and calls consultants only through the injected runner.
  */
 
 import { Type, type Static } from "@earendil-works/pi-ai";
 import { Value } from "typebox/value";
-import type { GoalDecisionSettings } from "./goal-decision-policy.ts";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ConsultantModel, ConsultantRole, ConsultantRunResult, CriticPayload, ResearcherPayload, runConsultant } from "./goal-decision-consultant.ts";
+import type { GoalDecisionCriticSettings, GoalDecisionSettings } from "./goal-decision-policy.ts";
+import type { ThinkingLevel } from "./goal-settings.ts";
 import {
 	createDecision,
 	setDecisionStatus,
+	updateDecision,
+	type ConsultantResult,
 	type DecisionDraft,
 	type DecisionRecord,
 	type DecisionRoute,
@@ -283,8 +289,11 @@ export type DecisionResolution =
 	| { kind: "invalid"; reason: string }
 	/** Route `direct` is allowed. The agent picks among options via applyDirectResolution. */
 	| { kind: "direct"; routeJustification: RouteJustification }
-	/** Consultations are required; see resolveConsultationRoute (E4 stub). */
-	| { kind: "consultations-pending"; route: "research" | "critique" | "research+critique"; routeJustification: RouteJustification }
+	/**
+	 * Consultants ran and none escalated (TECH §5). The record stays `open`: only the
+	 * acceptance guard (E5) writes `decided`.
+	 */
+	| { kind: "consulted"; decisionId: string; route: ConsultedRoute; routeJustification: RouteJustification; facts: string[]; risks: string[]; text: string }
 	/** Escalated: an `escalated` record was written; `text` tells the model to ask the owner. */
 	| { kind: "ask-human"; reason: string; decisionId: string; text: string }
 	/** Escalation could not be written. */
@@ -405,27 +414,366 @@ export function applyDirectResolution(
 	return { ok: true, value: { decisionId: id, text: lines.join("\n") } };
 }
 
-// ── resolution ──────────────────────────────────────────────────────────────
+// ── consultants (TECH §5) ───────────────────────────────────────────────────
+
+/** Routes that run consultants. `direct` and `ask-human` never reach resolveConsultations. */
+export type ConsultedRoute = "research" | "critique" | "research+critique";
 
 /**
- * STUB (E4): research / critique routes run consultants (TECH §5), which are not
- * implemented yet. The stub returns "consultations-pending" and writes nothing.
- * E4 replaces this function with the runner and the record write.
+ * Consultant runner seam. Production passes runConsultant; tests pass fakes.
+ * `ctx.model` is the proposing (executor) model: researchers are read-only and
+ * run on it. The critic never does (cross-model rule, resolveCriticModel).
  */
-export function resolveConsultationRoute(route: "research" | "critique" | "research+critique"): { kind: "consultations-pending"; route: typeof route } {
-	return { kind: "consultations-pending", route };
+export type ConsultantRunner = typeof runConsultant;
+
+export interface ConsultationDeps {
+	ctx: ExtensionContext;
+	runConsultant: ConsultantRunner;
+}
+
+export type CriticModelResolution =
+	| { ok: true; model: ConsultantModel; thinkingLevel?: ThinkingLevel }
+	| { ok: false; reason: string };
+
+function modelKey(model: unknown): string | undefined {
+	const { provider, id } = (model ?? {}) as { provider?: unknown; id?: unknown };
+	return typeof provider === "string" && typeof id === "string" ? `${provider}/${id}` : undefined;
 }
 
 /**
- * Routes a proposal without choosing an option (the agent's job for `direct`):
+ * Critic model from settings.decisionCritic (TECH §5). The explicit provider and
+ * model must both be set and must resolve in the registry. A critic equal to the
+ * proposing model (`authorModel`) is refused: cross-model review is the point.
+ *
+ * Nothing is substituted silently. Unset, unresolvable, and same-model are all
+ * refusals, and the caller escalates to ask-human. The same-model degraded mode
+ * of TECH §5 (`crossModelDegraded`) is deferred to E6, when a model resolver
+ * exists; until then a mandatory critique fails closed (owner decision D5).
+ */
+export function resolveCriticModel(ctx: ExtensionContext, settings: GoalDecisionSettings, authorModel?: ConsultantModel): CriticModelResolution {
+	const critic: GoalDecisionCriticSettings | undefined = settings.critic;
+	if (!critic?.provider || !critic.model) {
+		return { ok: false, reason: "config: decisionCritic provider and model are not set; the executor model is not used as critic" };
+	}
+	const found = (ctx.modelRegistry as unknown as { find?: (provider: string, id: string) => unknown } | undefined)?.find?.(critic.provider, critic.model);
+	if (!found) return { ok: false, reason: `config: critic model not found: ${critic.provider}/${critic.model}` };
+	const key = modelKey(found);
+	if (key !== undefined && key === modelKey(authorModel)) {
+		return { ok: false, reason: `config: critic model ${key} is the proposing model; cross-model review is required` };
+	}
+	return {
+		ok: true,
+		model: found as ConsultantModel,
+		...(critic.thinkingLevel === undefined ? {} : { thinkingLevel: critic.thinkingLevel }),
+	};
+}
+
+/** Caps text at the router write boundary (TECH §3): at most DECISION_TEXT_MAX chars, a cut marked with an ellipsis. */
+function clipText(text: string): string {
+	if (text.length <= DECISION_TEXT_MAX) return text;
+	let cut = text.slice(0, DECISION_TEXT_MAX - 1);
+	if (/[\uD800-\uDBFF]$/.test(cut)) cut = cut.slice(0, -1);
+	return `${cut}…`;
+}
+
+function bulletList(items: readonly string[]): string {
+	return items.length === 0 ? " none" : `\n${items.map((item) => `- ${item}`).join("\n")}`;
+}
+
+/**
+ * Minimized consultant request (TECH §5): question, options, authority basis,
+ * facts, unknowns, and the role's own question. Never the goal record, the
+ * objective, or record metadata (ids, policyVersion, generation).
+ */
+function consultationRequest(proposal: DecisionProposal, facts: readonly string[], roleQuestion: string): string {
+	return [
+		`Question: ${proposal.question}`,
+		`Options: ${formatOptions(proposal.options)}`,
+		`Authority basis: ${proposal.authorityBasis}`,
+		`Facts:${bulletList(facts)}`,
+		`Unknowns:${bulletList(proposal.unknowns)}`,
+		`Your question: ${roleQuestion}`,
+	].join("\n");
+}
+
+const CRITIC_QUESTION = "Which objections apply to the proposed options, given the facts and any research findings? Report each with severity blocker, major, or minor and its evidence.";
+
+/** One researcher per unknown; with no unknowns, one researcher on the question itself. */
+function researchQuestionsOf(proposal: DecisionProposal): string[] {
+	return proposal.unknowns.length > 0 ? [...proposal.unknowns] : [proposal.question];
+}
+
+/**
+ * Consultant rounds (TECH §5, maxRounds) count PHASES, not launches (owner decision):
+ * the research phase is one round however many unknowns it covers (its chunks of
+ * maxParallelConsultants do not add rounds), and the critique phase is one round.
+ * The total must fit maxRounds before anything launches. A research phase that
+ * is insufficient escalates at once (runResearch), so no second research round
+ * exists in v1.
+ */
+function roundsNeeded(route: ConsultedRoute): number {
+	const coverage = ROUTE_COVERAGE[route];
+	return (coverage.research ? 1 : 0) + (coverage.critique ? 1 : 0);
+}
+
+type Preflight =
+	| { ok: true; researcher?: ConsultantModel; critic?: { model: ConsultantModel; thinkingLevel?: ThinkingLevel } }
+	| { ok: false; reason: string };
+
+/** Checks that need no launch: round budget and models. Failing here writes an escalated record and launches nothing. */
+function preflight(deps: ConsultationDeps, policy: GoalDecisionSettings, proposal: DecisionProposal, route: ConsultedRoute): Preflight {
+	const rounds = roundsNeeded(route);
+	if (rounds > policy.limits.maxRounds) {
+		return { ok: false, reason: `consultation rounds exhausted: route ${route} needs ${rounds}, maxRounds is ${policy.limits.maxRounds}` };
+	}
+	const coverage = ROUTE_COVERAGE[route];
+	const result: Extract<Preflight, { ok: true }> = { ok: true };
+	if (coverage.research) {
+		if (!deps.ctx.model) return { ok: false, reason: "config: no executor model is available for the researcher" };
+		result.researcher = deps.ctx.model;
+	}
+	if (coverage.critique) {
+		const critic = resolveCriticModel(deps.ctx, policy, deps.ctx.model);
+		if (!critic.ok) return { ok: false, reason: critic.reason };
+		result.critic = { model: critic.model, thinkingLevel: critic.thinkingLevel };
+	}
+	return result;
+}
+
+/** Working state of one consultation run: the record is replaced after each write (revision moves). */
+interface ConsultationFlow {
+	storeCtx: DecisionStoreContext;
+	proposal: DecisionProposal;
+	policy: GoalDecisionSettings;
+	deps: ConsultationDeps;
+	route: ConsultedRoute;
+	routeJustification: RouteJustification;
+	record: DecisionRecord;
+	/** Consultant launches so far; the next childRunId is consultant-<launched + 1>. */
+	launched: number;
+}
+
+interface LaunchedConsultant<R extends ConsultantRole> {
+	entry: ConsultantResult;
+	result: ConsultantRunResult<R>;
+}
+
+/** Capped record entry for one launch (TECH §3/§5): summary ≤300, payload with capped strings, usage only when reported. */
+function consultantEntry(
+	childRunId: string,
+	role: ConsultantRole,
+	model: string,
+	seconds: number,
+	result: ConsultantRunResult<ConsultantRole>,
+): ConsultantResult {
+	if (!result.ok) {
+		return { role, childRunId, model, usage: "unknown", summary: clipText(`${result.errorCode}: ${result.message}`), schemaPayload: null };
+	}
+	const usage: ConsultantResult["usage"] = result.usage?.tokens === undefined ? "unknown" : { tokens: result.usage.tokens, seconds };
+	if (role === "researcher") {
+		const payload = result.payload as ResearcherPayload;
+		const claims = payload.findings.map((finding) => finding.claim);
+		return {
+			role,
+			childRunId,
+			model,
+			usage,
+			summary: clipText(`${payload.verdict}: ${claims.join("; ") || "no findings"}`),
+			schemaPayload: {
+				verdict: payload.verdict,
+				findings: payload.findings.map((finding) => ({ claim: clipText(finding.claim), evidence: clipText(finding.evidence), source: clipText(finding.source) })),
+				remainingUnknowns: payload.remainingUnknowns.map(clipText),
+			},
+		};
+	}
+	const payload = result.payload as CriticPayload;
+	return {
+		role,
+		childRunId,
+		model,
+		usage,
+		summary: clipText(`${payload.verdict}: ${payload.objections.map((objection) => `${objection.severity}: ${objection.evidence}`).join("; ") || "no objections"}`),
+		schemaPayload: {
+			verdict: payload.verdict,
+			objections: payload.objections.map((objection) => ({ severity: objection.severity, evidence: clipText(objection.evidence) })),
+		},
+	};
+}
+
+async function launchConsultant<R extends ConsultantRole>(
+	flow: ConsultationFlow,
+	args: { role: R; prompt: string; model: ConsultantModel; thinkingLevel?: ThinkingLevel },
+): Promise<LaunchedConsultant<R>> {
+	flow.launched += 1;
+	const childRunId = `consultant-${flow.launched}`;
+	const started = Date.now();
+	let result: ConsultantRunResult<R>;
+	try {
+		result = await flow.deps.runConsultant({
+			ctx: flow.deps.ctx,
+			role: args.role,
+			prompt: args.prompt,
+			model: args.model,
+			thinkingLevel: args.thinkingLevel,
+			deadlineMs: flow.policy.limits.consultantDeadlineMs,
+			beforeLaunch: () => ({ ok: true }),
+		});
+	} catch (error) {
+		// runConsultant reports its own failures; a thrown runner is still a failed run, never a silent pass.
+		result = { ok: false, errorCode: "provider", message: error instanceof Error ? error.message : String(error) };
+	}
+	const seconds = Number(((Date.now() - started) / 1000).toFixed(3));
+	return { result, entry: consultantEntry(childRunId, args.role, modelKey(args.model) ?? "unknown", seconds, result) };
+}
+
+/** Appends launch entries and new facts in one revision-checked write. Returns the store error text, if any. */
+function appendConsultants(flow: ConsultationFlow, entries: ConsultantResult[], facts: string[]): string | undefined {
+	const { storeCtx, record } = flow;
+	const updated = updateDecision(storeCtx.storage, storeCtx.goalId, record.id, (draft) => ({
+		...draft,
+		consultants: [...draft.consultants, ...entries],
+		facts: [...draft.facts, ...facts],
+	}), record.revision);
+	if (!updated.ok) return storeFailure(updated.error);
+	flow.record = updated.value;
+	return undefined;
+}
+
+/** Escalates a record that already has consultant entries: reason stored, status `escalated` (router writer). */
+function escalateConsulted(flow: ConsultationFlow, rawReason: string): DecisionResolution {
+	const reason = clipText(rawReason);
+	const { storeCtx, record, proposal } = flow;
+	const reasoned = updateDecision(storeCtx.storage, storeCtx.goalId, record.id, (draft) => ({
+		...draft,
+		routeJustification: { ...draft.routeJustification, reasons: { ...draft.routeJustification.reasons, "ask-human": reason } },
+	}), record.revision);
+	if (!reasoned.ok) return { kind: "store-error", reason: storeFailure(reasoned.error) };
+	const escalated = setDecisionStatus(storeCtx.storage, storeCtx.goalId, record.id, "escalated", { writer: "router", expectedRevision: reasoned.value.revision });
+	if (!escalated.ok) return { kind: "store-error", reason: storeFailure(escalated.error) };
+	return { kind: "ask-human", reason, decisionId: record.id, text: escalationText(record.id, reason, proposal) };
+}
+
+function consultedResolution(flow: ConsultationFlow, risks: string[]): DecisionResolution {
+	const { record, proposal, route, routeJustification } = flow;
+	const lines = [
+		`Decision ${record.id} consulted (route: ${route}; consultant runs: ${flow.launched}).`,
+		`Question: ${proposal.question}`,
+		`Options: ${formatOptions(proposal.options)}`,
+		`Facts: ${record.facts.join("; ") || "none recorded"}`,
+		`Risks: ${risks.length > 0 ? risks.join("; ") : "none recorded"}`,
+		"Choose one option. The record stays open until the decision is accepted.",
+	];
+	return { kind: "consulted", decisionId: record.id, route, routeJustification, facts: record.facts, risks, text: lines.join("\n") };
+}
+
+/** Research phase (one round): unknowns in concurrent chunks of maxParallelConsultants. Undefined means every chunk passed. */
+async function runResearch(flow: ConsultationFlow, researcher: ConsultantModel): Promise<DecisionResolution | undefined> {
+	const { proposal, policy } = flow;
+	const questions = researchQuestionsOf(proposal);
+	const width = policy.limits.maxParallelConsultants;
+	for (let start = 0; start < questions.length; start += width) {
+		const launches = await Promise.all(questions.slice(start, start + width).map((question) => launchConsultant(flow, {
+			role: "researcher",
+			prompt: consultationRequest(proposal, proposal.facts, `Answer with evidence from the repository: ${question}`),
+			model: researcher,
+		})));
+		const findingFacts = launches.flatMap(({ result }) => (result.ok
+			? result.payload.findings.map((finding) => clipText(`${finding.claim} (source: ${finding.source})`))
+			: []));
+		const stored = appendConsultants(flow, launches.map(({ entry }) => entry), findingFacts);
+		if (stored !== undefined) return { kind: "store-error", reason: stored };
+		const problem = researchProblem(launches);
+		if (problem !== undefined) return escalateConsulted(flow, problem);
+	}
+	return undefined;
+}
+
+function researchProblem(launches: ReadonlyArray<LaunchedConsultant<"researcher">>): string | undefined {
+	for (const { result } of launches) {
+		if (!result.ok) return `consultant researcher ${result.errorCode}: ${result.message}`;
+	}
+	for (const { result } of launches) {
+		if (result.ok && result.payload.verdict === "insufficient") return "researcher verdict insufficient";
+	}
+	return undefined;
+}
+
+/** Critic wave: one launch on the proposal plus the facts gathered so far (including research findings). */
+async function runCritic(flow: ConsultationFlow, critic: { model: ConsultantModel; thinkingLevel?: ThinkingLevel }): Promise<DecisionResolution> {
+	const launch = await launchConsultant(flow, {
+		role: "critic",
+		prompt: consultationRequest(flow.proposal, flow.record.facts, CRITIC_QUESTION),
+		model: critic.model,
+		thinkingLevel: critic.thinkingLevel,
+	});
+	const stored = appendConsultants(flow, [launch.entry], []);
+	if (stored !== undefined) return { kind: "store-error", reason: stored };
+	const problem = criticProblem(launch.result);
+	if (problem !== undefined) return escalateConsulted(flow, problem);
+	const risks = launch.result.ok
+		? launch.result.payload.objections
+			.filter((objection) => objection.severity !== "blocker")
+			.map((objection) => clipText(`${objection.severity}: ${objection.evidence}`))
+		: [];
+	return consultedResolution(flow, risks);
+}
+
+/** A blocker objection is never waived, whatever the verdict (TECH §5); an unsound verdict also escalates (fail closed). */
+function criticProblem(result: ConsultantRunResult<"critic">): string | undefined {
+	if (!result.ok) return `consultant critic ${result.errorCode}: ${result.message}`;
+	const blocker = result.payload.objections.find((objection) => objection.severity === "blocker");
+	if (blocker) return `critic blocker objection: ${blocker.evidence}`;
+	if (result.payload.verdict === "unsound") return "critic verdict unsound";
+	return undefined;
+}
+
+/**
+ * Runs the consultations required by a research, critique, or research+critique
+ * route (TECH §5). Order: round and model preflight (no launch on failure), then
+ * the research phase (chunks of maxParallelConsultants), then the critic, which
+ * starts only after the research findings are fixed into the record. A failed,
+ * refused, or blocking consultation escalates to ask-human; an unsound critic
+ * verdict escalates too (fail closed, even without a blocker objection). A clean
+ * run returns `consulted` with the record still `open`.
+ */
+export async function resolveConsultations(
+	storeCtx: DecisionStoreContext,
+	proposal: DecisionProposal,
+	route: ConsultedRoute,
+	routeJustification: RouteJustification,
+	policy: GoalDecisionSettings,
+	deps: ConsultationDeps,
+): Promise<DecisionResolution> {
+	const pre = preflight(deps, policy, proposal, route);
+	if (!pre.ok) return escalate(storeCtx, proposal, pre.reason);
+	const created = createDecision(storeCtx.storage, storeCtx.goalId, draftFor(storeCtx, proposal, route, routeJustification));
+	if (!created.ok) return { kind: "store-error", reason: storeFailure(created.error) };
+	const flow: ConsultationFlow = { storeCtx, proposal, policy, deps, route, routeJustification, record: created.value, launched: 0 };
+	if (pre.researcher) {
+		const failed = await runResearch(flow, pre.researcher);
+		if (failed !== undefined) return failed;
+	}
+	if (pre.critic) return runCritic(flow, pre.critic);
+	return consultedResolution(flow, []);
+}
+
+// ── resolution ──────────────────────────────────────────────────────────────
+
+/**
+ * Routes a proposal. Consultants run asynchronously, so this is async:
  *
  *   - manual mode ⇒ refused, nothing written;
  *   - invalid ⇒ invalid, nothing written;
  *   - route floor violated, or self-route `ask-human` ⇒ escalated (record written);
  *   - `direct` ⇒ kind "direct"; the caller then calls applyDirectResolution;
- *   - research / critique ⇒ consultations-pending (E4 stub).
+ *   - research / critique / research+critique ⇒ resolveConsultations (consulted or ask-human).
  */
-export function resolveDecision(input: unknown, policy: GoalDecisionSettings, storeCtx: DecisionStoreContext): DecisionResolution {
+export async function resolveDecision(
+	input: unknown,
+	policy: GoalDecisionSettings,
+	storeCtx: DecisionStoreContext,
+	deps: ConsultationDeps,
+): Promise<DecisionResolution> {
 	if (policy.mode === "manual") return { kind: "refused", reason: "decisionMode is manual; the decision router is inactive" };
 	const validated = validateProposal(input);
 	if (!validated.ok) return { kind: "invalid", reason: validated.reason };
@@ -434,7 +782,7 @@ export function resolveDecision(input: unknown, policy: GoalDecisionSettings, st
 	if (!decided.ok) return escalate(storeCtx, proposal, `route floor: ${decided.detail}`);
 	if (decided.route === "ask-human") return escalate(storeCtx, proposal, "selfRoute ask-human");
 	if (decided.route === "direct") return { kind: "direct", routeJustification: decided.routeJustification };
-	return { ...resolveConsultationRoute(decided.route), routeJustification: decided.routeJustification };
+	return resolveConsultations(storeCtx, proposal, decided.route, decided.routeJustification, policy, deps);
 }
 
 function escalate(storeCtx: DecisionStoreContext, proposal: DecisionProposal, reason: string): DecisionResolution {

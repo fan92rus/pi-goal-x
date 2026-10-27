@@ -3,16 +3,20 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { DEFAULT_GOAL_DECISION_LIMITS, type GoalDecisionMode, type GoalDecisionSettings } from "../extensions/goal-decision-policy.ts";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ConsultantModel, ConsultantRole, ConsultantRunResult, CriticPayload, ResearcherPayload, RunConsultantArgs } from "../extensions/goal-decision-consultant.ts";
+import { DEFAULT_GOAL_DECISION_LIMITS, type GoalDecisionCriticSettings, type GoalDecisionMode, type GoalDecisionSettings } from "../extensions/goal-decision-policy.ts";
 import {
 	applyAskHuman,
 	applyDirectResolution,
 	decideRoute,
 	forbiddenCategoriesIn,
-	resolveConsultationRoute,
+	resolveCriticModel,
 	resolveDecision,
 	routeFloor,
 	validateProposal,
+	type ConsultantRunner,
+	type ConsultationDeps,
 	type DecisionProposal,
 	type DecisionStoreContext,
 } from "../extensions/goal-decision.ts";
@@ -21,8 +25,33 @@ import { DECISIONS_DIR, getDecisions, type DecisionRecord } from "../extensions/
 const OBJECTIVE = "Migrate the local cache to WAL mode end to end";
 const GOAL = "goal-a";
 
+const AUTHOR_MODEL = { provider: "fixture", id: "author-model" } as unknown as ConsultantModel;
+const CRITIC_MODEL = { provider: "fixture", id: "critic-model" } as unknown as ConsultantModel;
+const MODELS: Record<string, unknown> = {
+	"fixture/author-model": AUTHOR_MODEL,
+	"fixture/critic-model": CRITIC_MODEL,
+};
+
+const RESEARCH_OK: ResearcherPayload = {
+	findings: [{ claim: "The cache uses the rollback journal", evidence: "src/cache.ts sets journal_mode=DELETE", source: "src/cache.ts" }],
+	remainingUnknowns: [],
+	verdict: "answered",
+};
+
+const CRITIC_OK: CriticPayload = {
+	objections: [{ severity: "minor", evidence: "WAL needs -shm files on network drives" }],
+	verdict: "sound",
+};
+
 function policy(mode: GoalDecisionMode = "bounded-auto"): GoalDecisionSettings {
 	return { mode, limits: { ...DEFAULT_GOAL_DECISION_LIMITS } };
+}
+
+function criticPolicy(
+	limits: Partial<GoalDecisionSettings["limits"]> = {},
+	critic: GoalDecisionCriticSettings = { provider: "fixture", model: "critic-model", thinkingLevel: "high" },
+): GoalDecisionSettings {
+	return { mode: "bounded-auto", critic, limits: { ...DEFAULT_GOAL_DECISION_LIMITS, ...limits } };
 }
 
 function proposal(overrides: Partial<DecisionProposal> = {}): DecisionProposal {
@@ -53,6 +82,66 @@ function storedRecords(ctx: DecisionStoreContext): DecisionRecord[] {
 function sidecarExists(ctx: { cwd: string }): boolean {
 	return existsSync(path.join(ctx.cwd, DECISIONS_DIR, `${GOAL}.json`));
 }
+
+// ── consultant fakes (injected runner; no sessions, no network) ─────────────
+
+type AnyRunResult = ConsultantRunResult<ConsultantRole>;
+type Responder = (args: RunConsultantArgs<ConsultantRole>, index: number) => AnyRunResult;
+
+interface RunnerCall {
+	role: ConsultantRole;
+	prompt: string;
+	model: unknown;
+	deadlineMs: number;
+	thinkingLevel: unknown;
+}
+
+interface FakeRunner {
+	runner: ConsultantRunner;
+	calls: RunnerCall[];
+	/** Start and end markers in the order they happened. */
+	events: string[];
+	/** Largest number of launches running at the same time. */
+	maxLive: number;
+}
+
+/** Fake runner: records every launch, delays each one, and answers through `respond`. */
+function fakeRunner(respond: Responder, delayMs = 5): FakeRunner {
+	const fake: FakeRunner = { runner: undefined as never, calls: [], events: [], maxLive: 0 };
+	let live = 0;
+	fake.runner = (async (args: RunConsultantArgs<ConsultantRole>) => {
+		fake.calls.push({ role: args.role, prompt: args.prompt, model: args.model, deadlineMs: args.deadlineMs, thinkingLevel: args.thinkingLevel });
+		const index = fake.calls.length;
+		live += 1;
+		fake.maxLive = Math.max(fake.maxLive, live);
+		fake.events.push(`start ${args.role} ${index}`);
+		await new Promise((resolve) => setTimeout(resolve, delayMs));
+		const result = respond(args, index);
+		live -= 1;
+		fake.events.push(`end ${args.role} ${index}`);
+		return result;
+	}) as unknown as ConsultantRunner;
+	return fake;
+}
+
+function fakeCtx(model: unknown, cwd: string): ExtensionContext {
+	return {
+		cwd,
+		model,
+		modelRegistry: { find: (provider: string, id: string) => MODELS[`${provider}/${id}`] },
+	} as unknown as ExtensionContext;
+}
+
+function depsFor(fake: FakeRunner, cwd: string, model: unknown = AUTHOR_MODEL): ConsultationDeps {
+	return { ctx: fakeCtx(model, cwd), runConsultant: fake.runner };
+}
+
+/** Deps for paths that must not launch: any launch rejects the promise, which fails the test. */
+function noLaunchDeps(): ConsultationDeps {
+	return depsFor(fakeRunner(() => { throw new Error("no consultant may launch on this path"); }), "unused");
+}
+
+const researcherAnswers = (): AnyRunResult => ({ ok: true, payload: RESEARCH_OK, usage: { tokens: 42 } });
 
 // ── validation ──────────────────────────────────────────────────────────────
 
@@ -125,7 +214,7 @@ test("materialRisk absent is conservative: material (critique floor); explicit f
 	assert.equal(decideRoute(proposal({ materialRisk: undefined, selfRoute: "direct" })).ok, false);
 });
 
-test("a skip justification keeps a route below the floor and is recorded in routeJustification", t => {
+test("a skip justification keeps a route below the floor and is recorded in routeJustification", async t => {
 	const input = proposal({
 		selfRoute: "direct",
 		unknowns: ["write volume"],
@@ -140,7 +229,7 @@ test("a skip justification keeps a route below the floor and is recorded in rout
 			reasons: { research: "write volume is irrelevant to choosing the journal mode" },
 		},
 	});
-	const resolved = resolveDecision(input, policy(), storeCtx(t));
+	const resolved = await resolveDecision(input, policy(), storeCtx(t), noLaunchDeps());
 	assert.equal(resolved.kind, "direct");
 	if (resolved.kind === "direct") assert.deepEqual(resolved.routeJustification.skipped, ["research"]);
 });
@@ -203,9 +292,9 @@ test("forbiddenCategoriesIn matches the best-effort keyword families", () => {
 	assert.deepEqual(forbiddenCategoriesIn(["use WAL", "rollback journal"]), []);
 });
 
-test("resolveDecision escalates forbidden proposals to ask-human and writes an escalated record", t => {
+test("resolveDecision escalates forbidden proposals to ask-human and writes an escalated record", async t => {
 	const ctx = storeCtx(t);
-	const resolved = resolveDecision(proposal({ question: "Delete production data before migrating?" }), policy(), ctx);
+	const resolved = await resolveDecision(proposal({ question: "Delete production data before migrating?" }), policy(), ctx, noLaunchDeps());
 	assert.equal(resolved.kind, "ask-human");
 	if (resolved.kind !== "ask-human") return;
 	assert.equal(resolved.reason, "route floor: forbidden category: data-deletion, production");
@@ -217,34 +306,48 @@ test("resolveDecision escalates forbidden proposals to ask-human and writes an e
 
 // ── resolveDecision ─────────────────────────────────────────────────────────
 
-test("resolveDecision returns direct for a valid direct proposal without writing the store", t => {
+test("resolveDecision returns direct for a valid direct proposal without writing the store", async t => {
 	const ctx = storeCtx(t);
-	const resolved = resolveDecision(proposal(), policy(), ctx);
+	const resolved = await resolveDecision(proposal(), policy(), ctx, noLaunchDeps());
 	assert.deepEqual(resolved, { kind: "direct", routeJustification: { skipped: [], reasons: {} } });
 	assert.equal(sidecarExists(ctx), false);
 });
 
-test("research and critique routes return consultations-pending and write nothing (E4 stub)", t => {
+test("research, critique, and research+critique routes run consultants and write one record each", async t => {
 	const ctx = storeCtx(t);
-	const research = resolveDecision(proposal({ selfRoute: "research", unknowns: ["u"] }), policy(), ctx);
-	assert.equal(research.kind, "consultations-pending");
-	if (research.kind === "consultations-pending") assert.equal(research.route, "research");
+	const fake = fakeRunner((args) => (args.role === "researcher" ? researcherAnswers() : { ok: true, payload: CRITIC_OK }));
+	const deps = depsFor(fake, ctx.cwd);
 
-	const critique = resolveDecision(proposal({ selfRoute: "critique", materialRisk: true }), policy(), ctx);
-	assert.equal(critique.kind, "consultations-pending");
-	if (critique.kind === "consultations-pending") assert.equal(critique.route, "critique");
+	const research = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u"] }), criticPolicy(), ctx, deps);
+	assert.equal(research.kind, "consulted");
+	if (research.kind === "consulted") assert.equal(research.route, "research");
 
-	const both = resolveDecision(proposal({ selfRoute: "research+critique", unknowns: ["u"], materialRisk: true }), policy(), ctx);
-	assert.equal(both.kind, "consultations-pending");
-	if (both.kind === "consultations-pending") assert.equal(both.route, "research+critique");
+	const critique = await resolveDecision(proposal({ selfRoute: "critique", materialRisk: true }), criticPolicy(), ctx, deps);
+	assert.equal(critique.kind, "consulted");
+	if (critique.kind === "consulted") assert.equal(critique.route, "critique");
 
-	assert.deepEqual(resolveConsultationRoute("critique"), { kind: "consultations-pending", route: "critique" });
+	const both = await resolveDecision(proposal({ selfRoute: "research+critique", unknowns: ["u"], materialRisk: true }), criticPolicy(), ctx, deps);
+	assert.equal(both.kind, "consulted");
+	if (both.kind === "consulted") assert.equal(both.route, "research+critique");
+
+	assert.deepEqual(fake.calls.map((call) => call.role), ["researcher", "critic", "researcher", "critic"]);
+	const records = storedRecords(ctx);
+	assert.deepEqual(records.map((record) => record.status), ["open", "open", "open"]);
+	assert.deepEqual(records.map((record) => record.consultants.length), [1, 1, 2]);
+});
+
+test("manual mode never launches a consultant", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u"] }), policy("manual"), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "refused");
+	assert.equal(fake.calls.length, 0);
 	assert.equal(sidecarExists(ctx), false);
 });
 
-test("missing skip justification escalates with reason route floor and writes an escalated record", t => {
+test("missing skip justification escalates with reason route floor and writes an escalated record", async t => {
 	const ctx = storeCtx(t);
-	const resolved = resolveDecision(proposal({ materialRisk: true }), policy(), ctx);
+	const resolved = await resolveDecision(proposal({ materialRisk: true }), policy(), ctx, noLaunchDeps());
 	assert.equal(resolved.kind, "ask-human");
 	if (resolved.kind !== "ask-human") return;
 	assert.match(resolved.reason, /^route floor: skipping critique needs a non-empty skipJustifications\.critique/);
@@ -254,30 +357,315 @@ test("missing skip justification escalates with reason route floor and writes an
 	assert.deepEqual(record?.routeJustification.reasons, { "ask-human": resolved.reason });
 });
 
-test("selfRoute ask-human escalates and records the route as ask-human", t => {
+test("selfRoute ask-human escalates and records the route as ask-human", async t => {
 	const ctx = storeCtx(t);
-	const resolved = resolveDecision(proposal({ selfRoute: "ask-human" }), policy(), ctx);
+	const resolved = await resolveDecision(proposal({ selfRoute: "ask-human" }), policy(), ctx, noLaunchDeps());
 	assert.equal(resolved.kind, "ask-human");
 	if (resolved.kind !== "ask-human") return;
 	assert.equal(resolved.reason, "selfRoute ask-human");
 	assert.equal(storedRecords(ctx)[0]?.route, "ask-human");
 });
 
-test("resolveDecision refuses in manual mode and writes nothing", t => {
+test("resolveDecision refuses in manual mode and writes nothing", async t => {
 	const ctx = storeCtx(t);
-	const resolved = resolveDecision(proposal({ question: "Delete production rows?" }), policy("manual"), ctx);
+	const resolved = await resolveDecision(proposal({ question: "Delete production rows?" }), policy("manual"), ctx, noLaunchDeps());
 	assert.equal(resolved.kind, "refused");
 	assert.equal(sidecarExists(ctx), false);
 });
 
-test("resolveDecision reports invalid proposals and writes nothing", t => {
+test("resolveDecision reports invalid proposals and writes nothing", async t => {
 	const ctx = storeCtx(t);
-	const resolved = resolveDecision(proposal({ options: ["only one"] }), policy(), ctx);
+	const resolved = await resolveDecision(proposal({ options: ["only one"] }), policy(), ctx, noLaunchDeps());
 	assert.equal(resolved.kind, "invalid");
 	assert.equal(sidecarExists(ctx), false);
 });
 
-// ── direct resolution ───────────────────────────────────────────────────────
+// ── consultations: outcomes ─────────────────────────────────────────────────
+
+test("research happy path: one researcher answered gives a consulted outcome with findings in facts, record open", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["write volume"] }), policy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "consulted");
+	if (resolved.kind !== "consulted") return;
+	assert.equal(resolved.route, "research");
+	assert.deepEqual(resolved.facts, ["cache is a local sqlite file", "The cache uses the rollback journal (source: src/cache.ts)"]);
+	assert.deepEqual(resolved.risks, []);
+	assert.match(resolved.text, /Choose one option/);
+
+	assert.equal(fake.calls.length, 1);
+	assert.equal(fake.calls[0]?.role, "researcher");
+	assert.equal(fake.calls[0]?.model, AUTHOR_MODEL, "researchers run on the proposing model");
+	assert.equal(fake.calls[0]?.deadlineMs, 120_000);
+
+	const [record] = storedRecords(ctx);
+	assert.equal(record?.id, resolved.decisionId);
+	assert.equal(record?.status, "open", "only the acceptance guard decides a record");
+	assert.deepEqual(record?.facts, resolved.facts);
+	assert.equal(record?.revision, 1);
+	assert.equal(record?.consultants.length, 1);
+	const entry = record?.consultants[0];
+	assert.equal(entry?.role, "researcher");
+	assert.equal(entry?.childRunId, "consultant-1");
+	assert.equal(entry?.model, "fixture/author-model");
+	assert.deepEqual(entry?.usage, { tokens: 42, seconds: (entry?.usage as { seconds: number }).seconds });
+	assert.equal(entry?.summary, "answered: The cache uses the rollback journal");
+	assert.equal((entry?.schemaPayload as { verdict: string }).verdict, "answered");
+});
+
+test("a consultant that reports no tokens is recorded with usage unknown, never a fabricated number", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(() => ({ ok: true, payload: RESEARCH_OK }));
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u"] }), policy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "consulted");
+	assert.equal(storedRecords(ctx)[0]?.consultants[0]?.usage, "unknown");
+});
+
+test("research insufficient escalates to ask-human and no critic is launched", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(() => ({ ok: true, payload: { findings: [], remainingUnknowns: ["write volume"], verdict: "insufficient" } }));
+	const resolved = await resolveDecision(proposal({ selfRoute: "research+critique", unknowns: ["write volume"], materialRisk: true }), criticPolicy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind !== "ask-human") return;
+	assert.equal(resolved.reason, "researcher verdict insufficient");
+	assert.match(resolved.text, /escalated \(researcher verdict insufficient\)/);
+	assert.deepEqual(fake.calls.map((call) => call.role), ["researcher"]);
+	const [record] = storedRecords(ctx);
+	assert.equal(record?.status, "escalated");
+	assert.equal(record?.consultants.length, 1);
+	assert.deepEqual(record?.routeJustification.reasons, { "ask-human": "researcher verdict insufficient" });
+});
+
+test("a researcher that returns no valid result escalates with its error code and records the failed run", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(() => ({ ok: false, errorCode: "invalid_output", message: "Consultant researcher returned no structured result." }));
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u"] }), policy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind !== "ask-human") return;
+	assert.equal(resolved.reason, "consultant researcher invalid_output: Consultant researcher returned no structured result.");
+	const [record] = storedRecords(ctx);
+	assert.equal(record?.status, "escalated");
+	const entry = record?.consultants[0];
+	assert.equal(entry?.usage, "unknown");
+	assert.equal(entry?.schemaPayload, null);
+	assert.equal(entry?.summary, "invalid_output: Consultant researcher returned no structured result.");
+});
+
+test("a runner that throws is a failed provider run: escalated, recorded, and never a silent pass", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(() => {
+		throw new Error("boom");
+	});
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u"] }), policy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind === "ask-human") assert.equal(resolved.reason, "consultant researcher provider: boom");
+	const [record] = storedRecords(ctx);
+	assert.equal(record?.status, "escalated");
+	assert.equal(record?.consultants[0]?.summary, "provider: boom");
+});
+
+test("research+critique runs the critic after the researcher, on the critic model, with the findings in its prompt", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner((args) => (args.role === "researcher" ? researcherAnswers() : { ok: true, payload: CRITIC_OK, usage: { tokens: 9 } }));
+	const resolved = await resolveDecision(proposal({ selfRoute: "research+critique", unknowns: ["write volume"], materialRisk: true }), criticPolicy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "consulted");
+	if (resolved.kind !== "consulted") return;
+
+	assert.deepEqual(fake.events, ["start researcher 1", "end researcher 1", "start critic 2", "end critic 2"]);
+	assert.deepEqual(fake.calls.map((call) => call.role), ["researcher", "critic"]);
+	assert.equal(fake.calls[1]?.model, CRITIC_MODEL, "critic runs on decisionCritic, never on the proposing model");
+	assert.equal(fake.calls[1]?.thinkingLevel, "high");
+	assert.match(fake.calls[1]?.prompt ?? "", /- The cache uses the rollback journal \(source: src\/cache\.ts\)/, "critic sees the research findings");
+	assert.deepEqual(resolved.risks, ["minor: WAL needs -shm files on network drives"]);
+
+	const [record] = storedRecords(ctx);
+	assert.deepEqual(record?.consultants.map((entry) => [entry.role, entry.childRunId, entry.model]), [
+		["researcher", "consultant-1", "fixture/author-model"],
+		["critic", "consultant-2", "fixture/critic-model"],
+	]);
+	assert.equal(record?.revision, 2);
+	assert.equal(record?.status, "open");
+});
+
+test("critic-only route runs one critique session and records the critic run", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(() => ({ ok: true, payload: CRITIC_OK, usage: { tokens: 7 } }));
+	const resolved = await resolveDecision(proposal({ selfRoute: "critique", materialRisk: true }), criticPolicy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "consulted");
+	if (resolved.kind !== "consulted") return;
+	assert.equal(resolved.route, "critique");
+	assert.equal(fake.calls.length, 1);
+	assert.equal(fake.calls[0]?.role, "critic");
+	assert.equal(fake.calls[0]?.model, CRITIC_MODEL);
+	assert.equal(storedRecords(ctx)[0]?.consultants[0]?.model, "fixture/critic-model");
+});
+
+test("a blocker objection escalates to ask-human even when the critic verdict is sound", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner((args) => (args.role === "researcher"
+		? researcherAnswers()
+		: { ok: true, payload: { objections: [{ severity: "blocker", evidence: "reads race the writer" }], verdict: "sound" } }));
+	const resolved = await resolveDecision(proposal({ selfRoute: "research+critique", unknowns: ["u"], materialRisk: true }), criticPolicy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind !== "ask-human") return;
+	assert.equal(resolved.reason, "critic blocker objection: reads race the writer");
+	const [record] = storedRecords(ctx);
+	assert.equal(record?.status, "escalated");
+	assert.equal(record?.consultants.length, 2);
+});
+
+test("an unsound critic verdict escalates even without a blocker objection", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(() => ({ ok: true, payload: { objections: [{ severity: "major", evidence: "option 2 loses data" }], verdict: "unsound" } }));
+	const resolved = await resolveDecision(proposal({ selfRoute: "critique", materialRisk: true }), criticPolicy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind === "ask-human") assert.equal(resolved.reason, "critic verdict unsound");
+});
+
+test("a critic that fails with a config error escalates to ask-human and is recorded", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(() => ({ ok: false, errorCode: "config", message: "Consultant critic model is not configured." }));
+	const resolved = await resolveDecision(proposal({ selfRoute: "critique", materialRisk: true }), criticPolicy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind === "ask-human") assert.equal(resolved.reason, "consultant critic config: Consultant critic model is not configured.");
+	assert.equal(storedRecords(ctx)[0]?.consultants[0]?.role, "critic");
+});
+
+test("mandatory critique without a configured critic escalates with config and launches nothing", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(proposal({ selfRoute: "critique", materialRisk: true }), policy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind !== "ask-human") return;
+	assert.match(resolved.reason, /^config: decisionCritic provider and model are not set/);
+	assert.equal(fake.calls.length, 0);
+	const [record] = storedRecords(ctx);
+	assert.equal(record?.status, "escalated");
+	assert.equal(record?.route, "critique");
+	assert.deepEqual(record?.consultants, []);
+});
+
+test("a configured critic that equals the proposing model is refused: no same-model fallback", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(proposal({ selfRoute: "critique", materialRisk: true }), criticPolicy(), ctx, depsFor(fake, ctx.cwd, CRITIC_MODEL));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind === "ask-human") assert.match(resolved.reason, /^config: critic model fixture\/critic-model is the proposing model/);
+	assert.equal(fake.calls.length, 0);
+});
+
+test("a configured critic missing from the registry escalates with config and launches nothing", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(proposal({ selfRoute: "critique", materialRisk: true }), criticPolicy({}, { provider: "fixture", model: "missing-model" }), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind === "ask-human") assert.equal(resolved.reason, "config: critic model not found: fixture/missing-model");
+	assert.equal(fake.calls.length, 0);
+});
+
+test("resolveCriticModel: explicit critic resolves; unset, provider-only, and proposing-model critics are refused", () => {
+	const ctx = fakeCtx(AUTHOR_MODEL, "unused");
+	const explicit = resolveCriticModel(ctx, criticPolicy(), AUTHOR_MODEL);
+	assert.deepEqual(explicit, { ok: true, model: CRITIC_MODEL, thinkingLevel: "high" });
+
+	const unset = resolveCriticModel(ctx, policy(), AUTHOR_MODEL);
+	assert.equal(unset.ok, false);
+	if (!unset.ok) assert.match(unset.reason, /not set; the executor model is not used as critic/);
+
+	const providerOnly = resolveCriticModel(ctx, criticPolicy({}, { provider: "fixture" }), AUTHOR_MODEL);
+	assert.equal(providerOnly.ok, false);
+
+	const same = resolveCriticModel(fakeCtx(CRITIC_MODEL, "unused"), criticPolicy(), CRITIC_MODEL);
+	assert.equal(same.ok, false);
+	if (!same.ok) assert.match(same.reason, /cross-model review is required/);
+});
+
+// ── consultations: rounds and parallelism ───────────────────────────────────
+
+test("parallel researchers: at most maxParallelConsultants run at once and the next chunk starts after the previous one settles", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u1", "u2", "u3"] }), policy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "consulted");
+	assert.equal(fake.calls.length, 3);
+	assert.equal(fake.maxLive, 2, "never more than maxParallelConsultants (2) at once");
+	const settled = (label: string) => fake.events.indexOf(label);
+	assert.ok(settled("start researcher 3") > settled("end researcher 1"), "chunk 2 starts after chunk 1 settles");
+	assert.ok(settled("start researcher 3") > settled("end researcher 2"), "chunk 2 starts after chunk 1 settles");
+	assert.deepEqual(fake.calls.map((call) => call.prompt.match(/Answer with evidence from the repository: (\S+)/)?.[1]), ["u1", "u2", "u3"]);
+	assert.deepEqual(storedRecords(ctx)[0]?.consultants.map((entry) => entry.childRunId), ["consultant-1", "consultant-2", "consultant-3"]);
+});
+
+test("maxParallelConsultants 1 runs researchers one at a time", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u1", "u2"] }), criticPolicy({ maxParallelConsultants: 1 }, undefined), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "consulted");
+	assert.equal(fake.maxLive, 1);
+});
+
+test("maxRounds is enforced before any launch: research+critique on one unknown needs two rounds", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(proposal({ selfRoute: "research+critique", unknowns: ["u"], materialRisk: true }), criticPolicy({ maxRounds: 1 }), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind === "ask-human") assert.equal(resolved.reason, "consultation rounds exhausted: route research+critique needs 2, maxRounds is 1");
+	assert.equal(fake.calls.length, 0);
+	const [record] = storedRecords(ctx);
+	assert.equal(record?.status, "escalated");
+	assert.deepEqual(record?.consultants, []);
+});
+
+test("rounds count phases: three unknowns with critique fit maxRounds 2 (chunks add no round)", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner((args) => (args.role === "researcher" ? researcherAnswers() : { ok: true, payload: CRITIC_OK }));
+	const resolved = await resolveDecision(proposal({ selfRoute: "research+critique", unknowns: ["u1", "u2", "u3"], materialRisk: true }), criticPolicy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "consulted");
+	assert.deepEqual(fake.calls.map((call) => call.role), ["researcher", "researcher", "researcher", "critic"]);
+	assert.equal(fake.maxLive, 2);
+	assert.equal(storedRecords(ctx)[0]?.consultants.length, 4);
+});
+
+test("research-only with many unknowns is one round: maxRounds 1 allows it", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u1", "u2", "u3"] }), criticPolicy({ maxRounds: 1 }), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "consulted");
+	assert.equal(fake.calls.length, 3);
+});
+
+// ── consultations: prompt minimization ──────────────────────────────────────
+
+test("consultant prompts carry only the minimized request, never the objective, record metadata, or ids", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner((args) => (args.role === "researcher" ? researcherAnswers() : { ok: true, payload: CRITIC_OK }));
+	await resolveDecision(proposal({ selfRoute: "research+critique", unknowns: ["write volume"], materialRisk: true }), criticPolicy(), ctx, depsFor(fake, ctx.cwd));
+	const researcherCritic = fake.calls.map((call) => call.prompt);
+	assert.equal(researcherCritic.length, 2);
+	for (const prompt of researcherCritic) {
+		assert.match(prompt, /^Question: Use WAL mode for the local cache\?$/m);
+		assert.match(prompt, /^Options: 1\) WAL; 2\) rollback journal$/m);
+		assert.match(prompt, /^Authority basis: The request asks for the cache migration end to end\.$/m);
+		assert.match(prompt, /^- cache is a local sqlite file$/m);
+		assert.match(prompt, /^- write volume$/m);
+		assert.doesNotMatch(prompt, /dec-[0-9a-f]{12}/, "no decision id");
+		for (const forbidden of [OBJECTIVE, GOAL, "policy-1", "gen-1", ctx.cwd]) assert.equal(prompt.includes(forbidden), false, forbidden);
+	}
+	assert.match(researcherCritic[0] ?? "", /^Your question: Answer with evidence from the repository: write volume$/m);
+	assert.match(researcherCritic[1] ?? "", /^Your question: Which objections apply/m);
+});
+
+test("the proposal itself reaches the critic: its question, options, and unknowns are present", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(() => ({ ok: true, payload: CRITIC_OK }));
+	await resolveDecision(proposal({ selfRoute: "critique", materialRisk: true, unknowns: ["u"], skipJustifications: { research: "u is not needed here" } }), criticPolicy(), ctx, depsFor(fake, ctx.cwd));
+	const prompt = fake.calls[0]?.prompt ?? "";
+	assert.match(prompt, /^Question: Use WAL mode for the local cache\?$/m);
+	assert.match(prompt, /^Options: 1\) WAL; 2\) rollback journal$/m);
+	assert.match(prompt, /^- u$/m);
+});
+
+// ── escalation helpers, direct resolution ───────────────────────────────────
 
 test("applyDirectResolution writes a decided record with source agent and returns text with the chosen option", t => {
 	const ctx = storeCtx(t);
@@ -364,12 +752,12 @@ test("applyAskHuman with an invalid proposal returns a failure and writes nothin
 
 // ── no store writes on invalid input ────────────────────────────────────────
 
-test("invalid proposals never touch the store across every write entry point", t => {
+test("invalid proposals never touch the store across every write entry point", async t => {
 	const ctx = storeCtx(t);
 	const bad = proposal({ question: "" });
 	assert.equal(applyAskHuman(ctx, bad, "x").ok, false);
 	assert.equal(applyDirectResolution(ctx, bad, "WAL", policy()).ok, false);
-	assert.equal(resolveDecision(bad, policy(), ctx).kind, "invalid");
+	assert.equal((await resolveDecision(bad, policy(), ctx, noLaunchDeps())).kind, "invalid");
 	assert.equal(sidecarExists(ctx), false);
 	assert.deepEqual(storedRecords(ctx), []);
 });
