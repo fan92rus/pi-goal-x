@@ -5,7 +5,7 @@
  *
  *     decisionMode:    "manual" | "advisory" | "bounded-auto"   (default "manual")
  *     decisionCritic:  { provider?, model?, thinkingLevel? }
- *     decisionLimits:  { maxRounds?, consultantDeadlineMs?, maxParallelConsultants? }
+ *     decisionLimits:  { maxRounds?, consultantDeadlineMs?, maxParallelConsultants?, maxConsultationsPerGoal? }
  *
  * Resolution per leaf: project layer > global layer > built-in default, the
  * same layering as goal-settings.ts. `decisionMode` is authoritative only at
@@ -40,6 +40,8 @@ export interface GoalDecisionLimits {
 	consultantDeadlineMs: number;
 	/** Maximum consultants running at the same time. */
 	maxParallelConsultants: number;
+	/** Cross-route cap: total consultant launches per goal (decision router and blocker oracle). */
+	maxConsultationsPerGoal: number;
 }
 
 /** Resolved decision settings (concrete defaults filled). */
@@ -53,6 +55,7 @@ export const DEFAULT_GOAL_DECISION_LIMITS: Readonly<GoalDecisionLimits> = Object
 	maxRounds: 2,
 	consultantDeadlineMs: 120_000,
 	maxParallelConsultants: 2,
+	maxConsultationsPerGoal: 6,
 });
 
 export const DECISION_MODE_KEY = "decisionMode";
@@ -60,7 +63,7 @@ export const DECISION_CRITIC_KEY = "decisionCritic";
 export const DECISION_LIMITS_KEY = "decisionLimits";
 
 const THINKING_LEVELS = new Set<string>(GOAL_THINKING_LEVELS);
-const LIMIT_KEYS = ["maxRounds", "consultantDeadlineMs", "maxParallelConsultants"] as const;
+const LIMIT_KEYS = ["maxRounds", "consultantDeadlineMs", "maxParallelConsultants", "maxConsultationsPerGoal"] as const;
 
 // ── leaf parsers (never throw) ──────────────────────────────────────────────
 

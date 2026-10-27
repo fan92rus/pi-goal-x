@@ -29,7 +29,9 @@
  *   - `research` / `critique` / `research+critique`: resolveConsultations runs
  *     the read-only consultants (goal-decision-consultant.ts, TECH §5). Every
  *     launch is appended to the record; any failed, refused, or blocking
- *     consultation escalates to ask-human.
+ *     consultation escalates to ask-human. The per-goal cross-route cap
+ *     (maxConsultationsPerGoal, shared with the blocker oracle) is checked
+ *     before each wave and reserved per real launch.
  *
  * This module does not register any tool (E6). It writes only through
  * goal-decision-record.ts and calls consultants only through the injected runner.
@@ -43,6 +45,9 @@ import type { GoalDecisionCriticSettings, GoalDecisionSettings } from "./goal-de
 import type { ThinkingLevel } from "./goal-settings.ts";
 import {
 	createDecision,
+	getConsultationsLaunched,
+	incrementConsultations,
+	reserveConsultations,
 	setDecisionStatus,
 	updateDecision,
 	type ConsultantResult,
@@ -600,6 +605,29 @@ function consultantEntry(
 	};
 }
 
+/**
+ * Pre-launch gate (runConsultant calls it only after the model check, so config
+ * refusals never count). Reserves one launch under the per-goal cap; a refusal
+ * launches nothing and counts nothing.
+ */
+function reserveLaunch(flow: ConsultationFlow): { ok: true } | { ok: false; reason: string } {
+	const reserved = reserveConsultations(flow.storeCtx.storage, flow.storeCtx.goalId, flow.policy.limits.maxConsultationsPerGoal);
+	if (reserved.ok) return { ok: true };
+	return { ok: false, reason: reserved.error.code === "capped" ? reserved.error.message : storeFailure(reserved.error) };
+}
+
+/**
+ * Cap check before a wave of `size` launches (TECH §5): launched + size must fit
+ * under maxConsultationsPerGoal. On overflow the route escalates with no launch.
+ */
+function checkCapBeforeWave(flow: ConsultationFlow, size: number): DecisionResolution | undefined {
+	const cap = flow.policy.limits.maxConsultationsPerGoal;
+	const counted = getConsultationsLaunched(flow.storeCtx.storage, flow.storeCtx.goalId);
+	if (!counted.ok) return { kind: "store-error", reason: storeFailure(counted.error) };
+	if (counted.value + size > cap) return escalateConsulted(flow, `consultation cap reached (${counted.value}/${cap})`);
+	return undefined;
+}
+
 async function launchConsultant<R extends ConsultantRole>(
 	flow: ConsultationFlow,
 	args: { role: R; prompt: string; model: ConsultantModel; thinkingLevel?: ThinkingLevel },
@@ -616,7 +644,7 @@ async function launchConsultant<R extends ConsultantRole>(
 			model: args.model,
 			thinkingLevel: args.thinkingLevel,
 			deadlineMs: flow.policy.limits.consultantDeadlineMs,
-			beforeLaunch: () => ({ ok: true }),
+			beforeLaunch: () => reserveLaunch(flow),
 		});
 	} catch (error) {
 		// runConsultant reports its own failures; a thrown runner is still a failed run, never a silent pass.
@@ -672,7 +700,10 @@ async function runResearch(flow: ConsultationFlow, researcher: ConsultantModel):
 	const questions = researchQuestionsOf(proposal);
 	const width = policy.limits.maxParallelConsultants;
 	for (let start = 0; start < questions.length; start += width) {
-		const launches = await Promise.all(questions.slice(start, start + width).map((question) => launchConsultant(flow, {
+		const wave = questions.slice(start, start + width);
+		const capped = checkCapBeforeWave(flow, wave.length);
+		if (capped !== undefined) return capped;
+		const launches = await Promise.all(wave.map((question) => launchConsultant(flow, {
 			role: "researcher",
 			prompt: consultationRequest(proposal, proposal.facts, `Answer with evidence from the repository: ${question}`),
 			model: researcher,
@@ -700,6 +731,8 @@ function researchProblem(launches: ReadonlyArray<LaunchedConsultant<"researcher"
 
 /** Critic wave: one launch on the proposal plus the facts gathered so far (including research findings). */
 async function runCritic(flow: ConsultationFlow, critic: { model: ConsultantModel; thinkingLevel?: ThinkingLevel }): Promise<DecisionResolution> {
+	const capped = checkCapBeforeWave(flow, 1);
+	if (capped !== undefined) return capped;
 	const launch = await launchConsultant(flow, {
 		role: "critic",
 		prompt: consultationRequest(flow.proposal, flow.record.facts, CRITIC_QUESTION),
@@ -755,6 +788,19 @@ export async function resolveConsultations(
 	}
 	if (pre.critic) return runCritic(flow, pre.critic);
 	return consultedResolution(flow, []);
+}
+
+// ── blocker oracle accounting (TECH §5 cross-route cap, §7) ─────────────────
+
+/**
+ * Counts one blocker-oracle consultation against the per-goal cap, then runs it.
+ * The count is taken before `run` starts. A reached cap never stops the oracle:
+ * it keeps its own per-fingerprint limit (goal-core-tools.ts). A store failure
+ * is best-effort, as for other ledger writes on this path.
+ */
+export async function runCountedOracle<T>(storage: GoalStorageContext, goalId: string, cap: number, run: () => Promise<T>): Promise<T> {
+	incrementConsultations(storage, goalId, cap);
+	return run();
 }
 
 // ── resolution ──────────────────────────────────────────────────────────────

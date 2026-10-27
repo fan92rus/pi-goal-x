@@ -20,7 +20,7 @@ import {
 	type DecisionProposal,
 	type DecisionStoreContext,
 } from "../extensions/goal-decision.ts";
-import { DECISIONS_DIR, getDecisions, type DecisionRecord } from "../extensions/goal-decision-record.ts";
+import { DECISIONS_DIR, getConsultationsLaunched, getDecisions, incrementConsultations, type DecisionRecord } from "../extensions/goal-decision-record.ts";
 
 const OBJECTIVE = "Migrate the local cache to WAL mode end to end";
 const GOAL = "goal-a";
@@ -105,11 +105,21 @@ interface FakeRunner {
 	maxLive: number;
 }
 
-/** Fake runner: records every launch, delays each one, and answers through `respond`. */
-function fakeRunner(respond: Responder, delayMs = 5): FakeRunner {
+/**
+ * Fake runner: records every launch, delays each one, and answers through `respond`.
+ * Mirrors runConsultant's order: `preGate` (config refusals) first, then
+ * beforeLaunch; a refused gate launches nothing and is not recorded in `calls`.
+ */
+function fakeRunner(respond: Responder, delayMs = 5, preGate?: (args: RunConsultantArgs<ConsultantRole>) => AnyRunResult | undefined): FakeRunner {
 	const fake: FakeRunner = { runner: undefined as never, calls: [], events: [], maxLive: 0 };
 	let live = 0;
 	fake.runner = (async (args: RunConsultantArgs<ConsultantRole>) => {
+		const early = preGate?.(args);
+		if (early) return early;
+		if (args.beforeLaunch) {
+			const gate = args.beforeLaunch();
+			if (!gate.ok) return { ok: false, errorCode: "budget", message: gate.reason };
+		}
 		fake.calls.push({ role: args.role, prompt: args.prompt, model: args.model, deadlineMs: args.deadlineMs, thinkingLevel: args.thinkingLevel });
 		const index = fake.calls.length;
 		live += 1;
@@ -774,4 +784,111 @@ test("array caps: options<=8, facts/unknowns/risks<=16 (D4)", () => {
 	assert.equal(validateProposal(proposal({ unknowns: Array.from({ length: 17 }, (_, i) => `u${i}`) })).ok, false);
 	assert.equal(validateProposal(proposal({ risks: Array.from({ length: 17 }, (_, i) => `r${i}`) })).ok, false);
 	assert.equal(validateProposal(proposal({ options: ["a", "b"], facts: Array.from({ length: 16 }, (_, i) => `f${i}`) })).ok, true);
+});
+
+// ── cross-route consultation cap (TECH §5) ──────────────────────────────────
+
+const RESEARCH_CRITIQUE = (unknowns: string[]) => proposal({ selfRoute: "research+critique", unknowns, materialRisk: true });
+
+function countedLaunches(ctx: DecisionStoreContext): number {
+	const counted = getConsultationsLaunched(ctx.storage, ctx.goalId);
+	if (!counted.ok) throw new Error(`${counted.error.code}: ${counted.error.message}`);
+	return counted.value;
+}
+
+test("the cap allows six launches per goal: three research+critique decisions run, the next one escalates before any launch", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner((args) => (args.role === "researcher" ? researcherAnswers() : { ok: true, payload: CRITIC_OK }));
+	const deps = depsFor(fake, ctx.cwd);
+	for (let index = 1; index <= 3; index += 1) {
+		const resolved = await resolveDecision(RESEARCH_CRITIQUE(["u"]), criticPolicy(), ctx, deps);
+		assert.equal(resolved.kind, "consulted", `decision ${index}`);
+	}
+	assert.equal(fake.calls.length, 6);
+	assert.equal(countedLaunches(ctx), 6);
+
+	const seventh = await resolveDecision(RESEARCH_CRITIQUE(["u"]), criticPolicy(), ctx, deps);
+	assert.equal(seventh.kind, "ask-human");
+	if (seventh.kind === "ask-human") assert.equal(seventh.reason, "consultation cap reached (6/6)");
+	assert.equal(fake.calls.length, 6, "the refused wave launches nothing");
+	assert.equal(countedLaunches(ctx), 6);
+	const last = storedRecords(ctx).at(-1);
+	assert.equal(last?.status, "escalated");
+	assert.deepEqual(last?.consultants, []);
+	assert.equal(last?.routeJustification.reasons["ask-human"], "consultation cap reached (6/6)");
+});
+
+test("a wave that would overflow the cap is refused whole: no launch from it, and the counter does not move", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const deps = depsFor(fake, ctx.cwd);
+	const cap3 = policy();
+	cap3.limits.maxConsultationsPerGoal = 3;
+	const first = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u1", "u2"] }), cap3, ctx, deps);
+	assert.equal(first.kind, "consulted");
+	assert.equal(countedLaunches(ctx), 2);
+
+	const second = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["v1", "v2"] }), cap3, ctx, deps);
+	assert.equal(second.kind, "ask-human");
+	if (second.kind === "ask-human") assert.equal(second.reason, "consultation cap reached (2/3)");
+	assert.equal(fake.calls.length, 2, "a wave of 2 at 2/3 launches nothing");
+	assert.equal(countedLaunches(ctx), 2);
+});
+
+test("a second wave that overflows is refused after the first wave ran; its launches are counted", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const cap3 = policy();
+	cap3.limits.maxConsultationsPerGoal = 3;
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u1", "u2", "u3", "u4"] }), cap3, ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind === "ask-human") assert.equal(resolved.reason, "consultation cap reached (2/3)");
+	assert.equal(fake.calls.length, 2, "wave 1 (two launches, 2/3) ran; wave 2 (two more, would be 4/3) did not");
+	assert.equal(countedLaunches(ctx), 2);
+	assert.equal(storedRecords(ctx)[0]?.consultants.length, 2);
+});
+
+test("a launch refused before the gate (config) is not counted", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(
+		(args) => (args.role === "researcher" ? researcherAnswers() : { ok: true, payload: CRITIC_OK }),
+		5,
+		(args) => (args.role === "critic" ? { ok: false, errorCode: "config", message: "critic model is not configured" } : undefined),
+	);
+	const resolved = await resolveDecision(RESEARCH_CRITIQUE(["u"]), criticPolicy(), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	assert.equal(fake.calls.length, 1, "only the researcher launched");
+	assert.equal(countedLaunches(ctx), 1, "the refused critic is not counted");
+});
+
+test("a launch refused by the gate after the wave check (cap taken by another writer) launches nothing and counts nothing", async t => {
+	const ctx = storeCtx(t);
+	let external = false;
+	const fake = fakeRunner(researcherAnswers);
+	const racing: ConsultantRunner = (async (args: RunConsultantArgs<ConsultantRole>) => {
+		if (!external) {
+			// Another writer (e.g. the oracle) takes two launches between the wave check and the first gate.
+			external = true;
+			const seeded = incrementConsultations(ctx.storage, ctx.goalId, 3, 2);
+			assert.equal(seeded.ok, true);
+		}
+		return fake.runner(args);
+	}) as unknown as ConsultantRunner;
+	const cap3 = policy();
+	cap3.limits.maxConsultationsPerGoal = 3;
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["u1", "u2"] }), cap3, ctx, { ctx: fakeCtx(AUTHOR_MODEL, ctx.cwd), runConsultant: racing });
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind === "ask-human") assert.match(resolved.reason, /researcher budget: consultation cap reached \(3\/3\)/);
+	assert.equal(fake.calls.length, 1, "the first gate passes (2+1 <= 3); the second is refused");
+	assert.equal(countedLaunches(ctx), 3, "external 2 + one real launch; the refused gate adds nothing");
+});
+
+test("the cap is read from the policy: with a cap of 1 the critic wave is refused after the researcher ran", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	const resolved = await resolveDecision(RESEARCH_CRITIQUE(["u"]), criticPolicy({ maxConsultationsPerGoal: 1 }), ctx, depsFor(fake, ctx.cwd));
+	assert.equal(resolved.kind, "ask-human");
+	if (resolved.kind === "ask-human") assert.equal(resolved.reason, "consultation cap reached (1/1)");
+	assert.deepEqual(fake.calls.map((call) => call.role), ["researcher"]);
+	assert.equal(countedLaunches(ctx), 1);
 });

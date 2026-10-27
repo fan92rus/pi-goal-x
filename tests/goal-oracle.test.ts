@@ -22,6 +22,9 @@ import {
 	type OracleAdvice,
 } from "../extensions/goal-oracle.ts";
 import { createGoal } from "../extensions/goal-record.ts";
+import { runCountedOracle } from "../extensions/goal-decision.ts";
+import { getConsultationsLaunched, incrementConsultations } from "../extensions/goal-decision-record.ts";
+import { acquireGoalLock } from "../extensions/storage/goal-lock.ts";
 
 function goal(): ReturnType<typeof createGoal> {
 	return createGoal({ objective: "Ship the risky migration.", autoContinue: true, sisyphus: false }, Date.UTC(2026, 7, 23, 9, 0, 0));
@@ -252,3 +255,76 @@ function writeLedger(dir: string, events: unknown[]): void {
 	fs.mkdirSync(path.join(dir, ".pi", "goals"), { recursive: true });
 	fs.writeFileSync(path.join(dir, ".pi", "goals", "goal_events.jsonl"), events.map((e) => JSON.stringify(e)).join("\n") + "\n", "utf8");
 }
+
+describe("cross-route cap: blocker-oracle consultations are counted before the oracle runs", () => {
+	const GOAL_ID = "goal-oracle-cap";
+
+	function tempStorage(): { cwd: string } {
+		const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "goal-oracle-cap-"));
+		return { cwd };
+	}
+
+	function launched(storage: { cwd: string }): number {
+		const counted = getConsultationsLaunched(storage, GOAL_ID);
+		if (!counted.ok) throw new Error(`${counted.error.code}: ${counted.error.message}`);
+		return counted.value;
+	}
+
+	it("the launch is already counted when the oracle starts, and the oracle result is returned", async () => {
+		const storage = tempStorage();
+		try {
+			let seenByOracle = -1;
+			const result = await runCountedOracle(storage, GOAL_ID, 6, async () => {
+				seenByOracle = launched(storage);
+				return "oracle-result";
+			});
+			assert.equal(seenByOracle, 1, "the counter already includes this consultation when the oracle runs");
+			assert.equal(result, "oracle-result");
+			assert.equal(launched(storage), 1);
+		} finally {
+			fs.rmSync(storage.cwd, { recursive: true, force: true });
+		}
+	});
+
+	it("a reached cap is counted but does not stop the oracle (its own per-fingerprint limit still governs)", async () => {
+		const storage = tempStorage();
+		try {
+			const seeded = incrementConsultations(storage, GOAL_ID, 6, 6);
+			assert.equal(seeded.ok, true);
+			let ran = false;
+			await runCountedOracle(storage, GOAL_ID, 6, async () => {
+				ran = true;
+			});
+			assert.equal(ran, true, "the oracle runs even at the cap");
+			assert.equal(launched(storage), 7, "the launch is still recorded");
+		} finally {
+			fs.rmSync(storage.cwd, { recursive: true, force: true });
+		}
+	});
+
+	it("a counter store failure is best-effort: the oracle still runs and its rejection propagates unchanged", async () => {
+		const storage = tempStorage();
+		try {
+			const held = acquireGoalLock(storage, `${GOAL_ID}.decisions`);
+			try {
+				let ran = false;
+				const value = await runCountedOracle(storage, GOAL_ID, 6, async () => {
+					ran = true;
+					return 7;
+				});
+				assert.equal(ran, true);
+				assert.equal(value, 7);
+			} finally {
+				held.release();
+			}
+			await assert.rejects(
+				runCountedOracle(storage, GOAL_ID, 6, async () => {
+					throw new Error("oracle failed");
+				}),
+				/oracle failed/,
+			);
+		} finally {
+			fs.rmSync(storage.cwd, { recursive: true, force: true });
+		}
+	});
+});

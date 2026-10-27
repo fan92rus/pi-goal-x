@@ -20,7 +20,7 @@ import {
 } from "../extensions/goal-decision-policy.ts";
 import { invalidateGoalSettingsCache, loadGoalSettings } from "../extensions/goal-settings.ts";
 
-const DEFAULTS = { maxRounds: 2, consultantDeadlineMs: 120_000, maxParallelConsultants: 2 };
+const DEFAULTS = { maxRounds: 2, consultantDeadlineMs: 120_000, maxParallelConsultants: 2, maxConsultationsPerGoal: 6 };
 
 function withTempDir(fn: (dir: string) => void): void {
 	const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "goal-decision-policy-")));
@@ -83,7 +83,7 @@ describe("normalizeLimits", () => {
 	it("keeps valid integers and plain decimal strings", () => {
 		assert.deepEqual(
 			normalizeLimits({ maxRounds: 3, consultantDeadlineMs: "5000", maxParallelConsultants: " 1 " }),
-			{ maxRounds: 3, consultantDeadlineMs: 5000, maxParallelConsultants: 1 },
+			{ maxRounds: 3, consultantDeadlineMs: 5000, maxParallelConsultants: 1, maxConsultationsPerGoal: 6 },
 		);
 	});
 
@@ -94,7 +94,7 @@ describe("normalizeLimits", () => {
 		);
 		assert.deepEqual(
 			normalizeLimits({ maxRounds: 4, consultantDeadlineMs: -1 }),
-			{ maxRounds: 4, consultantDeadlineMs: 120_000, maxParallelConsultants: 2 },
+			{ maxRounds: 4, consultantDeadlineMs: 120_000, maxParallelConsultants: 2, maxConsultationsPerGoal: 6 },
 		);
 	});
 
@@ -104,8 +104,16 @@ describe("normalizeLimits", () => {
 		}
 	});
 
+	it("maxConsultationsPerGoal: valid positive integers are kept, anything else falls back to 6", () => {
+		assert.equal(normalizeLimits({ maxConsultationsPerGoal: 3 }).maxConsultationsPerGoal, 3);
+		assert.equal(normalizeLimits({ maxConsultationsPerGoal: " 9 " }).maxConsultationsPerGoal, 9);
+		for (const bad of [0, -1, "0", "x", 2.5, null, true]) {
+			assert.equal(normalizeLimits({ maxConsultationsPerGoal: bad }).maxConsultationsPerGoal, 6, `from ${JSON.stringify(bad)}`);
+		}
+	});
+
 	it("ignores unknown keys in the limits object", () => {
-		assert.deepEqual(normalizeLimits({ foo: 9, maxRounds: 3 }), { maxRounds: 3, consultantDeadlineMs: 120_000, maxParallelConsultants: 2 });
+		assert.deepEqual(normalizeLimits({ foo: 9, maxRounds: 3 }), { maxRounds: 3, consultantDeadlineMs: 120_000, maxParallelConsultants: 2, maxConsultationsPerGoal: 6 });
 	});
 });
 
@@ -123,7 +131,7 @@ describe("resolveDecisionSettings: file content", () => {
 			assert.deepEqual(resolveDecisionSettings(dir, envFor(dir)), {
 				mode: "manual",
 				critic: { model: "gm" },
-				limits: { maxRounds: 1, consultantDeadlineMs: 120_000, maxParallelConsultants: 2 },
+				limits: { maxRounds: 1, consultantDeadlineMs: 120_000, maxParallelConsultants: 2, maxConsultationsPerGoal: 6 },
 			});
 		});
 	});
@@ -216,7 +224,7 @@ describe("resolveDecisionSettings: layering", () => {
 			assert.deepEqual(resolveDecisionSettings(dir, envFor(dir)), {
 				mode: "manual",
 				critic: { provider: "gp", model: "pm", thinkingLevel: "low" },
-				limits: { maxRounds: 1, consultantDeadlineMs: 5000, maxParallelConsultants: 1 },
+				limits: { maxRounds: 1, consultantDeadlineMs: 5000, maxParallelConsultants: 1, maxConsultationsPerGoal: 6 },
 			});
 		});
 	});

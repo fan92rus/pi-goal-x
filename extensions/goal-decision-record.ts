@@ -17,6 +17,10 @@ import { goalStoragePath, type GoalStorageContext } from "./storage/goal-root.ts
  * guarded by the record's `revision`: a stale writer gets a typed conflict and
  * nothing is written. Corrupt or foreign files are reported as typed read
  * errors and are never overwritten.
+ *
+ * The per-goal consultation counter (TECH §5, cross-route cap) lives in its own
+ * sidecar `decisions/<goalId>.consultations.json` under the same per-goal
+ * decision lock, so the record array format stays unchanged.
  */
 
 export const DECISION_LOG_CAP = 50;
@@ -143,7 +147,8 @@ export type DecisionStoreErrorCode =
 	| "not-found"
 	| "conflict"
 	| "invalid-transition"
-	| "forbidden-writer";
+	| "forbidden-writer"
+	| "capped";
 
 export interface DecisionStoreError {
 	code: DecisionStoreErrorCode;
@@ -195,6 +200,10 @@ function recordProblem(value: unknown): string | undefined {
 
 function decisionFileRel(goalId: string): string {
 	return `${DECISIONS_DIR}/${goalId}.json`;
+}
+
+function consultationFileRel(goalId: string): string {
+	return `${DECISIONS_DIR}/${goalId}.consultations.json`;
 }
 
 function newDecisionId(): string {
@@ -385,4 +394,94 @@ export function setDecisionStatus(
 		}
 		return ok({ ...current, status });
 	});
+}
+
+// ── per-goal consultation counter (TECH §5 cross-route cap) ─────────────────
+
+const ConsultationCounterSchema = Type.Object({
+	goalId: Type.String({ minLength: 1 }),
+	consultationsLaunched: Type.Integer({ minimum: 0 }),
+});
+
+/** Launch count after an update, and the cap it is measured against. `capped` means launched >= cap. */
+export interface ConsultationCount {
+	launched: number;
+	cap: number;
+	capped: boolean;
+}
+
+/** Missing file reads as zero launches; anything unparseable or foreign is a typed error. */
+function readConsultationFile(ctx: GoalStorageContext, goalId: string): DecisionStoreResult<number> {
+	const filePath = goalStoragePath(ctx, consultationFileRel(goalId));
+	let text: string;
+	try {
+		if (fs.lstatSync(filePath).isSymbolicLink()) return fail("io", `Refusing symlinked consultation counter for goal ${goalId}.`);
+		text = fs.readFileSync(filePath, "utf8");
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return ok(0);
+		return fail("io", errorMessage(error));
+	}
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(text);
+	} catch {
+		return fail("corrupt", `Consultation counter for goal ${goalId} is not valid JSON.`);
+	}
+	for (const error of Value.Errors(ConsultationCounterSchema, parsed)) {
+		return fail("corrupt", `Consultation counter for goal ${goalId} is invalid: ${error.instancePath || "/"}: ${error.message}`);
+	}
+	const counter = parsed as { goalId: string; consultationsLaunched: number };
+	if (counter.goalId !== goalId) return fail("foreign", `Consultation counter for goal ${goalId} belongs to goal ${counter.goalId}.`);
+	return ok(counter.consultationsLaunched);
+}
+
+function writeConsultationFile(ctx: GoalStorageContext, goalId: string, launched: number): DecisionStoreError | null {
+	try {
+		atomicWriteGoalFile(ctx, DECISIONS_DIR, consultationFileRel(goalId), `${JSON.stringify({ goalId, consultationsLaunched: launched }, null, 2)}\n`);
+		return null;
+	} catch (error) {
+		return { code: "io", message: errorMessage(error) };
+	}
+}
+
+/** Lock-free read of the goal's launch count (atomic replacement: readers see old or new, never partial). */
+export function getConsultationsLaunched(ctx: GoalStorageContext, goalId: string): DecisionStoreResult<number> {
+	return guarded(() => {
+		if (!GOAL_ID_PATTERN.test(goalId)) return invalidGoalId(goalId);
+		return readConsultationFile(ctx, goalId);
+	});
+}
+
+/** Read-modify-write of the counter under the per-goal decision lock. */
+function commitConsultations(ctx: GoalStorageContext, goalId: string, cap: number, n: number, enforceCap: boolean): DecisionStoreResult<ConsultationCount> {
+	return guarded(() => {
+		if (!GOAL_ID_PATTERN.test(goalId)) return invalidGoalId(goalId);
+		if (!Number.isSafeInteger(n) || n < 1) return fail("invalid-input", `Consultation increment must be a positive integer, got ${n}.`);
+		if (!Number.isSafeInteger(cap) || cap < 1) return fail("invalid-input", `Consultation cap must be a positive integer, got ${cap}.`);
+		return withDecisionLock(ctx, goalId, () => {
+			const current = readConsultationFile(ctx, goalId);
+			if (!current.ok) return current;
+			const launched = current.value + n;
+			if (enforceCap && launched > cap) return fail("capped", `consultation cap reached (${current.value}/${cap})`);
+			const written = writeConsultationFile(ctx, goalId, launched);
+			if (written) return { ok: false, error: written };
+			return ok({ launched, cap, capped: launched >= cap });
+		});
+	});
+}
+
+/**
+ * Counts `n` consultant launches unconditionally (oracle path, TECH §7). The
+ * cap is only reported (`capped`); the caller decides what to do with it.
+ */
+export function incrementConsultations(ctx: GoalStorageContext, goalId: string, cap: number, n = 1): DecisionStoreResult<ConsultationCount> {
+	return commitConsultations(ctx, goalId, cap, n, false);
+}
+
+/**
+ * Counts `n` consultant launches only if they all fit under `cap` (router path).
+ * On overflow nothing is written and the failure has code `capped`.
+ */
+export function reserveConsultations(ctx: GoalStorageContext, goalId: string, cap: number, n = 1): DecisionStoreResult<ConsultationCount> {
+	return commitConsultations(ctx, goalId, cap, n, true);
 }

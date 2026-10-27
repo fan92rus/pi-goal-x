@@ -8,9 +8,12 @@ import {
 	DECISION_LOG_CAP,
 	DECISIONS_DIR,
 	createDecision,
+	getConsultationsLaunched,
 	getDecisions,
+	incrementConsultations,
 	isDecisionTransitionAllowed,
 	objectiveAnchor,
+	reserveConsultations,
 	setDecisionStatus,
 	updateDecision,
 	type DecisionDraft,
@@ -260,4 +263,77 @@ test("each step of a create, update, transition sequence leaves a valid sidecar"
 	assert.equal(final[0]?.revision, 2);
 	okValue(createDecision(ctx, GOAL, draft("second")));
 	assert.equal(assertDiskValid(ctx, GOAL).length, 2);
+});
+
+// ── consultation counter (TECH §5 cross-route cap) ──────────────────────────
+
+function counterPath(ctx: { cwd: string }, goalId: string): string {
+	return path.join(ctx.cwd, DECISIONS_DIR, `${goalId}.consultations.json`);
+}
+
+test("consultation counter round-trips, starts at zero, and lives beside the record array", t => {
+	const ctx = tempCtx(t);
+	assert.equal(okValue(getConsultationsLaunched(ctx, GOAL)), 0, "no file reads as zero");
+	assert.deepEqual(okValue(incrementConsultations(ctx, GOAL, 6)), { launched: 1, cap: 6, capped: false });
+	assert.deepEqual(okValue(incrementConsultations(ctx, GOAL, 6, 4)), { launched: 5, cap: 6, capped: false });
+	assert.deepEqual(okValue(incrementConsultations(ctx, GOAL, 6)), { launched: 6, cap: 6, capped: true });
+	assert.equal(okValue(getConsultationsLaunched(ctx, GOAL)), 6);
+	assert.deepEqual(JSON.parse(readFileSync(counterPath(ctx, GOAL), "utf8")), { goalId: GOAL, consultationsLaunched: 6 });
+	assert.equal(existsSync(sidecarPath(ctx, GOAL)), false, "the record array file is not created by counting");
+	assert.deepEqual(readdirSync(path.join(ctx.cwd, DECISIONS_DIR)).filter(name => name.endsWith(".tmp")), []);
+});
+
+test("incrementConsultations counts past the cap and reports capped; the oracle path never refuses", t => {
+	const ctx = tempCtx(t);
+	okValue(incrementConsultations(ctx, GOAL, 2, 2));
+	assert.deepEqual(okValue(incrementConsultations(ctx, GOAL, 2)), { launched: 3, cap: 2, capped: true });
+	assert.equal(okValue(getConsultationsLaunched(ctx, GOAL)), 3);
+});
+
+test("reserveConsultations refuses overflow with a capped error and writes nothing", t => {
+	const ctx = tempCtx(t);
+	assert.deepEqual(okValue(reserveConsultations(ctx, GOAL, 3, 2)), { launched: 2, cap: 3, capped: false });
+	const refused = failure(reserveConsultations(ctx, GOAL, 3, 2));
+	assert.equal(refused.code, "capped");
+	assert.equal(refused.message, "consultation cap reached (2/3)");
+	assert.equal(okValue(getConsultationsLaunched(ctx, GOAL)), 2, "a refused reserve is not counted");
+	assert.deepEqual(okValue(reserveConsultations(ctx, GOAL, 3)), { launched: 3, cap: 3, capped: true });
+	assert.equal(failure(reserveConsultations(ctx, GOAL, 3)).code, "capped");
+	assert.equal(okValue(getConsultationsLaunched(ctx, GOAL)), 3);
+});
+
+test("counter writes are atomic: a held per-goal lock yields locked and leaves the counter untouched", t => {
+	const ctx = tempCtx(t);
+	okValue(incrementConsultations(ctx, GOAL, 6));
+	const held = acquireGoalLock(ctx, `${GOAL}.decisions`);
+	try {
+		assert.equal(failure(incrementConsultations(ctx, GOAL, 6)).code, "locked");
+		assert.equal(failure(reserveConsultations(ctx, GOAL, 6)).code, "locked");
+	} finally {
+		held.release();
+	}
+	assert.equal(okValue(getConsultationsLaunched(ctx, GOAL)), 1);
+	assert.deepEqual(readdirSync(path.join(ctx.cwd, DECISIONS_DIR)).filter(name => name.endsWith(".tmp")), []);
+});
+
+test("a corrupt or foreign counter file is a typed error and is never overwritten", t => {
+	const ctx = tempCtx(t);
+	okValue(incrementConsultations(ctx, GOAL, 6));
+	writeFileSync(counterPath(ctx, GOAL), "{not json");
+	assert.equal(failure(getConsultationsLaunched(ctx, GOAL)).code, "corrupt");
+	assert.equal(failure(incrementConsultations(ctx, GOAL, 6)).code, "corrupt");
+	assert.equal(readFileSync(counterPath(ctx, GOAL), "utf8"), "{not json");
+	writeFileSync(counterPath(ctx, GOAL), JSON.stringify({ goalId: "goal-b", consultationsLaunched: 1 }));
+	assert.equal(failure(getConsultationsLaunched(ctx, GOAL)).code, "foreign");
+	writeFileSync(counterPath(ctx, GOAL), JSON.stringify({ goalId: GOAL, consultationsLaunched: -1 }));
+	assert.equal(failure(getConsultationsLaunched(ctx, GOAL)).code, "corrupt");
+});
+
+test("unsafe goal ids and invalid counts are rejected before any write", t => {
+	const ctx = tempCtx(t);
+	assert.equal(failure(getConsultationsLaunched(ctx, "../escape")).code, "invalid-input");
+	assert.equal(failure(incrementConsultations(ctx, "../escape", 6)).code, "invalid-input");
+	assert.equal(failure(incrementConsultations(ctx, GOAL, 6, 0)).code, "invalid-input");
+	assert.equal(failure(reserveConsultations(ctx, GOAL, 0)).code, "invalid-input");
+	assert.equal(existsSync(counterPath(ctx, GOAL)), false);
 });

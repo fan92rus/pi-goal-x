@@ -28,6 +28,8 @@ import {
 	renderOracleAdviceReminder,
 	runBlockerOracle,
 } from "./goal-oracle.ts";
+import { resolveDecisionSettings } from "./goal-decision-policy.ts";
+import { runCountedOracle } from "./goal-decision.ts";
 import { loadSettingsSnapshot, type ResolvedGoalOracleSettings } from "./goal-settings.ts";
 
 /** Current + first-pending (excluding current) task pointers for concise get_goal. */
@@ -368,14 +370,15 @@ pi.registerTool(defineTool({
 		}]);
 	} catch { /* ledger append is best-effort for the started marker */ }
 
-	const run = await runBlockerOracle({
+	// Cross-route cap (TECH §5/§7): the launch is counted before the oracle runs; a reached cap does not stop it.
+	const run = await runCountedOracle(ctx, goalAtBlock.id, resolveDecisionSettings(ctx.cwd).limits.maxConsultationsPerGoal, () => runBlockerOracle({
 		ctx,
 		goal: goalAtBlock,
 		reason,
 		attemptedActions: attemptedActions.slice(0, 8),
 		settings: oracleSettings as ResolvedGoalOracleSettings,
 		recentEvidence: "",
-	});
+	}));
 
 	if (!core.isFocusedOperationCurrent(focusToken)) {
 		return core.focusedOperationCancelledResult("Blocker Oracle", focusToken);
