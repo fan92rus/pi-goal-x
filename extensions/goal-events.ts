@@ -360,6 +360,7 @@ export function registerGoalEvents(core: GoalCore): void {
 				if (session === owner) core.exitGoalModal();
 			}
 		}
+		if (session !== owner) return;
 		// Codex behavior: prompt before reactivating a paused goal on resume.
 		if (event.reason === "resume" && core.state.goal?.status === "paused" && ctx.hasUI) {
 			const current = core.state.goal;

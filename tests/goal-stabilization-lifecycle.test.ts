@@ -204,6 +204,27 @@ test("session replacement while the Escape choice is pending retires exactly one
  } finally {choice.resolve("continue_working"); pending.resolve(approved); await result; await h.event("session_shutdown", {}, incoming.ctx); await h.cleanup(); await incoming.cleanup();}
 });
 
+test("a retired resume selector cannot open a dialog for the replacement's paused goal", async () => {
+ const h = stabilizationHarness(), incoming = stabilizationHarness();
+ const selected = deferred<any>(), shown = deferred<any>();
+ let confirms = 0, resuming: Promise<any> | undefined;
+ try {
+  h.ctx.hasUI = true;
+  h.ctx.sessionManager.getBranch = () => [];
+  h.ctx.ui.select = async () => {shown.resolve(null); return selected.promise;};
+  h.ctx.ui.confirm = async () => {confirms++; return true;};
+  writeActiveGoalFile(h.ctx, {...h.goal, id: "second-goal", activePath: undefined});
+  writeActiveGoalFile(incoming.ctx, {...incoming.goal, status: "paused"});
+  resuming = h.event("session_start", {reason: "resume"});
+  await shown.promise;
+  await h.event("session_start", {reason: "start"}, incoming.ctx);
+  selected.resolve(undefined); await resuming;
+  assert.equal(confirms, 0, "an old startup flow must stop before the next UI step");
+  assert.equal(h.core.state.goal?.status, "paused");
+  assert.equal(h.core.goalModalDepth, 0);
+ } finally {selected.resolve(undefined); await resuming; await h.event("session_shutdown", {}, incoming.ctx); await h.cleanup(); await incoming.cleanup();}
+});
+
 test("audit approval cannot overwrite tasks changed by another writer", async () => {
  const pending = deferred<any>(), started = deferred<any>();
  const h = stabilizationHarness(async () => {started.resolve(null); return pending.promise;});
