@@ -145,7 +145,8 @@ test("idleContinuationBackoff uses the existing strict boolean normalization", (
 test("goalSettingsPath: resolves under .pi/ with new filename", () => {
 	const p = goalSettingsPath("/tmp/project");
 	assert.ok(p.endsWith(path.join(".pi", "pi-goal-x-settings.json")));
-	assert.ok(p.startsWith("/tmp/project"));
+	// Windows: path.join rewrites the POSIX prefix with backslashes; compare on forward slashes.
+	assert.ok(p.replace(/\\/g, "/").startsWith("/tmp/project"));
 });
 
 test("goalSettingsPath: respects PI_GOAL_SETTINGS_FILE env var", () => {

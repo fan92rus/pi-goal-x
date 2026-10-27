@@ -18,6 +18,15 @@ HARNESS_DIR="$(cd "${SCRIPT_DIR}/../../experiments/harness" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 FAILURES=0
+# Windows: MSYS `ln -s` copies the binary, and the copy cannot load msys-2.0.dll
+# once PATH excludes /usr/bin, so dirname silently yields "" and the harness dir
+# resolves wrong. Stub tools as a wrapper that execs the real absolute path.
+stub_tool() {
+  local name="$1" dest="$2"
+  printf '#!/bin/sh\nexec "%s" "$@"\n' "$(command -v "${name}")" > "${dest}/${name}"
+  chmod +x "${dest}/${name}"
+}
+
 check() {
   local name="$1"
   shift
@@ -171,7 +180,7 @@ run_prefix() {
 # Minimal PATH with node + dirname but NO timeout/gtimeout, so the harness
 # must fall back to the Node watchdog.
 ln -s "$(command -v node)" "${SANDBOX}/bin/node"
-ln -s "$(command -v dirname)" "${SANDBOX}/bin/dirname"
+stub_tool dirname "${SANDBOX}/bin"
 check "node watchdog selected when no timeout binary exists" \
   bash -c 'PATH="$1" source "$2"; [[ "${TIMEOUT_PREFIX}" == "node $3/watchdog.mjs" ]]' _ "${SANDBOX}/bin" "${HARNESS_DIR}/lib.sh" "${HARNESS_DIR}"
 
@@ -180,14 +189,14 @@ touch "${SANDBOX}/bin-gtimeout/gtimeout"
 chmod +x "${SANDBOX}/bin-gtimeout/gtimeout"
 # The harness resolves its own directory with dirname before it probes the
 # timeout commands. Keep that dependency available in each restricted PATH.
-ln -s "$(command -v dirname)" "${SANDBOX}/bin-gtimeout/dirname"
+stub_tool dirname "${SANDBOX}/bin-gtimeout"
 check "gtimeout preferred over the watchdog" \
   bash -c 'PATH="$1" source "$2"; [[ "${TIMEOUT_PREFIX}" == "gtimeout" ]]' _ "${SANDBOX}/bin-gtimeout" "${HARNESS_DIR}/lib.sh"
 
 mkdir -p "${SANDBOX}/bin-timeout"
 touch "${SANDBOX}/bin-timeout/timeout"
 chmod +x "${SANDBOX}/bin-timeout/timeout"
-ln -s "$(command -v dirname)" "${SANDBOX}/bin-timeout/dirname"
+stub_tool dirname "${SANDBOX}/bin-timeout"
 check "timeout preferred over gtimeout" \
   bash -c 'PATH="$1" source "$2"; [[ "${TIMEOUT_PREFIX}" == "timeout --foreground" ]]' _ "${SANDBOX}/bin-timeout" "${HARNESS_DIR}/lib.sh"
 

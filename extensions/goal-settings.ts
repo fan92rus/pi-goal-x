@@ -1049,6 +1049,8 @@ interface PathLock {
 	release(): void;
 }
 
+const WINDOWS_LOCK_CONTENTION = new Set(["EPERM", "EACCES", "EBUSY"]);
+
 /**
  * Generic filesystem path lock (same discipline as the goal lock): atomic
  * create, bounded retries, stale-TTL/dead-pid recovery. Multiple Pi processes
@@ -1080,7 +1082,14 @@ export function acquirePathLock(
 				},
 			};
 		} catch (err) {
-			if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code !== "EEXIST") {
+				// Windows: a lock unlinked while another process still holds it stays delete-pending,
+				// so the O_EXCL create fails with EPERM/EACCES/EBUSY instead of EEXIST; that is contention.
+				if (process.platform !== "win32" || !code || !WINDOWS_LOCK_CONTENTION.has(code)) throw err;
+				sleepMs(retryMs);
+				continue;
+			}
 			try {
 				const stat = fs.statSync(lockPath);
 				let pid: number | undefined;

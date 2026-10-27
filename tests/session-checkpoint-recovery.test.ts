@@ -13,8 +13,10 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, mkdtempSync, readFileSync, readdirSync, symlinkSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const CLI = new URL("../scripts/recover-session-checkpoints.mjs", import.meta.url).pathname;
+// Windows: URL.pathname yields "/D:/...", which node resolves as "D:\D:\..."; use fileURLToPath.
+const CLI = fileURLToPath(new URL("../scripts/recover-session-checkpoints.mjs", import.meta.url));
 
 function entry(overrides: Record<string, unknown>): Record<string, unknown> {
 	return {

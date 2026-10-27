@@ -293,15 +293,20 @@ describe("scoped mutation", () => {
 			const target = scopeTarget(dir, "global");
 			writeJson(target, { provider: "keep" });
 			invalidateGoalSettingsCache();
-			// Make the directory read-only AFTER the original file exists so the
-			// temp-file creation fails; the original must remain intact.
-			fs.chmodSync(dir, 0o555);
+			// Inject the failure AFTER the original file exists; the original must remain intact.
+			// Windows: chmod on a directory does not block file creation, so make the target
+			// read-only instead; the atomic rename then fails with EPERM.
+			// POSIX: make the directory read-only so the temp-file creation fails.
+			const windows = process.platform === "win32";
+			if (windows) fs.chmodSync(target, 0o444);
+			else fs.chmodSync(dir, 0o555);
 			try {
 				assert.throws(() =>
 					mutateSettingsLayer({ scope: "global", cwd: dir, env, mutation: { op: "set", path: ["provider"], value: "changed" } }),
 				);
 			} finally {
-				fs.chmodSync(dir, 0o755);
+				if (windows) fs.chmodSync(target, 0o644);
+				else fs.chmodSync(dir, 0o755);
 			}
 			invalidateGoalSettingsCache();
 			const layer = readSettingsLayer(target, "global").layer;

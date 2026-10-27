@@ -14,6 +14,12 @@ const adapters = new Map([
 // locale-aware (PI_GOAL_LANG → LANG → Intl), pin English regardless of host.
 process.env.PI_GOAL_LANG = process.env.PI_GOAL_LANG ?? "en";
 
+// Tests must not observe the delegation state of the process that launched
+// them (e.g. an orchestrator running `npm test` from inside a pi subagent):
+// isDelegatedGoalSession() would hide the goal commands and fail ~300 tests.
+delete process.env.PI_SUBAGENT_CHILD;
+delete process.env.PI_SUBAGENT_DEPTH;
+
 nodeModule.registerHooks({
 	resolve(specifier, context, nextResolve) {
 		const url = adapters.get(specifier);

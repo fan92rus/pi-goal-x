@@ -31,7 +31,8 @@ function cleanup(ctx: GoalLedgerContext): void {
 
 test("goalLedgerPath resolves under .pi/goals", () => {
   const ctx = tempCtx();
-  assert.ok(goalLedgerPath(ctx).includes(".pi/goals/goal_events.jsonl"));
+  // Windows: path.resolve yields backslash separators; compare on forward slashes.
+  assert.ok(goalLedgerPath(ctx).replace(/\\/g, "/").includes(".pi/goals/goal_events.jsonl"));
   cleanup(ctx);
 });
 

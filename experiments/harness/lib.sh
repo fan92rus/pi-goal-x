@@ -21,7 +21,8 @@ TURN_TIMEOUT="${TURN_TIMEOUT:-360}"  # per-turn wall clock (seconds). 360s gives
 # which fireworks accepts as a bearer). Fall back to whatever was already in env.
 resolve_fireworks_key() {
   local fpk
-  fpk="$(jq -r '.fireworks.access // empty' "${HOME}/.pi/agent/auth.json" 2>/dev/null)"
+  # node instead of jq: jq is not a project prerequisite (absent on Windows machines).
+  fpk="$(node -e 'const j = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); const v = j?.fireworks?.access; process.stdout.write(v ? String(v) : "")' "${HOME}/.pi/agent/auth.json" 2>/dev/null)"
   if [[ -n "${fpk}" ]]; then
     echo "${fpk}"
     return
@@ -153,7 +154,8 @@ resolve_run_dir() {
 # Load the supported case-id allowlist from SUPPORTED_CASES.json.
 supported_case_ids() {
   local file="${EXPERIMENTS_DIR}/SUPPORTED_CASES.json"
-  jq -r '.supported[]' "${file}" 2>/dev/null || true
+  # node instead of jq: jq is not a project prerequisite (absent on Windows machines).
+  node -e 'const j = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); if (Array.isArray(j.supported)) for (const id of j.supported) console.log(String(id));' "${file}" 2>/dev/null || true
 }
 
 is_supported_case() {

@@ -148,10 +148,12 @@ test("golden: prompt body is authoritative over the JSON header objective", () =
 	try {
 		writeFixtureGoal(cwd);
 		const filePath = path.join(cwd, FIXTURE_GOAL_RELPATH);
+		// Windows: git autocrlf checks the fixture out with CRLF, so the separator must accept \r?\n or the edit silently no-ops.
 		const edited = readFileSync(filePath, "utf8").replace(
-			"# Goal Prompt\n\nGolden fixture goal objective",
+			/# Goal Prompt\r?\n\r?\nGolden fixture goal objective/,
 			"# Goal Prompt\n\nEdited objective from the prompt body",
 		);
+		assert.notEqual(edited, readFileSync(filePath, "utf8"), "fixture body edit applied");
 		writeFileSync(filePath, edited);
 
 		const parsed = parseGoalFile(filePath);
