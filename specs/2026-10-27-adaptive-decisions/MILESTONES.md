@@ -16,6 +16,17 @@
 - Full suite on Windows: 1219 tests, 1206 pass, 13 fail — all pre-existing Windows-environment cases, listed in gx-43n.5; decision modules 43/43 green.
 - Supervisor decisions log: D1 store-permissive (router owns caps), D2 literal eviction, model policy haiku workers / glm-flash reviewers (owner-approved).
 
+## 2026-10-27 — E3 (gx-97b)
+
+- `goal-decision.ts` (worker haiku-5-5, review glm-5.3-flash ok after owner decisions D1–D7): DecisionProposal schema (caps options≤8, facts/unknowns/risks≤16), validateProposal, routeFloor (unknowns⇒research, material⇒critique with conservative absent=true default, forbidden categories⇒ask-human scanning question/options/facts/unknowns, fail-closed v1), resolveDecision direct/ask-human outcomes via DecisionRecord, consultations stub for E4, no tool registration (E6 wires `goal_decision`).
+- Post-review owner fixes applied and re-verified: D2 conservative materialRisk default (was bypassable by omitting the field), D3 scan scope, D4 caps — reviewer probed final code, 31/31 tests.
+- Runner follow-up: manifest entries normalized to `./tests/...` (trailing-separator rel bug — selfcheck matched both broken sides, caught during E3 merge).
+- Suite: 1250 tests, 1237 pass, same 13 pre-existing Windows-env failures (gx-43n.5).
+
+## 2026-10-27 — E4 (gx-ufd)
+
+- gx-ufd.1 `goal-decision-consultant.ts` (worker haiku-5-5, review glm-5.3-flash ok): runConsultant — fresh in-memory session, tools read/grep/find/ls + один submit (нет write/edit/bash/делегации), createSession-шов, дедлайн-таймер + AbortSignal, типизированные payload researcher/critic, invalid_output/config/aborted/budget-коды, beforeLaunch-хук (точка бюджет-гейта E5), usage из session-событий (никогда не выдумывается); 16 unit-тестов на инъекции; selfcheck-orphan решается оркестратором на мерже (практика с E2).
+
 ## Pre-existing issues tracked
 
 - gx-43n.5 (reparented to gx-773): 7 Windows-environment test failures (golden paths, shell harness, lock fault-injection, path asserts, recover bin) + manifest selfcheck red on HEAD Windows.
