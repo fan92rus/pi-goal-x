@@ -270,6 +270,6 @@ fs.writeFileSync(stateFile, JSON.stringify(state, null, 2) + "\n");
 // rotate: keep last 14 sync logs
 const logs = fs.readdirSync(LOG_DIR).filter((f) => f.startsWith("pi-goalx-sync-")).sort();
 for (const old of logs.slice(0, Math.max(0, logs.length - 14))) {
-	try { fs.rmSync(path.join(LOG_DIR, old), { force: true }); } catch {}
+	try { fs.rmSync(path.join(LOG_DIR, old), { force: true }); } catch { /* best effort: a locked old log is kept */ }
 }
 log("=== upstream-sync done ===");

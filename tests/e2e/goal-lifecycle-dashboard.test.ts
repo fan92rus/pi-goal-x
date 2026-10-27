@@ -9,7 +9,7 @@
  * reflect real persisted state (§2.2).
  */
 
-import { mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -322,9 +322,11 @@ test("archive failure never reports success; the complete record stays recoverab
 		goal = currentGoal(cwd)!;
 		assert.equal(goal.status, "complete", "deferred completion before archive");
 
-		// Make the archive directory unwritable so the archive write fails.
+		// Make the archive target unusable so the archive write fails. A regular file in place of
+		// the archive directory fails on every platform (chmod on a Windows directory is a no-op).
 		const archiveDir = path.join(cwd, ".pi", "goals", "archived");
-				await import("node:fs/promises").then(async (fs) => { await fs.chmod(archiveDir, 0o555); });
+		rmSync(archiveDir, { recursive: true, force: true });
+		writeFileSync(archiveDir, "not a directory", "utf8");
 
 		await h.turnEnd();
 
@@ -343,7 +345,6 @@ test("archive failure never reports success; the complete record stays recoverab
 		assert.ok(remaining, "complete record remains recoverable");
 		assert.equal(remaining.status, "complete");
 	} finally {
-				await import("node:fs/promises").then(async (fs) => { await fs.chmod(path.join(cwd, ".pi", "goals", "archived"), 0o755).catch(() => {}); });
 		try { rmSync(cwd, { recursive: true, force: true }); } catch {}
 	}
 });

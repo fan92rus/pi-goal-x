@@ -887,6 +887,8 @@ describe("completion transaction hardening (follow-up Stage 3)", () => {
 	it("completion commit write failure never reports success and never clears focus", async () => {
 		const f = fixture();
 		const goalsDir = path.join(f.cwd, ".pi", "goals");
+		const activeFile = path.join(goalsDir, activeGoalFiles(f.cwd)[0]!);
+		const windows = process.platform === "win32";
 		try {
 			// Pre-create the ledger file so its fallback append path works even
 			// when the goals directory is read-only (append needs write on the
@@ -900,7 +902,11 @@ describe("completion transaction hardening (follow-up Stage 3)", () => {
 			});
 			await start(h);
 			// Block the authoritative active-file write (reads still work).
-			chmodSync(goalsDir, 0o555);
+			// POSIX: a read-only directory blocks the temp-file creation.
+			// Windows: chmod on a directory does not block file creation, so make the
+			// active file read-only instead; the atomic rename then fails with EPERM.
+			if (windows) chmodSync(activeFile, 0o444);
+			else chmodSync(goalsDir, 0o555);
 			const update = h.tools.get("update_goal")!;
 			const result = await (update.execute as any)("fail-write-1", { status: "complete" }, new AbortController().signal, undefined, h.ctx);
 			const text = result.content?.[0]?.text ?? "";
@@ -919,7 +925,7 @@ describe("completion transaction hardening (follow-up Stage 3)", () => {
 			const snapText = snapshot.content?.[0]?.text ?? "";
 			assert.match(snapText, /Goal \S+: running/, `goal still open and active: ${snapText.slice(0, 100)}`);
 		} finally {
-			try { chmodSync(goalsDir, 0o755); } catch {}
+			try { if (windows) chmodSync(activeFile, 0o644); else chmodSync(goalsDir, 0o755); } catch {}
 			f.cleanup();
 		}
 	});
