@@ -203,3 +203,10 @@ Implementation remains unstarted and the spec remains ready for review. The exis
 - Reimplemented #117's behavior from the contract. No contributor head or source-text assertion was adopted. Meaningful wait/lifecycle conflicts and malformed/payload-bearing ready objects remain errors.
 - Passed action/planner matrices, dirty-buffer repair, strict/default actual scheduler assertions, real SDK argument validation, the existing tool-input worker and a new local Responses server. The latter sends the exact recorded arguments through Pi's installed tool path, runs the real nested independent auditor and archives in exactly two provider requests.
 - Extended Responses schema capture to include update_goal in all three strict-compatibility modes. TypeScript, ESLint, provider cross-check and the 384-scenario cache comparison pass with zero payload/schema delta.
+
+## Implementation — D: skipped tasks are terminal
+
+- The independent flat-reference invariant and registered completion tests failed on the old counter: complete+skipped trees reported pending work and produced false task gates.
+- Corrected the existing shared walker with `total - rawComplete - rawSkipped`; no second counting path or task-status change was introduced. This is the minimal correction identified in #110/#111, independently verified and credited.
+- Added fixed-seed generated nested trees across both display and pending-collection modes, immutability and count-additivity checks, and real completion/auditor/prompt/deferred-archive positives and negatives. A pending child under a skipped parent still blocks; auditor rejection still blocks completion.
+- Extended the local Responses regression to combine the exact filler object with complete+skipped blocking tasks and the real nested auditor. All 80 focused task/auditor/SDK checks and TypeScript pass; the cache gate still reports no unrelated payload delta.

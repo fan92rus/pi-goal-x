@@ -34,7 +34,7 @@ try {
  mkdirSync(path.join(cwd,'.pi'),{recursive:true});
  writeFileSync(path.join(cwd,'.pi/pi-goal-x-settings.json'),JSON.stringify({disabled:false,maxAutonomousRuns:0}));
  process.env.PI_GOAL_GLOBAL_SETTINGS_FILE=path.join(cwd,'no-global');
- const goal=writeActiveGoalFile({cwd},createGoal({objective:'Verify and complete the Responses filler regression.',autoContinue:false,sisyphus:false}));
+ const goal=writeActiveGoalFile({cwd},{...createGoal({objective:'Verify and complete the Responses filler regression.',autoContinue:false,sisyphus:false}),taskList:{tasks:[{id:'done',title:'Verified implementation',status:'complete',evidence:'regression assertions pass'},{id:'skip',title:'Excluded feature',status:'skipped',skipReason:'user deferred features'}],blockCompletion:true,proposedAt:'2026-10-27T00:00:00Z'}});
  const manager=SessionManager.create(cwd,path.join(cwd,'sessions'));
  manager.appendCustomEntry('pi-goal-focus',goalFocusDetails(goal.id,'created'));
  const runtime=await ModelRuntime.create({authPath:path.join(cwd,'auth'),modelsPath:null,allowModelNetwork:false,refreshOnCreate:false});

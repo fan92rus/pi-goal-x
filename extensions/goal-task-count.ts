@@ -47,7 +47,7 @@ export function countTaskSubtree(
 		total,
 		complete: done,
 		skipped: rawSkipped,
-		pending: total - done,
+		pending: total - rawComplete - rawSkipped,
 		...(opts.collectPending ? { pendingTasks } : {}),
 	};
 }
