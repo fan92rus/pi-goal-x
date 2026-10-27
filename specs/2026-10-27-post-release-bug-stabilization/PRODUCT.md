@@ -1,6 +1,6 @@
 # Post-release bug stabilization
 
-Status: implemented; verified release candidate ready for review
+Status: runtime implemented; validating release-harness synchronization
 
 Proposed release: 0.34.1, bug fixes first  
 Planning baseline: `fe0e38f` (0.34.0 main)

@@ -14,22 +14,15 @@ import {createGoal} from "../../extensions/goal-record.ts";
 
 const script = `
 $ErrorActionPreference = 'Stop'
-Add-Type -TypeDefinition @'
-using System;
-using System.IO;
-using System.Threading;
-public static class GoalSharingLock {
-  public static void Hold(string target, string release) {
-    using (var stream = File.Open(target, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite)) {
-      File.Exists(release); Thread.Sleep(1);
-      Console.WriteLine("READY"); Console.Out.Flush();
-      while (!File.Exists(release)) Thread.Sleep(1);
-      Thread.Sleep(10);
-    }
-  }
-}
-'@
-[GoalSharingLock]::Hold($env:PI_GOAL_TEST_LOCK, $env:PI_GOAL_TEST_RELEASE)
+$stream = [System.IO.File]::Open($env:PI_GOAL_TEST_LOCK, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::ReadWrite)
+try {
+  [System.IO.File]::Exists($env:PI_GOAL_TEST_RELEASE) > $null
+  [System.Threading.Thread]::Sleep(1)
+  [Console]::WriteLine("READY")
+  [Console]::Out.Flush()
+  while (![System.IO.File]::Exists($env:PI_GOAL_TEST_RELEASE)) { [System.Threading.Thread]::Sleep(1) }
+  [System.Threading.Thread]::Sleep(10)
+} finally { $stream.Dispose() }
 `;
 
 async function lock(target: string, release: string) {

@@ -61,7 +61,7 @@ if(process.env.PI_GOAL_TERMINAL_READY_FILE){
  fs.writeFileSync(observer,`import fs from 'node:fs';\nexport default function(pi){pi.on('session_start',()=>fs.writeFileSync(${JSON.stringify(process.env.PI_GOAL_TERMINAL_READY_FILE)},'ready\\n'));}\n`);
  observerArgs.push('-e',observer);
 }
-const config={cwd,raw:path.join(cwd,'terminal.bin'),actions:path.join(cwd,'actions.jsonl'),env:{PI_CODING_AGENT_DIR:agentDir,PI_GOAL_GLOBAL_SETTINGS_FILE:globalFile,PI_OFFLINE:'1',TERM:'xterm-256color'},argv:[process.execPath,piCLI,'--offline','-ne','-ns','-np','-nc','--no-themes','--approve','-e',path.join(production?repository:roots.candidate,'extensions/goal.ts'),...observerArgs,'--session-dir',path.join(cwd,'sessions')]};
+const config={cwd,raw:path.join(cwd,'terminal.bin'),actions:path.join(cwd,'actions.jsonl'),ack:path.join(cwd,'actions-ack'),env:{PI_CODING_AGENT_DIR:agentDir,PI_GOAL_GLOBAL_SETTINGS_FILE:globalFile,PI_OFFLINE:'1',TERM:'xterm-256color'},argv:[process.execPath,piCLI,'--offline','-ne','-ns','-np','-nc','--no-themes','--approve','-e',path.join(production?repository:roots.candidate,'extensions/goal.ts'),...observerArgs,'--session-dir',path.join(cwd,'sessions')]};
 fs.writeFileSync(path.join(cwd,'host.json'),JSON.stringify({sdk:piVersion,cli:piCLI})+'\n');
 fs.writeFileSync(path.join(cwd,'config.json'),JSON.stringify(config));
 console.log(JSON.stringify({cwd,actions:config.actions,raw:config.raw,objective}));
