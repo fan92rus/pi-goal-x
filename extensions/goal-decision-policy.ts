@@ -8,12 +8,12 @@
  *     decisionLimits:  { maxRounds?, consultantDeadlineMs?, maxParallelConsultants?, maxConsultationsPerGoal? }
  *
  * Resolution per leaf: project layer > global layer > built-in default, the
- * same layering as goal-settings.ts. `decisionMode` is authoritative only at
- * the project layer: a global `decisionMode` is ignored, so a user-level file
- * cannot switch autonomous acceptance on in every project. Invalid values fail
- * safe: mode becomes "manual", and an invalid limit or critic leaf becomes its
- * built-in default (critic: unset) even when a lower layer sets it. Nothing
- * here throws on file content.
+ * same layering as goal-settings.ts resolveLeaf. The global file MAY define a
+ * default `decisionMode`; the project file overrides it per key; a goal still
+ * cannot set its own mode. A present-but-invalid value normalizes to its
+ * fail-safe default without falling through past the explicitly set layer:
+ * mode becomes "manual", and an invalid limit or critic leaf becomes its
+ * built-in default (critic: unset). Nothing here throws on file content.
  *
  * goal-settings.ts keeps an in-process settings cache that another session's
  * write does not invalidate. Decision settings are therefore read from disk on
@@ -168,7 +168,9 @@ function readRawSettingsFile(target: string): RawSettingsFile {
 
 /**
  * Resolve decision settings from the global and project files, reading both
- * from disk on every call. `decisionMode` is read from the project layer only.
+ * from disk on every call. Per-key precedence: project > global > default
+ * (same leaf semantics as goal-settings.ts). A present-but-invalid value
+ * normalizes to its fail-safe default without falling through.
  */
 export function resolveDecisionSettings(cwd: string, env: NodeJS.ProcessEnv = process.env): GoalDecisionSettings {
 	const project = readRawSettingsFile(goalSettingsPath(cwd, env)).record;
@@ -187,24 +189,32 @@ export function resolveDecisionSettings(cwd: string, env: NodeJS.ProcessEnv = pr
 	};
 
 	return {
-		mode: parseMode(project[DECISION_MODE_KEY]),
+		mode: parseMode(project[DECISION_MODE_KEY] ?? global[DECISION_MODE_KEY]),
 		...(Object.keys(critic).length > 0 ? { critic } : {}),
 		limits,
 	};
 }
 
-/** Stable snapshot id: first 16 hex chars of sha256 over the raw project file text. */
-function snapshotIdOf(text: string): string {
-	return createHash("sha256").update(text, "utf8").digest("hex").slice(0, 16);
+/**
+ * Stable snapshot id over BOTH settings files: first 16 hex chars of
+ * sha256(globalText || NUL || projectText). A missing file contributes the
+ * same bytes as an empty file.
+ */
+function snapshotIdOf(globalText: string, projectText: string): string {
+	return createHash("sha256").update(globalText, "utf8").update("\u0000").update(projectText, "utf8").digest("hex").slice(0, 16);
 }
 
 /**
- * Read `decisionMode` straight from the project settings file, bypassing every
- * in-process cache. Acceptance-time checks use this so a mode switch made by
- * another session takes effect. snapshotId identifies the exact file content
- * the mode came from. A missing file and an empty file share one id.
+ * Resolve `decisionMode` straight from the settings files (project wins per
+ * key, global is the default), bypassing every in-process cache. Acceptance-
+ * time checks use this so a mode switch made by another session takes effect.
+ * snapshotId identifies the exact content of BOTH files the resolution came
+ * from, so an edit to either mid-deliberation invalidates. A missing file and
+ * an empty file share one slot.
  */
 export function readModeFreshFromDisk(cwd: string, env: NodeJS.ProcessEnv = process.env): { mode: GoalDecisionMode; snapshotId: string } {
-	const { text, record } = readRawSettingsFile(goalSettingsPath(cwd, env));
-	return { mode: parseMode(record[DECISION_MODE_KEY]), snapshotId: snapshotIdOf(text) };
+	const globalRead = readRawSettingsFile(goalGlobalSettingsPath(env));
+	const projectRead = readRawSettingsFile(goalSettingsPath(cwd, env));
+	const mode = parseMode(projectRead.record[DECISION_MODE_KEY] ?? globalRead.record[DECISION_MODE_KEY]);
+	return { mode, snapshotId: snapshotIdOf(globalRead.text, projectRead.text) };
 }

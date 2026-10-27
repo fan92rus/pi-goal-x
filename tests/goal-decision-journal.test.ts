@@ -322,14 +322,15 @@ test("a refused call journals nothing", async (t) => {
 
 // ── project mode switch through the layered settings API ────────────────────
 
-test("the project decisionMode is writable through the settings API and resolves from the project layer only", (t) => {
+test("the project decisionMode is writable through the settings API and layers over the global default", (t) => {
 	const h = harness(t, { mode: "manual" });
-	mutateSettingsLayer({ scope: "global", cwd: h.cwd, env: h.env, mutation: { op: "set", path: ["decisionMode"], value: "bounded-auto" } });
-	assert.equal(resolveDecisionSettings(h.cwd, h.env).mode, "manual", "a global decisionMode never switches the mode on");
-	mutateSettingsLayer({ scope: "project", cwd: h.cwd, env: h.env, mutation: { op: "set", path: ["decisionMode"], value: "advisory" } });
-	assert.equal(resolveDecisionSettings(h.cwd, h.env).mode, "advisory");
 	mutateSettingsLayer({ scope: "project", cwd: h.cwd, env: h.env, mutation: { op: "unset", path: ["decisionMode"] } });
-	assert.equal(resolveDecisionSettings(h.cwd, h.env).mode, "manual", "unsetting the project value returns to manual");
+	mutateSettingsLayer({ scope: "global", cwd: h.cwd, env: h.env, mutation: { op: "set", path: ["decisionMode"], value: "bounded-auto" } });
+	assert.equal(resolveDecisionSettings(h.cwd, h.env).mode, "bounded-auto", "with no project key the global value is the default (owner revision, post-E7)");
+	mutateSettingsLayer({ scope: "project", cwd: h.cwd, env: h.env, mutation: { op: "set", path: ["decisionMode"], value: "advisory" } });
+	assert.equal(resolveDecisionSettings(h.cwd, h.env).mode, "advisory", "the project layer overrides the global default");
+	mutateSettingsLayer({ scope: "project", cwd: h.cwd, env: h.env, mutation: { op: "unset", path: ["decisionMode"] } });
+	assert.equal(resolveDecisionSettings(h.cwd, h.env).mode, "bounded-auto", "unsetting the project value falls back to the global default");
 });
 
 // ── activity feed and status line ───────────────────────────────────────────

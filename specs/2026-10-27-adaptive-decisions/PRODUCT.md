@@ -20,7 +20,7 @@ Non-goals: pi-agile integration (excluded, plan E8 dropped), multi-goal focus/di
 | `advisory` | The agent prepares a recommendation (optionally with research/critique) and still asks the user; the dialog shows the recommendation. No decision is taken autonomously. |
 | `bounded-auto` | The agent decides and continues, within the authority rules below; everything else escalates. |
 
-The mode is configured **per project** (one setting, shared by all goals and sessions of that project). It is never enabled by default and never set per goal. A mode change is picked up by all sessions of the project before a result is accepted; switching to `manual` stops autonomous decision acceptance in flight (results already accepted stay accepted and logged).
+The mode is configured **per project** (one setting, shared by all goals and sessions of that project). It is never enabled by default and never set per goal. The setting follows the standard layered resolution — global file may define a default, the project file overrides it (owner revision 2026-10-27); a goal cannot set its own mode. A mode change is picked up by all sessions of the project before a result is accepted; switching to `manual` stops autonomous decision acceptance in flight (results already accepted stay accepted and logged).
 
 ## Authority model
 

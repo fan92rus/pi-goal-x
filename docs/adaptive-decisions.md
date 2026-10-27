@@ -12,8 +12,10 @@ Set the mode in the project settings file `.pi/pi-goal-x-settings.json`:
 { "decisionMode": "advisory" }
 ```
 
-- `decisionMode` is read from the project file only. A global value is ignored, and a goal cannot set its own mode.
-- An unknown value is treated as `manual`.
+The global file `~/.pi/agent/pi-goal-x-settings.json` may define a default `decisionMode` (plus shared `decisionCritic`/`decisionLimits`); the project file overrides it per key.
+
+- Resolution per key: project > global > built-in default (the same project > global precedence as other goal-x options; decision keys have no environment layer). A goal cannot set its own mode.
+- An unknown value in the effective layer is treated as `manual` (an explicitly set invalid project value does not fall through to global).
 - The setting is applied to every goal and session of the project. Changing it takes effect before the next decision result is accepted. Switching to `manual` stops autonomous acceptance for a deliberation still in progress; decisions already accepted stay accepted and remain in the log.
 
 Optional keys for consultants and limits (values shown are the defaults):
@@ -120,7 +122,7 @@ Semantic judgement is not mechanical:
 
 - Materiality (`materialRisk`), whether the choice goes beyond the original request (`selfRoute: "ask-human"`), and whether an explicit user preference is honored are classified by the proposing model. The code checks only presence, floors, and the conservative default (an absent `materialRisk` is material). Only an explicit `false` lowers the floor.
 - The forbidden-category check is keyword matching. A proposal that describes a money, deletion, production, or secret decision without these words is not caught by the code.
-- The real model's behavior on adversarial file content is not tested. Acceptance uses a scripted consultant session; the code-side invariants are checked (schema-only fields, a router-computed route, a blocker never waived, the mode read from the project file only).
+- The real model's behavior on adversarial file content is not tested. Acceptance uses a scripted consultant session; the code-side invariants are checked (schema-only fields, a router-computed route, a blocker never waived, the mode resolved fresh across both files per key).
 
 Runtime boundaries:
 

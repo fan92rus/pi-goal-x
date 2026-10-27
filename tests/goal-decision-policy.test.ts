@@ -54,6 +54,11 @@ function sha16(text: string): string {
 	return createHash("sha256").update(text, "utf8").digest("hex").slice(0, 16);
 }
 
+/** Mirror of the policy snapshot format: sha256(globalText || NUL || projectText)[0:16]. */
+function sha16Both(globalText: string, projectText: string): string {
+	return createHash("sha256").update(globalText, "utf8").update("\u0000").update(projectText, "utf8").digest("hex").slice(0, 16);
+}
+
 describe("parseMode", () => {
 	it("accepts exactly the three allowed modes", () => {
 		assert.equal(parseMode("manual"), "manual");
@@ -189,10 +194,10 @@ describe("resolveDecisionSettings: file content", () => {
 });
 
 describe("resolveDecisionSettings: layering", () => {
-	it("decisionMode from the global layer is ignored", () => {
+	it("decisionMode from the global layer is the default (owner revision, post-E7)", () => {
 		withTempDir((dir) => {
 			writeJson(path.join(dir, "global-settings.json"), { decisionMode: "bounded-auto" });
-			assert.equal(resolveDecisionSettings(dir, envFor(dir)).mode, "manual");
+			assert.equal(resolveDecisionSettings(dir, envFor(dir)).mode, "bounded-auto");
 		});
 	});
 
@@ -201,6 +206,7 @@ describe("resolveDecisionSettings: layering", () => {
 			writeJson(path.join(dir, "global-settings.json"), { decisionMode: "bounded-auto" });
 			writeJson(projectFile(dir), { decisionMode: "advisory" });
 			assert.equal(resolveDecisionSettings(dir, envFor(dir)).mode, "advisory");
+			assert.equal(readModeFreshFromDisk(dir, envFor(dir)).mode, "advisory");
 		});
 	});
 
@@ -270,9 +276,9 @@ describe("resolveDecisionSettings: layering", () => {
 });
 
 describe("readModeFreshFromDisk", () => {
-	it("a missing project file is manual, with the snapshot id of empty content", () => {
+	it("missing files are manual, with the snapshot id of two empty slots", () => {
 		withTempDir((dir) => {
-			assert.deepEqual(readModeFreshFromDisk(dir, envFor(dir)), { mode: "manual", snapshotId: sha16("") });
+			assert.deepEqual(readModeFreshFromDisk(dir, envFor(dir)), { mode: "manual", snapshotId: sha16Both("", "") });
 		});
 	});
 
@@ -290,7 +296,7 @@ describe("readModeFreshFromDisk", () => {
 		});
 	});
 
-	it("snapshotId is 16 lowercase hex chars = sha256 of the raw file text, stable on re-read", () => {
+	it("snapshotId is 16 lowercase hex chars over global||NUL||project, stable on re-read", () => {
 		withTempDir((dir) => {
 			const env = envFor(dir);
 			const text = JSON.stringify({ decisionMode: "bounded-auto" });
@@ -298,7 +304,7 @@ describe("readModeFreshFromDisk", () => {
 			const first = readModeFreshFromDisk(dir, env);
 			const second = readModeFreshFromDisk(dir, env);
 			assert.match(first.snapshotId, /^[0-9a-f]{16}$/);
-			assert.equal(first.snapshotId, sha16(text));
+			assert.equal(first.snapshotId, sha16Both("", text));
 			assert.equal(second.snapshotId, first.snapshotId);
 		});
 	});
@@ -315,17 +321,17 @@ describe("readModeFreshFromDisk", () => {
 		});
 	});
 
-	it("ignores the global layer entirely", () => {
+	it("the global layer alone can enable a mode (default without project)", () => {
 		withTempDir((dir) => {
 			writeJson(path.join(dir, "global-settings.json"), { decisionMode: "bounded-auto" });
-			assert.equal(readModeFreshFromDisk(dir, envFor(dir)).mode, "manual");
+			assert.equal(readModeFreshFromDisk(dir, envFor(dir)).mode, "bounded-auto");
 		});
 	});
 
-	it("broken project JSON is manual, and its snapshot id covers the broken text", () => {
+	it("broken project JSON is manual, and its snapshot id covers both slots", () => {
 		withTempDir((dir) => {
 			writeRaw(projectFile(dir), "{\"decisionMode\":");
-			assert.deepEqual(readModeFreshFromDisk(dir, envFor(dir)), { mode: "manual", snapshotId: sha16("{\"decisionMode\":") });
+			assert.deepEqual(readModeFreshFromDisk(dir, envFor(dir)), { mode: "manual", snapshotId: sha16Both("", "{\"decisionMode\":") });
 		});
 	});
 });
@@ -347,6 +353,80 @@ describe("warm in-process cache vs fresh read (why acceptance uses readModeFresh
 
 			invalidateGoalSettingsCache();
 			assert.equal(loadGoalSettings(dir, env).disableTasks, true, "after explicit invalidation the cache is fresh again");
+		});
+	});
+});
+
+describe("global default mode layering (owner revision, post-E7)", () => {
+	it("the global file defines the default mode; an absent project key falls through to it", () => {
+		withTempDir((dir) => {
+			const env = envFor(dir);
+			writeJson(path.join(dir, "global-settings.json"), { decisionMode: "advisory" });
+			assert.equal(resolveDecisionSettings(dir, env).mode, "advisory");
+			assert.equal(readModeFreshFromDisk(dir, env).mode, "advisory");
+			writeJson(projectFile(dir), {});
+			assert.equal(resolveDecisionSettings(dir, env).mode, "advisory");
+			assert.equal(readModeFreshFromDisk(dir, env).mode, "advisory");
+		});
+	});
+
+	it("the project key overrides the global default in both readers", () => {
+		withTempDir((dir) => {
+			const env = envFor(dir);
+			writeJson(path.join(dir, "global-settings.json"), { decisionMode: "advisory" });
+			writeJson(projectFile(dir), { decisionMode: "bounded-auto" });
+			assert.equal(resolveDecisionSettings(dir, env).mode, "bounded-auto");
+			assert.equal(readModeFreshFromDisk(dir, env).mode, "bounded-auto");
+		});
+	});
+
+	it("a present-but-invalid project mode fails safe to manual without falling through to global", () => {
+		withTempDir((dir) => {
+			const env = envFor(dir);
+			writeJson(path.join(dir, "global-settings.json"), { decisionMode: "advisory" });
+			writeJson(projectFile(dir), { decisionMode: "yolo" });
+			assert.equal(resolveDecisionSettings(dir, env).mode, "manual");
+			assert.equal(readModeFreshFromDisk(dir, env).mode, "manual");
+		});
+	});
+
+	it("an invalid global mode with no project key is manual", () => {
+		withTempDir((dir) => {
+			const env = envFor(dir);
+			writeJson(path.join(dir, "global-settings.json"), { decisionMode: 42 });
+			assert.equal(resolveDecisionSettings(dir, env).mode, "manual");
+			assert.equal(readModeFreshFromDisk(dir, env).mode, "manual");
+		});
+	});
+
+	it("editing the global file alone invalidates the snapshot and flips the default", () => {
+		withTempDir((dir) => {
+			const env = envFor(dir);
+			writeJson(projectFile(dir), {});
+			writeJson(path.join(dir, "global-settings.json"), { decisionMode: "advisory" });
+			const first = readModeFreshFromDisk(dir, env);
+			assert.equal(first.mode, "advisory");
+
+			writeJson(path.join(dir, "global-settings.json"), { decisionMode: "bounded-auto" });
+			const second = readModeFreshFromDisk(dir, env);
+			assert.equal(second.mode, "bounded-auto");
+			assert.notEqual(second.snapshotId, first.snapshotId);
+		});
+	});
+
+	it("global critic/limits keep layering under a global mode default", () => {
+		withTempDir((dir) => {
+			const env = envFor(dir);
+			writeJson(path.join(dir, "global-settings.json"), {
+				decisionMode: "advisory",
+				decisionCritic: { model: "reviewer-x" },
+				decisionLimits: { maxRounds: 1 },
+			});
+			const resolved = resolveDecisionSettings(dir, env);
+			assert.equal(resolved.mode, "advisory");
+			assert.deepEqual(resolved.critic, { model: "reviewer-x" });
+			assert.equal(resolved.limits.maxRounds, 1);
+			assert.equal(resolved.limits.consultantDeadlineMs, 120000);
 		});
 	});
 });
