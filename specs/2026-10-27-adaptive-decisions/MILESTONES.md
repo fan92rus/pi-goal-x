@@ -68,6 +68,13 @@
 - Not changed: a direct bounded-auto decision has no deliberation window and is still recorded from the mode read at call start (`applyDirectResolution`), not from a fresh acceptance read.
 - Tests: `tests/goal-decision-journal.test.ts` 15 cases; `tests/goal-decision-restart.test.ts` restart assertion extended. `npm test` 1392/1392, `npm run check` clean.
 
+## 2026-10-27 — E6.2 (prompts, tool descriptions, oracle-path compatibility)
+
+- Routing text appears only while goal_decision is advertised for the active goal (`GoalCore.decisionToolEnabled` and goal status active): one inserted lifecycle line `DECISION_FORK_RULE` in the injected policy (`goal-prompts.ts`) and the same sentence in the `get_goal` verbose lifecycle line (`goal-core-tools.ts`). `goal_decision` has promptGuidelines (pi shows them only for active tools) and a description that excludes blockers and objective changes.
+- Manual: no registration and no routing text; the prompt and `get_goal` output are otherwise unchanged. Paused and blocked prompts carry no routing text; the blocker/oracle path is untouched.
+- The TECH §7 decision fingerprint space landed as the pure `buildDecisionFingerprint` (`decision:<goalId>:<hash(question + options + objectiveHash)>`), namespace-distinct from the blocker fingerprint; no decision writes to the attempt-ledger yet — recording stays E6.3. `goal_question` keeps its static description in every mode, so the routing hint lives in the dynamic lifecycle prompt.
+- Tests: `tests/goal-decision-tool.test.ts` +6 (28 cases); +1 test (goal-decision-record.test.ts). `npm test` 1384/1384.
+
 ## Pre-existing issues tracked
 
 - gx-43n.5 (reparented to gx-773): 7 Windows-environment test failures (golden paths, shell harness, lock fault-injection, path asserts, recover bin) + manifest selfcheck red on HEAD Windows.

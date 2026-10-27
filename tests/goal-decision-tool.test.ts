@@ -25,6 +25,7 @@ import {
 import { DIALOG_UNAVAILABLE_HINT, type GoalQuestionnaireResult } from "../extensions/goal-questionnaire.ts";
 import { createGoal, goalFocusDetails, type GoalRecord, type GoalStateEntry } from "../extensions/goal-record.ts";
 import type { GoalCore } from "../extensions/goal-state.ts";
+import { goalPromptParts, DECISION_FORK_RULE } from "../extensions/prompts/goal-prompts.ts";
 import { applicableGoalTools, DECISION_TOOL_NAME } from "../extensions/goal-tool-names.ts";
 import { writeActiveGoalFile } from "../extensions/storage/goal-files.ts";
 import { goalStorageContext } from "../extensions/storage/goal-root.ts";
@@ -433,6 +434,19 @@ function mockSession(cwd: string, entries: unknown[]) {
 			assert.ok(start, "session_start handler must be registered");
 			await start({ reason: "start" }, ctx);
 		},
+		/** The text the goal context hook injects into the next provider request. */
+		async injectedContext(): Promise<string> {
+			const inject = lifecycleHandlers.get("context_with_system");
+			assert.ok(inject, "context_with_system handler must be registered");
+			const result = await inject({ messages: [{ role: "user", content: "continue" }] }, ctx) as { messages?: unknown[] } | undefined;
+			return JSON.stringify(result?.messages ?? []);
+		},
+		async getGoalVerbose(): Promise<string> {
+			const tool = registeredTools.find((definition) => definition.name === "get_goal");
+			assert.ok(tool, "get_goal must be registered");
+			const result = await tool.execute("call-verbose", { verbose: true } as never, undefined, undefined, ctx as never);
+			return (result as { content: Array<{ text: string }> }).content[0]?.text ?? "";
+		},
 	};
 }
 
@@ -471,4 +485,65 @@ test("session: advisory with a paused goal registers nothing", async (t) => {
 	await session.startSession();
 	assert.deepEqual(session.registeredTools.filter((tool) => tool.name === DECISION_TOOL_NAME), []);
 	assert.equal(session.activeTools().includes(DECISION_TOOL_NAME), false);
+});
+
+// ── prompt and tool-description routing (E6.2) ──────────────────────────────
+
+test("the fork rule is one inserted lifecycle line: every other prompt line is byte-identical", () => {
+	const goal = goalRecord();
+	const off = goalPromptParts(goal, {}).state;
+	const on = goalPromptParts(goal, {}, undefined, true).state;
+	assert.equal(off.includes("goal_decision"), false, "manual (default) prompt never names the tool");
+	assert.equal(on.split("\n").filter((line) => line !== `- ${DECISION_FORK_RULE}`).join("\n"), off);
+	assert.equal(on.split("\n").length, off.split("\n").length + 1);
+	assert.match(on, /A blocker IS a question/, "the blocker rule stays");
+});
+
+test("the routed and manual prompts do not leak into each other through the fragment cache", () => {
+	const goal = goalRecord();
+	assert.equal(goalPromptParts(goal, {}, undefined, true).state.includes(DECISION_FORK_RULE), true);
+	assert.equal(goalPromptParts(goal, {}).state.includes(DECISION_FORK_RULE), false);
+	assert.equal(goalPromptParts(goal, {}, undefined, true).state.includes(DECISION_FORK_RULE), true);
+});
+
+test("session: advisory routes forks through goal_decision in the injected prompt and in get_goal", async (t) => {
+	const cwd = mkdtempSync(path.join(tmpdir(), "pi-goal-decision-prompt-"));
+	t.after(() => rmSync(cwd, { recursive: true, force: true }));
+	const session = mockSession(cwd, sessionFixture(cwd, "advisory", "active").sessionEntries);
+	await session.startSession();
+	assert.ok((await session.injectedContext()).includes(DECISION_FORK_RULE), "injected prompt routes forks");
+	assert.ok((await session.getGoalVerbose()).includes(DECISION_FORK_RULE), "get_goal routes forks");
+});
+
+test("session: manual injects no routing text and get_goal keeps today's lifecycle line", async (t) => {
+	const cwd = mkdtempSync(path.join(tmpdir(), "pi-goal-decision-prompt-manual-"));
+	t.after(() => rmSync(cwd, { recursive: true, force: true }));
+	const session = mockSession(cwd, sessionFixture(cwd, "manual", "active").sessionEntries);
+	await session.startSession();
+	assert.equal((await session.injectedContext()).includes("goal_decision"), false);
+	const verbose = await session.getGoalVerbose();
+	assert.equal(verbose.includes("goal_decision"), false);
+	assert.match(verbose, /A blocker is expressed as a question: when a point cannot be decided alone, ask via goal_question when a UI is available — the ask IS the block\. .*User commands handle pause\/resume\/clear\/focus\.$/s);
+});
+
+test("session: a paused goal under advisory keeps the blocked-path prompt with no routing text", async (t) => {
+	const cwd = mkdtempSync(path.join(tmpdir(), "pi-goal-decision-prompt-paused-"));
+	t.after(() => rmSync(cwd, { recursive: true, force: true }));
+	const session = mockSession(cwd, sessionFixture(cwd, "advisory", "paused").sessionEntries);
+	await session.startSession();
+	const injected = await session.injectedContext();
+	assert.match(injected, /\[PI GOAL PAUSED/);
+	assert.equal(injected.includes(DECISION_FORK_RULE), false);
+	assert.equal((await session.getGoalVerbose()).includes(DECISION_FORK_RULE), false);
+});
+
+test("session: the advertised goal_decision describes fork routing and never blockers", async (t) => {
+	const cwd = mkdtempSync(path.join(tmpdir(), "pi-goal-decision-description-"));
+	t.after(() => rmSync(cwd, { recursive: true, force: true }));
+	const session = mockSession(cwd, sessionFixture(cwd, "advisory", "active").sessionEntries);
+	await session.startSession();
+	const tool = session.registeredTools.find((definition) => definition.name === DECISION_TOOL_NAME) as (ToolDefinition & { promptGuidelines?: string[] }) | undefined;
+	assert.ok(tool, "goal_decision registered");
+	assert.match(tool.description, /Not for blockers or objective changes: those still go through goal_question\./);
+	assert.match(tool.promptGuidelines?.[0] ?? "", /never for a blocker.*goal_question/);
 });

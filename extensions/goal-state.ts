@@ -80,6 +80,8 @@ export interface GoalCore {
 	auditAborted: boolean;
 	goalWorkToolCalledThisTurn: boolean;
 	tasksEnabled: boolean;
+	/** Whether goal_decision was advertised by the last installGoalToolProfile (TECH §4). */
+	readonly decisionToolEnabled: boolean;
 	debugMode: boolean;
 	terminalInputUnsubscribe: (() => void) | null;
 	goalWidgetComponentRef: { current: GoalWidgetComponent | null };
@@ -1008,6 +1010,9 @@ export function createGoalCore(
 		},
 		get tasksEnabled() {
 			return tasksEnabled;
+		},
+		get decisionToolEnabled() {
+			return decisionEnabled;
 		},
 		set tasksEnabled(value: boolean) {
 			tasksEnabled = value;

@@ -1156,7 +1156,7 @@ const DecisionToolParametersSchema = Type.Object({
 	recommended: Type.Integer({ minimum: 0, description: "Zero-based index of your recommended option. In bounded-auto this is the option you take." }),
 }, { additionalProperties: false });
 
-const DECISION_TOOL_DESCRIPTION = "Resolve a technical fork inside the active goal from the user's original request, instead of asking first. Submit the question, 2-8 options, the zero-based index of your recommended option, the authority basis from the request, facts, unknowns, and risks. Set materialRisk to false only when the choice is clearly reversible and departs from nothing in the request; an absent materialRisk counts as material. The router validates the proposal, runs read-only research or critique when the route needs it, then either returns the decision to continue with (bounded-auto) or asks the owner with your recommendation pre-selected (advisory). Any escalation tells you to ask with goal_question. Forks about money, data deletion, production, or secrets always escalate.";
+const DECISION_TOOL_DESCRIPTION = "Resolve a technical fork inside the active goal from the user's original request, instead of asking first. Not for blockers or objective changes: those still go through goal_question. Submit the question, 2-8 options, the zero-based index of your recommended option, the authority basis from the request, facts, unknowns, and risks. Set materialRisk to false only when the choice is clearly reversible and departs from nothing in the request; an absent materialRisk counts as material. The router validates the proposal, runs read-only research or critique when the route needs it, then either returns the decision to continue with (bounded-auto) or asks the owner with your recommendation pre-selected (advisory). Any escalation tells you to ask with goal_question. Forks about money, data deletion, production, or secrets always escalate.";
 
 /** Registers goal_decision on the core's pi. Pi tools cannot be unregistered, so ensureDecisionTool calls this at most once per core. */
 export function registerDecisionTool(core: GoalCore): void {
@@ -1166,6 +1166,8 @@ export function registerDecisionTool(core: GoalCore): void {
 		label: "Decide Fork",
 		description: DECISION_TOOL_DESCRIPTION,
 		promptSnippet: "Resolve a technical fork inside the active goal from the original request, recording the rationale, instead of asking first.",
+		// Guidelines reach the system prompt only while this tool is active (goal active, decisionMode not manual).
+		promptGuidelines: ["Use goal_decision for a technical fork inside the active goal (one of several valid options), never for a blocker, an objective or contract change, or a confirmation. Follow its result: a decision to continue with, or an escalation to goal_question."],
 		parameters: DecisionToolParametersSchema,
 		async execute(_id, params, signal, _update, ctx) {
 			const { recommended, ...proposalInput } = params;

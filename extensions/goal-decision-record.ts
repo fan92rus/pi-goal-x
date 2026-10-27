@@ -143,6 +143,16 @@ export function objectiveAnchor(objective: string): DecisionRequestAnchor {
 	};
 }
 
+/**
+ * Decision fingerprint (TECH §7, E6.2): identifies a decision request by its
+ * question, options, and objective hash. The `decision:` prefix keeps this
+ * namespace disjoint from buildBlockerFingerprint's bare sha256[0:24] hex.
+ */
+export function buildDecisionFingerprint(goalId: string, question: string, options: readonly string[], objectiveHash: string): string {
+	const digest = createHash("sha256").update([question, ...options, objectiveHash].join("\u0000"), "utf8").digest("hex").slice(0, 24);
+	return `decision:${goalId}:${digest}`;
+}
+
 export type DecisionStoreErrorCode =
 	| "invalid-input"
 	| "corrupt"

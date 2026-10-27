@@ -190,8 +190,14 @@ export function sisyphusDisciplineBlock(goal: GoalRecord): string {
 	].join("\n");
 }
 
+/**
+ * Fork routing (TECH §4, E6.2). Injected only while goal_decision is advertised for the active goal
+ * (decisionMode not manual). Plain text: the lifecycle block adds the bullet.
+ */
+export const DECISION_FORK_RULE = "A technical fork (one of several valid options, not a blocker): resolve it with goal_decision, then follow its result — a decision to continue with, or an escalation to ask via goal_question with the recommendation. Blockers and forks it escalates keep the goal_question rules.";
+
 /** Shared outcome/blocker policy for active goals (bounded). */
-function lifecyclePolicyBlock(autonomous: boolean, strict: boolean, commands?: GoalCommands): string {
+function lifecyclePolicyBlock(autonomous: boolean, strict: boolean, commands?: GoalCommands, decisionTool = false): string {
  return commandInstructions([
   "[OUTCOMES]",
   '- Automatic runs default to unlimited. maxAutonomousRuns in .pi/pi-goal-x-settings.json caps runs; 0 disables (agents may set it). Only creation or user /goal-resume renews usage.',
@@ -201,6 +207,7 @@ function lifecyclePolicyBlock(autonomous: boolean, strict: boolean, commands?: G
   '- update_goal({status: "complete"}) only when every requirement is satisfied; the independent completion auditor checks actual evidence. Approval archives; rejection requires rework.',
   '- A blocker IS a question: when a point cannot be decided alone, ask via goal_question (answer options or the user\'s own text) — even a trivial blocker gets at least a bare confirmation. An answer that settles the point lifts the block — continue on it in the same turn; an unclear or incomplete answer gets a follow-up goal_question, never a guess and never update_goal(blocked). A cancelled dialog or no UI means no answer: fall back to the blocker ladder.',
   '- update_goal({status: "blocked"}) is the no-answer fallback only: use it after the SAME blocker recurs on three consecutive goal turns AND a goal_question went unanswered or no UI exists. When a UI is available, asking the question IS the block — the answer unblocks; keep trying concrete steps before then.',
+  ...(decisionTool ? [`- ${DECISION_FORK_RULE}`] : []),
   '- update_goal({status: "paused", reason: "…"}) pauses immediately. User controls: /goal-pause, /goal-resume, /goal-clear.',
   '- The objective is immutable: never edit it yourself; ask the user to run /goal-tweak.',
   '- Use work tools directly. Do not call get_goal repeatedly when the needed state is already visible.',
@@ -215,10 +222,10 @@ function lifecyclePolicyBlock(autonomous: boolean, strict: boolean, commands?: G
 const promptFragmentCache: Array<{key: readonly unknown[]; value: string; chars: number}> = [];
 let promptCacheChars = 0;
 
-function cachedPrompt(goal: GoalRecord, settings: GoalSettings | undefined, kind: "goal" | "continuation", build: () => string): string {
+function cachedPrompt(goal: GoalRecord, settings: GoalSettings | undefined, kind: "goal" | "continuation", decisionTool: boolean, build: () => string): string {
  const key = [kind, goal.id, goal.status, goal.autoContinue, goal.sisyphus, goal.objective,
   goal.verificationContract, settings?.disableTasks ? undefined : taskIndex(goal.taskList?.tasks),
-  goal.taskList?.blockCompletion, promptProfile(), goal.currentTaskId, settings?.disableTasks, settings?.disableContracts, settings?.autonomousTasks === true, settings?.maxAutonomousRuns !== 0, settings?.strictExecutionContract === true, !!goal.scheduler?.wait, settings?.commands ? JSON.stringify(settings.commands) : undefined];
+  goal.taskList?.blockCompletion, promptProfile(), goal.currentTaskId, settings?.disableTasks, settings?.disableContracts, settings?.autonomousTasks === true, settings?.maxAutonomousRuns !== 0, settings?.strictExecutionContract === true, !!goal.scheduler?.wait, settings?.commands ? JSON.stringify(settings.commands) : undefined, decisionTool];
  for (let i = promptFragmentCache.length - 1; i >= 0; i--) {
   const entry = promptFragmentCache[i]!;
   if (key.every((part, j) => part === entry.key[j])) return entry.value;
@@ -238,13 +245,13 @@ function retainedTaskChars(task: GoalTask): number {
   + (task.skipReason?.length ?? 0) + (task.subtasks?.reduce((n, child) => n + retainedTaskChars(child), 0) ?? 0);
 }
 
-export function goalPromptParts(goal: GoalRecord, settings?: GoalSettings, contextUsage?: GoalContextUsage): { state: string; counters: string } {
+export function goalPromptParts(goal: GoalRecord, settings?: GoalSettings, contextUsage?: GoalContextUsage, decisionTool = false): { state: string; counters: string } {
 	// The policy block changes only when the goal itself changes; the counters
 	// change nearly every turn. Splitting them lets request-only injection retain
 	// each at its own rate so consecutive provider requests stay prefix-stable.
 	// Scheduling instructions ride with the policy block: they are cleared by
 	// omission, so a retained copy would keep issuing a cancelled order.
-	const fixed = cachedPrompt(goal, settings, "goal", () => buildGoalPrompt(goal, settings));
+	const fixed = cachedPrompt(goal, settings, "goal", decisionTool, () => buildGoalPrompt(goal, settings, decisionTool));
 	const { runs, instructions } = schedulerSummaryParts(goal.scheduler, settings?.maxAutonomousRuns, settings?.showAutonomousRuns, settings?.idleContinuationBackoff === true, settings?.commands);
 	const limits = `Limits: lifetime tokens=${goal.tokenBudget ?? "none"}; runs=${settings?.maxAutonomousRuns ?? "unlimited"}.`;
 	const state = [fixed, instructions, limits, "Usage spans goal turns, not context. Latest snapshot supersedes earlier snapshots."].filter(Boolean).join("\n");
@@ -257,12 +264,12 @@ export function goalPrompt(goal: GoalRecord, settings?: GoalSettings): string {
 	return `${state}\n${counters}`;
 }
 
-function buildGoalPrompt(goal: GoalRecord, settings?: GoalSettings): string {
+function buildGoalPrompt(goal: GoalRecord, settings: GoalSettings | undefined, decisionTool: boolean): string {
  // Stable policy comes first; changing counters are appended by goalPrompt.
  // Bound individual data fields so essential rules can never be sliced off.
  return [
   `[PI GOAL ACTIVE goalId=${goal.id}]`,
-  lifecyclePolicyBlock(settings?.maxAutonomousRuns !== 0, settings?.strictExecutionContract === true || !!goal.scheduler?.wait, settings?.commands), sisyphusDisciplineBlock(goal),
+  lifecyclePolicyBlock(settings?.maxAutonomousRuns !== 0, settings?.strictExecutionContract === true || !!goal.scheduler?.wait, settings?.commands, decisionTool), sisyphusDisciplineBlock(goal),
   `Status: ${statusLabel(goal)}\nMode: ${goal.sisyphus ? "sisyphus" : "regular"}`,
   untrustedObjectiveBlock(goal), taskListBlock(goal, settings), verificationContractBlock(goal, settings),
  ].filter(Boolean).join("\n\n");

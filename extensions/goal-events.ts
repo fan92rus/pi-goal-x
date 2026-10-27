@@ -486,7 +486,8 @@ export function registerGoalEvents(core: GoalCore): void {
   }
 		const activeGoal = core.state.goal;
 		const settings = loadGoalSettings(ctx.cwd);
-		const { state: policy, counters } = goalPromptParts(activeGoal, { ...settings, commands: core.loadedCommands }, ctx.getContextUsage?.());
+		const forkRouting = core.decisionToolEnabled && activeGoal.status === "active";
+		const { state: policy, counters } = goalPromptParts(activeGoal, { ...settings, commands: core.loadedCommands }, ctx.getContextUsage?.(), forkRouting);
 		// Rare transitional steering rides in the stable block; per-turn usage and
 		// scheduling counters stay in the volatile block so retention grows slowly.
 		let state = policy;

@@ -7,6 +7,7 @@ import path from "node:path";
 import {
 	DECISION_LOG_CAP,
 	DECISIONS_DIR,
+	buildDecisionFingerprint,
 	createDecision,
 	getConsultationsLaunched,
 	getDecisions,
@@ -22,6 +23,8 @@ import {
 	type DecisionStatusWriter,
 	type DecisionStoreResult,
 } from "../extensions/goal-decision-record.ts";
+import { buildBlockerFingerprint } from "../extensions/goal-oracle.ts";
+import { createGoal } from "../extensions/goal-record.ts";
 import { acquireGoalLock } from "../extensions/storage/goal-lock.ts";
 
 const OBJECTIVE = "Migrate the storage layer to the new schema";
@@ -228,6 +231,21 @@ test("objective excerpt is capped at 400 and the sha256 hash is stable", t => {
 	const created = okValue(createDecision(ctx, GOAL, draft("long objective", { objective: long })));
 	assert.equal(created.requestAnchor.objectiveExcerpt.length, 400);
 	assert.equal(assertDiskValid(ctx, GOAL)[0]?.requestAnchor.objectiveHash, anchor.objectiveHash);
+});
+
+test("decision fingerprint is prefixed, stable, input-sensitive, and disjoint from the blocker fingerprint", () => {
+	const hash = objectiveAnchor(OBJECTIVE).objectiveHash;
+	const fp = buildDecisionFingerprint(GOAL, "Use WAL mode?", ["yes", "no"], hash);
+	assert.match(fp, /^decision:.+:[0-9a-f]{24}$/);
+	const goal = { ...createGoal({ objective: OBJECTIVE, autoContinue: true, sisyphus: false }), id: GOAL };
+	const blocker = buildBlockerFingerprint(goal, "Use WAL mode?");
+	assert.notEqual(fp, blocker);
+	assert.match(blocker, /^[0-9a-f]{24}$/, "blocker fingerprint is bare hex");
+	assert.notEqual(fp.slice("decision:".length), blocker);
+	assert.notEqual(buildDecisionFingerprint(GOAL, "Use WAL mode? ", ["yes", "no"], hash), fp, "question changes the digest");
+	assert.notEqual(buildDecisionFingerprint(GOAL, "Use WAL mode?", ["yes", "maybe"], hash), fp, "option changes the digest");
+	assert.notEqual(buildDecisionFingerprint(GOAL, "Use WAL mode?", ["yes", "no"], objectiveAnchor(`${OBJECTIVE}!`).objectiveHash), fp, "objective hash changes the digest");
+	assert.equal(buildDecisionFingerprint(GOAL, "Use WAL mode?", ["yes", "no"], hash), fp, "repeated calls are stable");
 });
 
 test("a held per-goal decision lock yields a typed locked error without touching the file", t => {

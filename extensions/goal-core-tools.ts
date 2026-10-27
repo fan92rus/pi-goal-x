@@ -18,7 +18,7 @@ import { sisyphusStepProgress } from "./goal-policy.ts";
 import { deriveTasksFromObjective } from "./goal-task-derive.ts";
 import { nowIso, type GoalRecord, type GoalTask, validateTokenBudgetInput } from "./goal-record.ts";
 import type { GoalCore } from "./goal-state.ts";
-import { promptProfile } from "./prompts/goal-prompts.ts";
+import { DECISION_FORK_RULE, promptProfile } from "./prompts/goal-prompts.ts";
 import {
 	armOracleAdvice,
 	buildBlockerFingerprint,
@@ -121,7 +121,7 @@ pi.registerTool(defineTool({
 			if (view.archivedPath) lines.push(`Archive: ${view.archivedPath}`);
 			if (otherCount > 0) lines.push(`Other open goals: ${otherCount} (user can run ${commandHint("goal-list", core.loadedCommands)} or ${commandHint("goal-focus", core.loadedCommands)})`);
 			lines.push("");
-			lines.push("Lifecycle: call update_goal({status: \"complete\"}) only when every requirement is satisfied — the independent auditor verifies from actual evidence. A blocker is expressed as a question: when a point cannot be decided alone, ask via goal_question when a UI is available — the ask IS the block. An answer that settles the point lifts it (continue in the same turn); an unclear answer gets a follow-up question, never a guess. update_goal({status: \"blocked\"}) is the fallback for an unanswered question or no UI (plus the same blocker recurring on three consecutive goal turns). User commands handle pause/resume/clear/focus.");
+			lines.push("Lifecycle: call update_goal({status: \"complete\"}) only when every requirement is satisfied — the independent auditor verifies from actual evidence. A blocker is expressed as a question: when a point cannot be decided alone, ask via goal_question when a UI is available — the ask IS the block. An answer that settles the point lifts it (continue in the same turn); an unclear answer gets a follow-up question, never a guess. update_goal({status: \"blocked\"}) is the fallback for an unanswered question or no UI (plus the same blocker recurring on three consecutive goal turns). User commands handle pause/resume/clear/focus." + (core.decisionToolEnabled && view.status === "active" ? ` ${DECISION_FORK_RULE}` : ""));
 			// E1: goal history (last audit verdict + recent lifecycle events).
 			if (includeHistory) {
 				const history = buildGoalHistoryBlock(view, readGoalLedger(ctx).events);
