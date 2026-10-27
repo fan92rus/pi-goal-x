@@ -70,6 +70,7 @@ export async function runGoalCompletionFlow(core: GoalCore, ctx: ExtensionContex
  const cancelled = () => core.focusedOperationCancelledResult("Goal completion", focus);
  const persistenceError = (): AgentToolResult<unknown> => ({isError: true, content: [{type: "text", text: "The audit outcome could not be persisted. The goal remains open; inspect the storage diagnostic and retry."}], details: goalDetails(core.state.goal), terminate: false});
  append({type: "completion_requested", goalId: target.id, at: nowIso()});
+ core.activeAudit?.cancel("A newer completion attempt replaced this audit.");
 
  const skipReason = target.skipAuditor ? "per-goal auditor disabled" : config.disabled ? "auditor disabled in settings" : undefined;
  if (skipReason) {
@@ -78,7 +79,6 @@ export async function runGoalCompletionFlow(core: GoalCore, ctx: ExtensionContex
   return commitCompletion(core, ctx, {goal: target, focus, skipped: skipReason});
  }
 
- core.activeAudit?.cancel("A newer audit replaced this completion attempt.");
  const run: ActiveGoalAudit = {
   controller: new AbortController(), phase: "running",
   cancel: reason => {

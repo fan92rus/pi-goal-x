@@ -289,3 +289,9 @@ Separated pure cache comparison from SDK payload capture and moved SDK-bound iso
 | Capture isolation | Two concurrent captures retain distinct settings/goals | Failure cleanup cannot remove a sibling at its read barrier; real SDK worker | Context/provider gates may run concurrently; mandatory full-suite entry |
 
 Final exact-commit Linux/minimum-Node and native Windows CI, refreshed full-suite/package evidence, and publication status follow below. No release/tag/issue disposition is claimed by these local results.
+
+### Final review: disabled replacement must retire the running auditor
+
+Review of the skip path found that a second valid completion after disabling the auditor could leave the previous nested auditor/controller and animation running. The independent registered regression failed because the original signal was not aborted. Moved the existing replacement-cancellation call ahead of the skip decision; no new state or branch was needed. The test now proves the prior attempt settles once, the disabled attempt settles once, the goal completes, resources clear, and a late approval cannot add another outcome.
+
+Before this correction, exact source commit `95179d8` passed all 1,257 local tests with zero skips, both installed Pi CLI suites, the expanded packed-artifact smoke, context/provider/cache gates and native Windows CI. Those results are supporting evidence only; the corrected commit must pass the integrated checks again. PR #118 contains the integration branch and its required Linux/Windows validation.

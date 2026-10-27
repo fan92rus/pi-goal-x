@@ -75,6 +75,26 @@ test("a throwing auditor is settled and releases all audit resources", async () 
  } finally {await h.cleanup();}
 });
 
+test("a replacement completion with the auditor disabled retires the running attempt", async () => {
+ const pending = deferred<any>(), started = deferred<any>();
+ let signal!: AbortSignal;
+ const h = stabilizationHarness(async args => {signal = args.signal; started.resolve(null); return pending.promise;});
+ let first: Promise<any> | undefined;
+ try {
+  await h.start(); first = h.call("update_goal", {status: "complete"}); await started.promise;
+  h.core.updateFocusedGoal({...h.core.state.goal!, skipAuditor: true}, h.ctx);
+  await h.call("update_goal", {status: "complete"});
+  assert.equal(signal.aborted, true, "the replaced independent auditor must actually stop");
+  assert.equal(h.core.activeAudit, null);
+  assert.equal(h.core.auditAnimationTimer, null);
+  assert.equal(h.core.state.goal?.status, "complete");
+  const settled = h.ledger().filter(e => e.type === "audit_result" || e.type === "audit_skipped");
+  assert.equal(settled.length, 2, "each accepted attempt has exactly one outcome");
+  pending.resolve(approved); await first;
+  assert.deepEqual(h.ledger().filter(e => e.type === "audit_result" || e.type === "audit_skipped"), settled);
+ } finally {pending.resolve(approved); await first; await h.cleanup();}
+});
+
 test("a newer audit start supersedes an older verdict in every history reader", async () => {
  const h = stabilizationHarness();
  try {
