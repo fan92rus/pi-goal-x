@@ -20,6 +20,7 @@
     "./tests/goal-core.test.ts",
     "./tests/goal-dashboard-golden.test.ts",
     "./tests/goal-dashboard-model.test.ts",
+    "./tests/goal-decision-acceptance.test.ts",
     "./tests/goal-decision-consultant.test.ts",
     "./tests/goal-decision-journal.test.ts",
     "./tests/goal-decision-policy.test.ts",

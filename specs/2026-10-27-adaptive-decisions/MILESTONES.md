@@ -84,3 +84,11 @@
 - gx-443.2 промпты/описания тулов, oracle-путь не тронут, ручной режим байт-в-байт. Коммит cebc576.
 - gx-443.3 проектный переключатель decisionMode (проектный слой авторитетен), переключение в manual посреди обсуждения останавливает автономную приёмку (fresh-read в guard), журнал решений + status-строка. Коммит 708f8ab.
 - Инцидент: первое ревью 443.1 умерло на schema-missing (structured_output не вызван) — движок восстановил через rework+повторное ревью; отчёт failed-ревьюера при этом содержал полный approved-вердикт.
+
+## 2026-10-27 — E7.1 (scenario acceptance S01–S22, release 0.35.0)
+
+- `tests/goal-decision-acceptance.test.ts` (31 cases): every MATRIX scenario has at least one case, run through the real `piGoalExtension` lifecycle (`session_start`, the registered `goal_decision` tool, the restart hook) and through `executeDecisionTool` with the real `runConsultant`, router, record store, runtime guard, and accounting. Only the SDK session factory is scripted (`createSession` seam). No fs fault injection was needed by any scenario, so no restorable-fs helper was added.
+- Defect found and fixed (minimal, G1 in MATRIX.md): the tool path accepted a consultant-backed decision against the goal snapshot taken at call start, so an objective, focus, or scheduler-generation change during the deliberation was not detected. `settle()` now reads the goal live; `acceptDecisionResolution` treats no focused goal as `goal-not-active`. The two S11 objective and focus cases failed before the fix (`objective-changed` expected, decision accepted) and pass after it.
+- Gaps documented in MATRIX.md (E7.1 section, G2–G11): the per-result guard and `activeDecisionId` are not on the production tool path (G2); preference and materiality are semantic (G3, G4); S13 escalates at the failing phase rather than at the round limit (G5); S21 byte-compare and S22 real-model behavior are not re-verified (G6, G7).
+- Release: `0.34.0` → `0.35.0` in `package.json` and `package-lock.json`; CHANGELOG `[0.35.0]` takes the Unreleased items and adds the adaptive-decisions entry. `npm pack --dry-run` checked; no publish, no tag.
+- Gate: `npm test` 1430/1430 (was 1399; +31 acceptance cases); `npm run check` clean; test manifest refreshed with `--write-manifest`.

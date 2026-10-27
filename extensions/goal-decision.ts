@@ -1094,7 +1094,8 @@ function settle(rc: ResolutionContext, source: "agent" | "human", outcome: Decis
 		goalId: rc.goal.id,
 		cwd: rc.deps.cwd,
 		env: rc.deps.env,
-		goal: rc.goal,
+		// Read live at acceptance: the goal may have changed while consultants ran (TECH §6). The call-start snapshot would miss it.
+		goal: rc.deps.readGoal(),
 		decisionId: rc.decisionId,
 		source,
 		outcome,

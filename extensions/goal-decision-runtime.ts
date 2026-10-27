@@ -110,7 +110,8 @@ type FreshSettings = ReturnType<typeof readModeFreshFromDisk>;
  * Checks that the goal, settings, objective, and generation still match the record.
  * `settings` is the project settings read fresh from disk by the caller.
  */
-function bindingProblem(goal: GoalAcceptanceView, record: DecisionRecord, settings: FreshSettings): Problem | undefined {
+function bindingProblem(goal: GoalAcceptanceView | null, record: DecisionRecord, settings: FreshSettings): Problem | undefined {
+	if (goal === null) return { reason: "goal-not-active", detail: "no goal is focused" };
 	if (goal.status !== "active") return { reason: "goal-not-active", detail: `goal status is ${goal.status}` };
 	if (settings.mode === "manual") return { reason: "mode-manual", detail: "decisionMode is manual" };
 	if (settings.snapshotId !== record.policyVersion) {
@@ -229,7 +230,8 @@ export interface ResolutionAcceptanceInput {
 	/** Project root whose settings file is re-read from disk (cache-bypassing). */
 	cwd: string;
 	env?: NodeJS.ProcessEnv;
-	goal: GoalAcceptanceView;
+	/** The focused goal read at acceptance; null when no goal is focused. */
+	goal: GoalAcceptanceView | null;
 	decisionId: string;
 	/**
 	 * `agent`: an autonomous resolution (bounded-auto) — fresh mode, snapshot, objective, and
