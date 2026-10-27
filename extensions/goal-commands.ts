@@ -374,8 +374,8 @@ export function registerGoalCommands(core: GoalCore): void {
 	type SettingRow = {
 		key: keyof GoalSettings | string;
 		label: string;
-		section: "Goal behavior" | "Task tracking" | "Completion auditor" | "Blocker Oracle" | "Advanced execution";
-		kind: "boolean" | "modelSelector" | "thinking" | "positiveInteger";
+		section: "Goal behavior" | "Task tracking" | "Completion auditor" | "Blocker Oracle" | "Advanced execution" | "Adaptive decisions";
+		kind: "boolean" | "modelSelector" | "thinking" | "positiveInteger" | "modeSelect";
 		/** Settings path for the mutation (defaults to [key]). */
 		path?: string[];
 		help?: string;
@@ -452,6 +452,17 @@ export function registerGoalCommands(core: GoalCore): void {
 		{ key: "oracleThinkingLevel", label: "oracle thinking_level", section: "Blocker Oracle", kind: "thinking", path: ["oracle", "thinkingLevel"] },
 		{ key: "oracleProjectResources", label: "oracle project resources", section: "Blocker Oracle", kind: "boolean", path: ["oracle", "projectResources"] },
 		{ key: "oracleMaxFailedAttemptsPerBlocker", label: "max failed attempts per blocker", section: "Blocker Oracle", kind: "positiveInteger", path: ["oracle", "maxFailedAttemptsPerBlocker"] },
+		// Adaptive decisions (specs/2026-10-27-adaptive-decisions): writes the
+		// same flat keys the decision policy reads; resolution is layered
+		// project > global like every other row here.
+		{ key: "decisionMode", label: "decisionMode (manual | advisory | bounded-auto)", section: "Adaptive decisions", kind: "modeSelect",
+			help: "manual = ask as today; advisory = ready recommendation; bounded-auto = decide within limits" },
+		{ key: "decisionCriticProviderModel", label: "critic provider/model", section: "Adaptive decisions", kind: "modelSelector", path: ["decisionCritic"] },
+		{ key: "decisionCriticThinkingLevel", label: "critic thinking_level", section: "Adaptive decisions", kind: "thinking", path: ["decisionCritic", "thinkingLevel"] },
+		{ key: "decisionLimitsMaxRounds", label: "max rounds (phases)", section: "Adaptive decisions", kind: "positiveInteger", path: ["decisionLimits", "maxRounds"] },
+		{ key: "decisionLimitsDeadline", label: "consultant deadline (ms)", section: "Adaptive decisions", kind: "positiveInteger", path: ["decisionLimits", "consultantDeadlineMs"] },
+		{ key: "decisionLimitsParallel", label: "max parallel consultants", section: "Adaptive decisions", kind: "positiveInteger", path: ["decisionLimits", "maxParallelConsultants"] },
+		{ key: "decisionLimitsCap", label: "consultations per goal (shared with oracle)", section: "Adaptive decisions", kind: "positiveInteger", path: ["decisionLimits", "maxConsultationsPerGoal"] },
 	];
 
 	function settingsValue(config: GoalSettings, key: keyof GoalSettings | string): string {
@@ -550,9 +561,12 @@ export function registerGoalCommands(core: GoalCore): void {
 					else source = "(default)";
 					const hasLocalOverride = valueAtPath(localLayer, rowPath) !== undefined;
 					if (hasLocalOverride && provenance?.source === scope) source = `(${scope} override)`;
-					// Nested rows render their leaf value directly.
+					// Nested rows render their leaf value directly; the critic
+					// provider/model pair renders as one provider/model string.
 					const displayValue = row.path
-						? String(valueAtPath(snapshot.value, rowPath) ?? "(default)")
+						? (row.kind === "modelSelector" && row.path[0] === "decisionCritic"
+							? [valueAtPath(snapshot.value, ["decisionCritic", "provider"]), valueAtPath(snapshot.value, ["decisionCritic", "model"])].filter((v) => typeof v === "string" && v.length > 0).join("/") || "(default)"
+							: String(valueAtPath(snapshot.value, rowPath) ?? "(default)"))
 						: settingsValue(snapshot.value, row.key);
 					options.push(`  ${settingRowLabel(row)}: ${displayValue} ${source}`);
 				}
@@ -613,6 +627,21 @@ export function registerGoalCommands(core: GoalCore): void {
 					continue;
 				}
 
+				if (row.kind === "modeSelect") {
+					const effective = String(valueAtPath(snapshot.value, rowPath) ?? "manual");
+					const choices = ["manual", "advisory", "bounded-auto", "(default)"];
+					const picked = await ctx.ui.select(`${row.label} (${scope})${row.help ? `\n${row.help}` : ""}`, choices);
+					if (!picked) continue;
+					if (picked === "(default)") {
+						if (hasLocalOverride) applyMutation(scope, { op: "unset", path: rowPath });
+						continue;
+					}
+					if (picked !== effective || !hasLocalOverride) {
+						applyMutation(scope, { op: "set", path: rowPath, value: picked });
+					}
+					continue;
+				}
+
 				if (row.kind === "positiveInteger") {
 					const min = row.path ? 1 : ((row.key === "stallTimeoutMinutes" || row.key === "objectiveMaxChars" || row.key === "maxAutonomousRuns") ? 0 : 1);
 					const actions = [`Set ${scope} override...`];
@@ -662,12 +691,16 @@ export function registerGoalCommands(core: GoalCore): void {
 
 				// modelSelector rows (provider, model): searchable model picker with
 				// explicit inherit/default handling. Auditor rows apply provider+model
-				// at the flat paths; the Oracle row writes oracle.provider/oracle.model.
+				// at the flat paths; the Oracle row writes oracle.provider/oracle.model;
+				// the critic row writes decisionCritic.provider/decisionCritic.model.
 				const oraclePair = row.path?.[0] === "oracle";
-				const pairPrefix = oraclePair ? ["oracle"] : [];
+				const criticPair = row.path?.[0] === "decisionCritic";
+				const pairPrefix = oraclePair ? ["oracle"] : criticPair ? ["decisionCritic"] : [];
 				const configuredBase = oraclePair
 					? [snapshot.value.oracle?.provider, snapshot.value.oracle?.model].filter(Boolean).join("/")
-					: configuredAuditorModelKey(snapshot.value as GoalSettings);
+					: criticPair
+						? [snapshot.value.decisionCritic?.provider, snapshot.value.decisionCritic?.model].filter((v): v is string => typeof v === "string").join("/")
+						: configuredAuditorModelKey(snapshot.value as GoalSettings);
 				const configured = configuredBase || undefined;
 				const session = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined;
 				const choices = buildAuditorModelChoices(ctx.modelRegistry.getAvailable(), configured, session);
@@ -680,7 +713,7 @@ export function registerGoalCommands(core: GoalCore): void {
 				if (!choice) continue;
 				if (choice.kind === "default") {
 					for (const key of ["provider", "model"] as const) {
-						if (localLayer[key] !== undefined) applyMutation(scope, { op: "unset", path: [...pairPrefix, key] });
+						if (valueAtPath(localLayer, [...pairPrefix, key]) !== undefined) applyMutation(scope, { op: "unset", path: [...pairPrefix, key] });
 					}
 					continue;
 				}

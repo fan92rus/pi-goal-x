@@ -117,3 +117,9 @@
 - Полное послойное разрешение decision-ключей: глобальный файл задаёт дефолтный decisionMode + общие decisionCritic/decisionLimits, проектный переопределяет по ключу (как resolveLeaf у остальных опций). Fail-safe без fallthrough на явный невалидный слой; JSON null = absent.
 - snapshotId = sha256(global||NUL||project)[0:16] — правка любого файла посреди размышления инвалидирует; формат сменился, pre-E9 id инвалидированы однократно (fail-closed).
 - Ревью glm-5.3-flash ok (мутационная проверка, scratch-доказательство инвалидации по глобали). Коммит $(git rev-parse --short HEAD).
+## 2026-10-27 — E10 (gx-773.2)
+
+- /goal-settings: раздел "Adaptive decisions" — decisionMode (picker manual/advisory/bounded-auto), критик provider/model + thinking_level, 4 лимита; редактирование per scope (project/global) с inherited/override как у остальных строк.
+- goal-settings: snapshot резолвит decision-ключи с провенансом per leaf (дефолты 2/120000/2/6, fail-safe без fallthrough); политика остаётся авторитетной.
+- Бонус: фикс латентного бага modelSelector — "default" для oracle/critic pair теперь реально снимает provider/model из слоя (был flat-lookup мимо пути).
+- Ревью glm-5.3-flash ok (UI-драйв, 12 scratch-кейсов, гейты: check 0, npm test 1460/1460, test:all 1522/2 skips). Minors (hand-edit display edge, pair-провенанс как у oracle) зафиксированы в TECH.

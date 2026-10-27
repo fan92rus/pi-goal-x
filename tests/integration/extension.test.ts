@@ -448,7 +448,8 @@ describe("five-tool handler integration", () => {
 				await start(h);
 				await h.commands.get("goal-settings").handler("", h.ctx);
 				const lines = firstOptions.filter((o) => o.startsWith("  ") && !o.startsWith("  ───"));
-				assert.equal(lines.length, 22, `all twenty-two settings rows rendered, got: ${lines.join(" | ")}`);
+				assert.equal(lines.length, 29, `all twenty-nine settings rows rendered, got: ${lines.join(" | ")}`);
+				assert.ok(lines.some((l) => l.startsWith("  decisionMode (manual | advisory | bounded-auto)")) && lines.some((l) => l.includes("critic provider/model")) && lines.some((l) => l.includes("consultations per goal")), "adaptive decisions rows rendered");
 				assert.ok(lines.includes("  slow repeated idle replies (opt-in): false (default)"));
 				assert.ok(lines.some((l) => l === "  show autonomous runs line (show the autonomous runs line): true (default)"), "the runs-line setting is listed and defaults to on");
 				assert.ok(lines.some((l) => l === "  autonomousTasks (apply task-tree changes without asking): false (default)"), "the autonomousTasks setting is listed and defaults to off");

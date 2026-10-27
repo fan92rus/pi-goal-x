@@ -66,6 +66,7 @@
     "./tests/goal-service.test.ts",
     "./tests/goal-session-health.test.ts",
     "./tests/goal-session-safety.test.ts",
+    "./tests/goal-settings-decision-menu.test.ts",
     "./tests/goal-settings-race.test.ts",
     "./tests/goal-settings.test.ts",
     "./tests/goal-stale-continuation-golden.test.ts",

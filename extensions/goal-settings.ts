@@ -913,6 +913,50 @@ function resolvedSettingsSnapshot(cwd: string, env: NodeJS.ProcessEnv): Settings
 		envVar: "PI_GOAL_NETWORK_RECOVERY_MAX_DELAY_MS",
 	}));
 
+	// Adaptive decisions (specs/2026-10-27-adaptive-decisions TECH §2): per-key
+	// layering identical to every other setting. Shape-check only here — the
+	// authoritative validation lives in goal-decision-policy.ts (keep
+	// GOAL_DECISION_MODES / DEFAULT_GOAL_DECISION_LIMITS in sync with these
+	// literals; invalid leaves fall to the built-in defaults, and a
+	// present-but-invalid mode string fails safe to "manual" without
+	// falling through to the lower layer).
+	const decisionModeResolved = track("decisionMode", resolveLeaf<string>({
+		projectValue: project.layer.decisionMode,
+		globalValue: global.layer.decisionMode,
+		defaultValue: "manual",
+	}));
+	const decisionModeValue = (["manual", "advisory", "bounded-auto"] as readonly string[]).includes(decisionModeResolved) ? decisionModeResolved : "manual";
+	const decisionObjectLayer = (layer: GoalSettingsLayer, key: "decisionCritic" | "decisionLimits"): Record<string, unknown> | undefined => {
+		const raw: unknown = layer[key];
+		return raw !== undefined && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : undefined;
+	};
+	const asDecisionString = (v: unknown): string | undefined => (typeof v === "string" && v.length > 0 ? v : undefined);
+	const asDecisionPositiveInt = (v: unknown): number | undefined => (typeof v === "number" && Number.isSafeInteger(v) && v >= 1 ? v : undefined);
+	const decisionCriticProvider = track("decisionCritic.provider", resolveLeaf<string>({
+		projectValue: asDecisionString(decisionObjectLayer(project.layer, "decisionCritic")?.provider),
+		globalValue: asDecisionString(decisionObjectLayer(global.layer, "decisionCritic")?.provider),
+		defaultValue: undefined as unknown as string,
+	}));
+	const decisionCriticModel = track("decisionCritic.model", resolveLeaf<string>({
+		projectValue: asDecisionString(decisionObjectLayer(project.layer, "decisionCritic")?.model),
+		globalValue: asDecisionString(decisionObjectLayer(global.layer, "decisionCritic")?.model),
+		defaultValue: undefined as unknown as string,
+	}));
+	const decisionCriticThinkingLevel = track("decisionCritic.thinkingLevel", resolveLeaf<string>({
+		projectValue: asDecisionString(decisionObjectLayer(project.layer, "decisionCritic")?.thinkingLevel),
+		globalValue: asDecisionString(decisionObjectLayer(global.layer, "decisionCritic")?.thinkingLevel),
+		defaultValue: undefined as unknown as string,
+	}));
+	const decisionLimit = (key: "maxRounds" | "consultantDeadlineMs" | "maxParallelConsultants" | "maxConsultationsPerGoal", fallback: number): number => track(`decisionLimits.${key}`, resolveLeaf<number>({
+		projectValue: asDecisionPositiveInt(decisionObjectLayer(project.layer, "decisionLimits")?.[key]),
+		globalValue: asDecisionPositiveInt(decisionObjectLayer(global.layer, "decisionLimits")?.[key]),
+		defaultValue: fallback,
+	}));
+	const decisionMaxRounds = decisionLimit("maxRounds", 2);
+	const decisionDeadlineMs = decisionLimit("consultantDeadlineMs", 120000);
+	const decisionParallel = decisionLimit("maxParallelConsultants", 2);
+	const decisionCap = decisionLimit("maxConsultationsPerGoal", 6);
+
 	const keybindings = { dashboard: {} } as unknown as GoalKeybindings;
 	for (const action of GOAL_KEY_ACTIONS) {
 		const get = (layer: GoalSettingsLayer): GoalKeybinding | undefined => {
@@ -959,6 +1003,18 @@ function resolvedSettingsSnapshot(cwd: string, env: NodeJS.ProcessEnv): Settings
 			maxAttempts: networkRecoveryMaxAttempts,
 			maxDelayMs: networkRecoveryMaxDelayMs,
 		},
+		decisionMode: decisionModeValue,
+		decisionCritic: {
+			...(decisionCriticProvider ? { provider: decisionCriticProvider } : {}),
+			...(decisionCriticModel ? { model: decisionCriticModel } : {}),
+			...(decisionCriticThinkingLevel ? { thinkingLevel: decisionCriticThinkingLevel } : {}),
+		},
+		decisionLimits: {
+			maxRounds: decisionMaxRounds,
+			consultantDeadlineMs: decisionDeadlineMs,
+			maxParallelConsultants: decisionParallel,
+			maxConsultationsPerGoal: decisionCap,
+		},
 		oracle: {
 			enabled: oracleEnabled,
 			...(oracleProvider ? { provider: oracleProvider } : {}),
@@ -988,6 +1044,8 @@ function copyResolvedSettings(value: ResolvedGoalSettings): ResolvedGoalSettings
 		...(value.commands ? {commands: structuredClone(value.commands)} : {}),
 		...(value.networkRecovery ? {networkRecovery: {...value.networkRecovery}} : {}),
 		...(value.oracle ? {oracle: {...value.oracle}} : {}),
+		...(value.decisionCritic ? {decisionCritic: {...value.decisionCritic}} : {}),
+		...(value.decisionLimits ? {decisionLimits: {...value.decisionLimits}} : {}),
 	};
 }
 

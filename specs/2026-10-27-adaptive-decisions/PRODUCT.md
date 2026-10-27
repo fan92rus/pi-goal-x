@@ -63,6 +63,7 @@ The mode is configured **per project** (one setting, shared by all goals and ses
 ## User-facing surface
 
 - Project setting `decisionMode` (`manual` | `advisory` | `bounded-auto`), default `manual`, via the existing layered settings.
+- The `/goal-settings` menu exposes an **Adaptive decisions** section (owner request, post-E9): `decisionMode` picker, critic provider/model + thinking level, and the four limits — editable per scope (project/global) with the same inherited/override display as every other row (added post-E10).
 - A single decision-log entry per resolution with exactly these fields: route + why, link to the original request, chosen option, source (`agent`/`human`/`consultant`), key risks, resources spent, revisit conditions.
 - In `advisory`, the question dialog shows the recommendation before the user answers.
 - Turning the mode off mid-deliberation halts autonomous acceptance; results already accepted stay accepted and are visible in the log.

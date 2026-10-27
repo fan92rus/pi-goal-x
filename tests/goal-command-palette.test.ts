@@ -191,7 +191,9 @@ test("goal-settings renders sectioned rows with clearer auditor wording", async 
 		assert.ok(opts.includes("─── Completion auditor ───"), "Completion auditor section header");
 		assert.ok(opts.some((l) => l.includes("auditor disabled (disable the completion auditor):")), "clearer auditor wording row");
 		assert.ok(opts.some((l) => l.includes("provider (auditor model provider):")) && opts.some((l) => l.includes("model (auditor model):")), "provider/model rows");
-		assert.equal(opts.filter((l) => l.startsWith("───")).length, 6, "editing header + five settings sections");
+		assert.ok(opts.includes("─── Adaptive decisions ───"), "Adaptive decisions section header");
+		assert.ok(opts.some((l) => l.includes("decisionMode (manual | advisory | bounded-auto)")), "decisionMode row");
+		assert.equal(opts.filter((l) => l.startsWith("───")).length, 7, "editing header + six settings sections");
 		assert.ok(opts.includes("─── Blocker Oracle ───"), "Blocker Oracle section header");
 		assert.ok(opts.includes("Done"));
 	} finally {
