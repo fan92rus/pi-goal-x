@@ -46,6 +46,13 @@
 - Not wired yet (E6): `ConsultationDeps.budget` needs the live goal view and the goal's `GoalAccounting`.
 - Tests: accounting 4 (new), consultant 1 (new), router budget/keyed 6 (new).
 
+## 2026-10-27 — E5 (gx-gqf, выполнен через agile_run/agile-loop, bd-epic federation)
+
+- gx-gqf.1 acceptance guard `goal-decision-runtime.ts`: accept только при совпадении decisionId/childRunId (идемпотентно)/snapshotId/objectiveHash/generation, свежее чтение режима при приёмке, ignore-пути не пишут ничего; 21 тест. Коммит cb4ff68.
+- gx-gqf.2 pause/cancel/restart/orphan: сигнал отмены гасит волны, неустранимые дети => orphaned (grace 5s — новое значение, ратифицировано владельцем), session_start инвалидирует открытые записи пула как restarted (fail-closed, пул целиком), поздние результаты в невалидированные записи не пишутся; 14 тестов. Ревьюер сверил abort/subscribe/dispose с реальным SDK. Коммит b519588.
+- gx-gqf.3 keyed accounting: chargeKeyed на GoalAccounting (childRunId-идемпотентность), usage из session-subscribe, бюджет-гейт beforeLaunch через budgetRemaining, unknown usage честный. Коммит f871405.
+- Известное: bd-экспорт в git не коммитится by design (stealth init) — final-bd-close отчитал closed=false с точной нотой; closes в bd durable.
+
 ## Pre-existing issues tracked
 
 - gx-43n.5 (reparented to gx-773): 7 Windows-environment test failures (golden paths, shell harness, lock fault-injection, path asserts, recover bin) + manifest selfcheck red on HEAD Windows.
