@@ -60,6 +60,14 @@
 - Known gaps left for later: the lifecycle prompt (goal-core-tools.ts) is not updated yet (the tool description carries the routing guidance); `GoalRecord.activeDecisionId` is still not wired, so the per-result `acceptConsultantResult` guard is not on the tool path (the resolution-level guard is).
 - Tests: `tests/goal-decision-tool.test.ts` 22 cases (visibility, lazy registration, every outcome, end-to-end through `session_start` and the registered tool); `tests/goal-decision-runtime.test.ts` +5 (`acceptDecisionResolution`); `tests/goal-tool-names.test.ts` registry updated. `npm test` 1377/1377.
 
+## 2026-10-27 — E6.3 (project mode switch + decision journal/status)
+
+- Journal: every terminal state of a DecisionRecord appends one `decision_recorded` ledger event (`goal-decision-journal.ts`: route, request hash, chosen, source, risks, revisit, consultant tokens or `unknown`, reason). Written from `goal_decision` calls and from the session_start restart invalidation (`restarted`). Best-effort append; the record stays the authority.
+- Surface: decision events are activity events (feed line `Decision <id> <status>: …`); the dashboard shows one `Decision` line (last entry) in the compact dashboard and `/goal-status`, omitted when no decision exists (manual unchanged).
+- Mode switch: the project `decisionMode` is written through `mutateSettingsLayer`; a global value stays ignored; a switch to manual during a critic run is rejected at acceptance and journaled as `invalidated: mode-manual`.
+- Not changed: a direct bounded-auto decision has no deliberation window and is still recorded from the mode read at call start (`applyDirectResolution`), not from a fresh acceptance read.
+- Tests: `tests/goal-decision-journal.test.ts` 15 cases; `tests/goal-decision-restart.test.ts` restart assertion extended. `npm test` 1392/1392, `npm run check` clean.
+
 ## Pre-existing issues tracked
 
 - gx-43n.5 (reparented to gx-773): 7 Windows-environment test failures (golden paths, shell harness, lock fault-injection, path asserts, recover bin) + manifest selfcheck red on HEAD Windows.

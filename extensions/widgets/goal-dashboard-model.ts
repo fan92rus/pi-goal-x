@@ -13,7 +13,7 @@ import { taskIndex } from "../goal-task-index.ts";
  */
 
 import { displayObjectiveTitle, formatDuration, statusLabel } from "../goal-core.ts";
-import type { GoalLedgerEvent } from "../goal-ledger.ts";
+import { latestDecisionForGoal, type GoalLedgerEvent } from "../goal-ledger.ts";
 import type { GoalRecord, GoalTask } from "../goal-record.ts";
 import { deriveGoalActivity, type GoalActivityItem } from "../goal-activity.ts";
 
@@ -85,6 +85,17 @@ export interface GoalDashboardModel {
 	goalVerificationContract?: string;
 	otherOpenGoals: number;
 	recentActivity: GoalActivityItem[];
+	/** Last decision journal entry (specs/2026-10-27-adaptive-decisions TECH §8); absent when none was recorded. */
+	lastDecision?: DashboardLastDecision;
+}
+
+export interface DashboardLastDecision {
+	decisionId: string;
+	status: string;
+	route: string;
+	chosen?: string;
+	source?: string;
+	reason?: string;
 }
 
 export interface DashboardTaskNode {
@@ -504,6 +515,16 @@ export function deriveGoalDashboardModel(
 	if (goal.usage.activeSeconds > 0) footerUsageBits.push(formatDuration(goal.usage.activeSeconds));
 	if (goal.usage.tokensUsed > 0) footerUsageBits.push(formatCompactTokens(goal.usage.tokensUsed));
 
+	const lastDecisionEvent = latestDecisionForGoal(ledgerEvents, goal.id);
+	const lastDecision: DashboardLastDecision | undefined = lastDecisionEvent && {
+		decisionId: lastDecisionEvent.decisionId,
+		status: lastDecisionEvent.status,
+		route: lastDecisionEvent.route,
+		...(lastDecisionEvent.chosen === undefined ? {} : { chosen: lastDecisionEvent.chosen }),
+		...(lastDecisionEvent.source === undefined ? {} : { source: lastDecisionEvent.source }),
+		...(lastDecisionEvent.reason === undefined ? {} : { reason: lastDecisionEvent.reason }),
+	};
+
 	const scheduling = schedulerSummaryParts(goal.scheduler, options.maxAutonomousRuns, options.showAutonomousRuns !== false, options.idleContinuationBackoff === true, options.commands);
 	return {
 		scheduling: [scheduling.runs, ...scheduling.instructions.split("\n")].filter(Boolean),
@@ -526,5 +547,14 @@ export function deriveGoalDashboardModel(
 		goalVerificationContract: goal.verificationContract,
 		otherOpenGoals,
 		recentActivity,
+		...(lastDecision ? { lastDecision } : {}),
 	};
+}
+
+/** One-line status text for the last decision, e.g. `decided · direct · WAL (agent)`. */
+export function formatLastDecision(decision: DashboardLastDecision): string {
+	const chosen = decision.chosen === undefined ? "" : ` · ${decision.chosen}`;
+	const source = decision.source === undefined ? "" : ` (${decision.source})`;
+	const reason = decision.reason === undefined ? "" : ` — ${decision.reason}`;
+	return `${decision.status} · ${decision.route}${chosen}${source}${reason}`;
 }

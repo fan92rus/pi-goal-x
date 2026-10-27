@@ -22,6 +22,7 @@ import {
 	deriveTaskListViewport,
 	formatAuditElapsed,
 	formatBudget,
+	formatLastDecision,
 	type DashboardStatusCode,
 	type DashboardTaskNode,
 	type GoalDashboardModel,
@@ -319,6 +320,11 @@ export function renderCompactDashboard(
 	if (model.budget) {
 		const fuel = model.budget.used >= model.budget.total ? "error" : "mdHeading";
 		lines.push(boxLine(theme, safeWidth, `${theme.fg(fuel as RenderColor, "⛽")} ${muted(theme, "Budget")} ${theme.fg(fuel as RenderColor, formatBudget(model.budget.used, model.budget.total))}`));
+	}
+
+	// Last decision (TECH §8): one journal status line, omitted until a decision is recorded.
+	if (model.lastDecision && mode !== "minimal") {
+		lines.push(boxLine(theme, safeWidth, `${muted(theme, "Decision")} ${fit(formatLastDecision(model.lastDecision), inner - 9)}`));
 	}
 
 	// §auditor-toggle: the focused goal's independent-auditor status is the

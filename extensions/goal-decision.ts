@@ -64,6 +64,7 @@ import { goalDetails, renderGoalResult } from "./goal-format.ts";
 import { runConsultant, type ConsultantModel, type ConsultantRole, type ConsultantRunResult, type CriticPayload, type ResearcherPayload } from "./goal-decision-consultant.ts";
 import { readModeFreshFromDisk, resolveDecisionSettings, type GoalDecisionCriticSettings, type GoalDecisionSettings } from "./goal-decision-policy.ts";
 import { acceptDecisionResolution, invalidateOpenDecision, type DecisionResolutionOutcome, type ResolutionAcceptanceVerdict } from "./goal-decision-runtime.ts";
+import { journalDecision } from "./goal-decision-journal.ts";
 import type { GoalRecord, GoalStatus } from "./goal-record.ts";
 import { DIALOG_UNAVAILABLE_HINT, runGoalQuestionnaire, type GoalQuestionnaireResult } from "./goal-questionnaire.ts";
 import type { ThinkingLevel } from "./goal-settings.ts";
@@ -982,6 +983,15 @@ interface ResolutionContext {
 	recommended: number;
 	/** Proposal risks plus consultant risks; recorded in the outcome. */
 	risks: string[];
+	trace: CallTrace;
+}
+
+/** What one goal_decision call wrote, for the journal (TECH §8): filled in as the record ids and reasons become known. */
+interface CallTrace {
+	goalId?: string;
+	decisionId?: string;
+	/** Why the record was invalidated or cancelled; kept out of the record itself. */
+	reason?: string;
 }
 
 /**
@@ -990,10 +1000,19 @@ interface ResolutionContext {
  * the blocker ladder), and a decision is only reported after the record is written.
  */
 export async function executeDecisionTool(proposalInput: unknown, recommended: unknown, deps: DecisionToolDeps): Promise<string> {
+	const trace: CallTrace = {};
+	const text = await decideFork(proposalInput, recommended, deps, trace);
+	// Journal the terminal state once per call (TECH §8). Best-effort: the record is the authority.
+	if (trace.goalId !== undefined && trace.decisionId !== undefined) journalDecision(deps.storage, trace.goalId, trace.decisionId, trace.reason);
+	return text;
+}
+
+async function decideFork(proposalInput: unknown, recommended: unknown, deps: DecisionToolDeps, trace: CallTrace): Promise<string> {
 	const goal = deps.readGoal();
 	if (!goal || goal.status !== "active") {
 		return "goal_decision applies to an active goal, and no active goal is focused. Ask the owner with goal_question or in chat instead.";
 	}
+	trace.goalId = goal.id;
 	const policy = resolveDecisionSettings(deps.cwd, deps.env);
 	if (policy.mode === "manual") return "decisionMode is manual: goal_decision is inactive. Ask the owner with goal_question.";
 	const validated = validateProposal(proposalInput);
@@ -1019,7 +1038,7 @@ export async function executeDecisionTool(proposalInput: unknown, recommended: u
 	};
 	const resolution = await resolveDecision(proposalInput, policy, storeCtx, consultation);
 	const context = (decisionId: string, route: DecisionRoute, risks: string[]): ResolutionContext => ({
-		deps, goal, storeCtx, proposal, route, decisionId, recommended, risks,
+		deps, goal, storeCtx, proposal, route, decisionId, recommended, risks, trace,
 	});
 	switch (resolution.kind) {
 		case "refused":
@@ -1029,19 +1048,28 @@ export async function executeDecisionTool(proposalInput: unknown, recommended: u
 		case "store-error":
 			return `The decision could not be recorded (${resolution.reason}). Ask the owner with goal_question.`;
 		case "cancelled":
+			if (resolution.decisionId !== undefined) {
+				trace.decisionId = resolution.decisionId;
+				trace.reason = "cancelled";
+			}
 			return `The deliberation was cancelled (${resolution.reason}). No decision was taken; continue on the normal blocker ladder.`;
 		case "ask-human":
+			trace.decisionId = resolution.decisionId;
 			return resolution.text;
 		case "direct": {
 			if (policy.mode === "bounded-auto") {
 				const applied = applyDirectResolution(storeCtx, proposalInput, chosen, policy);
-				return applied.ok ? applied.value.text : `The decision was not recorded (${applied.reason}). Ask the owner with goal_question.`;
+				if (!applied.ok) return `The decision was not recorded (${applied.reason}). Ask the owner with goal_question.`;
+				trace.decisionId = applied.value.decisionId;
+				return applied.value.text;
 			}
 			const created = createDecision(deps.storage, goal.id, draftFor(storeCtx, proposal, "direct", resolution.routeJustification));
 			if (!created.ok) return `The decision could not be recorded (${storeFailure(created.error)}). Ask the owner with goal_question.`;
+			trace.decisionId = created.value.id;
 			return ownerDecides(context(created.value.id, "direct", proposal.risks ?? []));
 		}
 		case "consulted": {
+			trace.decisionId = resolution.decisionId;
 			const risks = [...(proposal.risks ?? []), ...resolution.risks];
 			const consulted = context(resolution.decisionId, resolution.route, risks);
 			if (policy.mode === "bounded-auto") return settle(consulted, "agent", outcomeOf(consulted, "agent", chosen));
@@ -1072,6 +1100,7 @@ function settle(rc: ResolutionContext, source: "agent" | "human", outcome: Decis
 		outcome,
 	});
 	if (verdict.kind === "decided") return resolutionText(rc.decisionId, rc.route, rc.proposal, outcome);
+	if (verdict.kind === "invalidated") rc.trace.reason = `${verdict.reason}: ${verdict.detail}`;
 	if (source === "human") {
 		return `The owner answered "${outcome.chosen ?? ""}", but decision ${rc.decisionId} was not recorded (${describeRejection(verdict)}). Use the answer for this fork.`;
 	}

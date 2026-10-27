@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import goalExtension from "../extensions/goal.ts";
 import { createDecision, getDecisions, type DecisionDraft } from "../extensions/goal-decision-record.ts";
+import { readGoalLedger } from "../extensions/goal-ledger.ts";
 import { parseGoalFile } from "../extensions/storage/goal-files.ts";
 import { goalStorageContext } from "../extensions/storage/goal-root.ts";
 
@@ -72,7 +73,7 @@ const DRAFT: DecisionDraft = {
 	generation: "gen-1",
 };
 
-test("session start invalidates a decision left open by the previous session and relaunches nothing", async () => {
+test("session start invalidates a decision left open by the previous session, journals it as restarted, and relaunches nothing", async () => {
 	const cwd = mkdtempSync(path.join(tmpdir(), "goal-decision-restart-"));
 	mkdirSync(path.join(cwd, ".pi", "goals", "archived"), { recursive: true });
 	try {
@@ -95,6 +96,8 @@ test("session start invalidates a decision left open by the previous session and
 		if (listed.ok) {
 			assert.deepEqual(listed.value.map((record) => [record.id, record.status, record.consultants.length]), [[created.value.id, "invalidated", 0]]);
 		}
+		const journal = readGoalLedger(storage).events.filter((event) => event.type === "decision_recorded");
+		assert.deepEqual(journal.map((event) => event.type === "decision_recorded" ? [event.decisionId, event.status, event.reason] : []), [[created.value.id, "invalidated", "restarted"]]);
 	} finally {
 		try { rmSync(cwd, { recursive: true, force: true }); } catch {}
 	}

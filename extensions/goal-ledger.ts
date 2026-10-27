@@ -37,7 +37,11 @@ export type GoalLedgerEvent =
   | { type: "oracle_started"; goalId: string; fingerprint: string; provider: string; model: string; thinkingLevel?: string; reason: string; at: string }
   | { type: "oracle_result"; goalId: string; fingerprint: string; adviceId: string; disposition: "actionable" | "needs_human" | "insufficient_context"; summary: string; recommendedTitle?: string; at: string }
   | { type: "oracle_failed"; goalId: string; fingerprint: string; attempt: number; errorCode: "config" | "provider" | "aborted" | "invalid_output"; message: string; at: string }
-  | { type: "oracle_followup_attempted"; goalId: string; fingerprint: string; adviceId: string; firstToolName: string; at: string };
+  | { type: "oracle_followup_attempted"; goalId: string; fingerprint: string; adviceId: string; firstToolName: string; at: string }
+  | { type: "decision_recorded"; goalId: string; decisionId: string; status: GoalDecisionJournalStatus; route: string; question: string; authorityBasis: string; routeWhy: string; requestHash: string; chosen?: string; source?: "agent" | "human" | "consultant"; risks: string[]; revisitWhen?: string; consultantTokens: number | "unknown"; reason?: string; at: string };
+
+/** Terminal states of a DecisionRecord (specs/2026-10-27-adaptive-decisions TECH §3, §8); each one is journaled. */
+export type GoalDecisionJournalStatus = "decided" | "escalated" | "superseded" | "expired" | "invalidated";
 
 export type GoalLedgerContext = GoalStorageContext;
 
@@ -748,6 +752,8 @@ function isValidLedgerEvent(value: unknown): value is GoalLedgerEvent {
       return typeof obj.goalId === "string" && typeof obj.fingerprint === "string" && typeof obj.attempt === "number" && (obj.errorCode === "config" || obj.errorCode === "provider" || obj.errorCode === "aborted" || obj.errorCode === "invalid_output") && typeof obj.message === "string";
     case "oracle_followup_attempted":
       return typeof obj.goalId === "string" && typeof obj.fingerprint === "string" && typeof obj.adviceId === "string" && typeof obj.firstToolName === "string";
+    case "decision_recorded":
+      return typeof obj.goalId === "string" && typeof obj.decisionId === "string" && ["decided", "escalated", "superseded", "expired", "invalidated"].includes(obj.status as string) && typeof obj.route === "string" && typeof obj.question === "string" && typeof obj.authorityBasis === "string" && typeof obj.routeWhy === "string" && typeof obj.requestHash === "string" && Array.isArray(obj.risks) && (obj.consultantTokens === "unknown" || typeof obj.consultantTokens === "number") && (obj.source === undefined || obj.source === "agent" || obj.source === "human" || obj.source === "consultant");
     default:
       return false;
   }
@@ -959,6 +965,15 @@ export function latestAuditorResultForGoal(events: GoalLedgerEvent[], goalId: st
     if (event.type === "audit_result" && event.goalId === goalId) {
       return { verdict: event.verdict, report: event.report, at: event.at };
     }
+  }
+  return undefined;
+}
+
+/** Latest decision journal entry for the goal (TECH §8), or undefined when none was recorded. */
+export function latestDecisionForGoal(events: readonly GoalLedgerEvent[], goalId: string): Extract<GoalLedgerEvent, { type: "decision_recorded" }> | undefined {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i]!
+    if (event.type === "decision_recorded" && event.goalId === goalId) return event;
   }
   return undefined;
 }

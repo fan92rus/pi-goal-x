@@ -35,6 +35,7 @@ import { hasActiveDraft, rehydrateDraft } from "./goal-drafting.ts";
 import { syncTerminalInputPause } from "./goal-widget.ts";
 import type { GoalCore } from "./goal-state.ts";
 import { filterGoalSessionContext } from "./goal-session-safety.ts";
+import { journalDecision } from "./goal-decision-journal.ts";
 import { invalidateInterruptedDecisions } from "./goal-decision-runtime.ts";
 import { ensureDecisionTool } from "./goal-decision.ts";
 import { goalStorageContext } from "./storage/goal-root.ts";
@@ -294,7 +295,10 @@ export function registerGoalEvents(core: GoalCore): void {
 		// Focus is reset on reload, so every goal of the active pool is checked. Best-effort: an open record
 		// that cannot be invalidated is never accepted (no consultant from the previous session can deliver).
 		const decisionStorage = goalStorageContext(ctx);
-		for (const goalId of core.goalsById.keys()) invalidateInterruptedDecisions(decisionStorage, goalId);
+		for (const goalId of core.goalsById.keys()) {
+			const restarted = invalidateInterruptedDecisions(decisionStorage, goalId);
+			if (restarted.kind === "done") for (const decisionId of restarted.invalidated) journalDecision(decisionStorage, goalId, decisionId, "restarted");
+		}
 		core.installGoalToolProfile(!loadGoalSettings(ctx.cwd).disableTasks, ensureDecisionTool(core, ctx.cwd));
 		rehydrateDraft(core, ctx);
 		syncTerminalInputPause(core, ctx);

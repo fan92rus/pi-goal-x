@@ -17,7 +17,7 @@
 import { truncateText } from "./goal-core.ts";
 import type { GoalLedgerEvent } from "./goal-ledger.ts";
 
-export type GoalActivityKind = "goal" | "task" | "verification" | "audit" | "archive";
+export type GoalActivityKind = "goal" | "task" | "verification" | "audit" | "archive" | "decision";
 
 export interface GoalActivityItem {
 	at: string;
@@ -124,6 +124,11 @@ function mapEvent(event: GoalLedgerEvent, taskTitles: ReadonlyMap<string, string
 			};
 		case "goal_archived":
 			return { at: event.at, kind: "archive", marker: "done", text: "Archived the completed goal." };
+		case "decision_recorded": {
+			const chosen = event.chosen === undefined ? "" : ` → ${truncateText(oneLine(event.chosen), ACTIVITY_REASON_MAX)}`;
+			const source = event.source === undefined ? "" : ` (${event.source})`;
+			return { at: event.at, kind: "decision", marker: event.status === "decided" ? "done" : undefined, text: `Decision ${event.decisionId} ${event.status}: ${quote(truncateText(oneLine(event.question), ACTIVITY_REASON_MAX))}${chosen}${source}.` };
+		}
 		// Low-value checkpoint noise / focus churn: excluded from the default feed.
 		case "goal_focused":
 		case "goal_unfocused":
@@ -151,7 +156,7 @@ export function activityEventKey(event: GoalLedgerEvent): string | undefined {
 const activityTypes = new Set([
  "goal_created", "goal_tweaked", "auditor_toggled", "goal_paused", "goal_resumed", "goal_blocked",
  "goal_budget_limited", "goal_completed", "goal_aborted", "task_started", "task_complete", "task_skipped",
- "task_reopened", "completion_requested", "audit_started", "audit_result", "audit_skipped", "goal_archived",
+ "task_reopened", "completion_requested", "audit_started", "audit_result", "audit_skipped", "goal_archived", "decision_recorded",
 ]);
 export function isActivityEvent(event: GoalLedgerEvent): boolean { return activityTypes.has(event.type); }
 
