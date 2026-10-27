@@ -380,3 +380,9 @@ The user clarified that PR-description mentions are insufficient: the contributo
 All 19 existing commit trees were checked byte for byte during the metadata rewrite; their authors, committers, timestamps and file contents were preserved. The previous head `3ff6537` is retained under a local recovery ref. Only PRODUCT.md, TECH.md and this attribution record change after the rewrite. The runtime and cache code are identical to the successful Linux validation in [CI run 40537519838](https://github.com/tmonk/pi-goal-x/actions/runs/40537519838). GitHub's PR commit-author records will verify the four account associations after the guarded push; the final PR checks track the updated head.
 
 The previous cleanup is complete: PRs #109/#111/#112/#116/#117 and issues #110/#113/#114/#115 were closed with individual thanks, immutable fix/test links and a clear statement that merge/release is pending. #108 remains open and #96 remains deferred.
+
+## Approved patch release
+
+The user authorized merging #118 to main and publishing a patch release. GitHub confirms @adlternative, @Nyarlathoteppppp, @Has-X and @expoli as co-authors on the five corresponding fix commits. [CI run 40539398945](https://github.com/tmonk/pi-goal-x/actions/runs/40539398945) passed on `8fb11cb7a89543e290099277006e1b3b74ee0b30`; every rewritten implementation tree is identical to its previously tested tree.
+
+Release preflight found npm `latest` at 0.34.0, no published 0.34.1, no `v0.34.1` tag, matching package/lock metadata at 0.34.1, and #118 mergeable against unchanged main `fe0e38f`. Finalized the changelog date and release heading. The existing workflow will publish from the tested main tag, preserve automated ranking badge updates, smoke-test its exact tarball and verify registry integrity. Merge, tag, workflow and installed-registry verification results follow as they complete.

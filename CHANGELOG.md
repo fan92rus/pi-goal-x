@@ -4,6 +4,10 @@ All notable changes to pi-goal-x are documented here.
 
 ## [Unreleased]
 
+## [0.34.1] — 2026-10-27
+
+Includes #118.
+
 ### Fixed
 
 - Complete session cleanup after Pi invalidates a context, keep outgoing writes in their original project, and settle interrupted completion audits once against the audited goal. A newer unfinished audit no longer shows an older verdict (#113, #109).

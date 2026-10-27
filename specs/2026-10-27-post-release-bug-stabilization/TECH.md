@@ -610,6 +610,8 @@ Extend existing real-SDK workers instead of mocking away the failure boundary. A
 
 ## 7. Patch release
 
+The user has approved merge and publication of 0.34.1. Finalize its changelog entry, pass the updated PR checks, merge with a merge commit to preserve the verified co-author history, and wait for main's integrated checks before tagging. Push an annotated `v0.34.1` tag at that tested main commit. The existing workflow owns ranking, packing, exact-artifact smoke, npm publication and GitHub release creation. Verify the registry download against the workflow's tarball digest, repeat the installed-artifact regressions, confirm `latest`, and record the release receipt. Do not bump another version or republish an existing package to work around propagation.
+
 For the reviewed release candidate that has passed the integrated gates:
 
 1. Consolidate the four reported-bug fixes, default-off context display, harness isolation and cache-safety work under Unreleased, crediting contributors and source PRs accurately. Explain the new default and explicit `showContextUsage: true` opt-in briefly in the changelog/advanced usage; record the code simplifications in the implementation log.
