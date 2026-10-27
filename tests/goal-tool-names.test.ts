@@ -6,6 +6,7 @@ import {
 	CORE_GOAL_TOOL_NAMES,
 	CORE_GOAL_TOOLS,
 	CREATE_GOAL_TOOL_NAME,
+	DECISION_TOOL_NAME,
 	DRAFTING_GOAL_TOOLS,
 	FIVE_GOAL_TOOLS,
 	GET_GOAL_TOOL_NAME,
@@ -50,7 +51,7 @@ test("fixed profiles: core three, task two, all five registered", () => {
 	// The registry is the fixed five plus the transient drafting profile; the
 	// INSTALLED profile (installGoalToolProfile) still only ever installs the
 	// three/five execution set.
-	assert.deepEqual(ALL_REGISTERED_GOAL_TOOLS, [...FIVE_GOAL_TOOLS, ...DRAFTING_GOAL_TOOLS]);
+	assert.deepEqual(ALL_REGISTERED_GOAL_TOOLS, [...FIVE_GOAL_TOOLS, ...DRAFTING_GOAL_TOOLS, DECISION_TOOL_NAME]);
 });
 
 test("the module declares drafting names only in the transient profile", () => {

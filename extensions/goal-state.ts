@@ -97,7 +97,7 @@ export interface GoalCore {
 	focusedOperationToken(goalId: string): { goalId: string; revision: number };
 	isFocusedOperationCurrent(token: { goalId: string; revision: number }): boolean;
 	focusedOperationCancelledResult(action: string, token: { goalId: string; revision: number }): AgentToolResult<unknown>;
-	installGoalToolProfile(tasksEnabled: boolean): void;
+	installGoalToolProfile(tasksEnabled: boolean, decisionEnabled?: boolean): void;
 	installDraftingToolProfile(): void;
 	stopAuditAnimation(): void;
 	abortAudit(ctx: ExtensionContext): void;
@@ -298,6 +298,8 @@ export function createGoalCore(
 	// Whether the task tools are advertised, decided once at session start from
 	// settings (disableTasks). Stage 4 replaces them with the two task tools.
 	let tasksEnabled = true;
+	// Whether goal_decision is advertised (TECH §4): decided with the profile, like tasksEnabled.
+	let decisionEnabled = false;
  let profileInitialized = false;
  let draftingProfile = false;
 
@@ -316,13 +318,13 @@ export function createGoalCore(
 	 * setting against the last profile actually installed (used by the settings
 	 * menu to detect repeated disableTasks toggles across one menu session).
 	 */
-	function installGoalToolProfile(tasksEnabledArg: boolean): void {
+	function installGoalToolProfile(tasksEnabledArg: boolean, decisionEnabledArg: boolean = decisionEnabled): void {
   profileInitialized = true;
   draftingProfile = false;
 		try {
 			const current = new Set(pi.getActiveTools());
 			for (const knownGoalTool of ALL_REGISTERED_GOAL_TOOLS) current.delete(knownGoalTool);
-			for (const goalTool of applicableGoalTools(state.goal, tasksEnabledArg)) current.add(goalTool);
+			for (const goalTool of applicableGoalTools(state.goal, tasksEnabledArg, decisionEnabledArg)) current.add(goalTool);
 			const next = [...current].sort();
 			const before = [...pi.getActiveTools()].sort();
 			// Idempotent: never rebuild (or re-report) a profile that is already
@@ -331,6 +333,7 @@ export function createGoalCore(
 				pi.setActiveTools([...current]);
 			}
 			tasksEnabled = tasksEnabledArg;
+			decisionEnabled = decisionEnabledArg;
 		} catch (err) {
 			console.error("[pi-goal] installGoalToolProfile error:", err instanceof Error ? err.message : String(err));
 		}

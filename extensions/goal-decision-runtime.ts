@@ -26,7 +26,8 @@
  * consultants ran, and `invalidateInterruptedDecisions` for open records left by
  * a session that no longer exists. Nothing is relaunched. A late delivery for an
  * invalidated record is `not-open` and is ignored, so it can never resume a
- * stopped goal. Accounting and the resolution text belong to later stages.
+ * stopped goal. `acceptDecisionResolution` accepts the final outcome of a deliberation (E6.1):
+ * an autonomous outcome is checked fresh (mode, snapshot, objective, generation) before it is decided.
  */
 
 import { Value } from "typebox/value";
@@ -39,7 +40,7 @@ import {
 	type ResearcherPayload,
 } from "./goal-decision-consultant.ts";
 import { readModeFreshFromDisk, type GoalDecisionMode } from "./goal-decision-policy.ts";
-import { getDecisions, objectiveAnchor, setDecisionStatus, type DecisionRecord } from "./goal-decision-record.ts";
+import { getDecisions, objectiveAnchor, setDecisionStatus, updateDecision, type DecisionRecord } from "./goal-decision-record.ts";
 import type { GoalStatus } from "./goal-record.ts";
 import type { GoalStorageContext } from "./storage/goal-root.ts";
 
@@ -109,8 +110,7 @@ type FreshSettings = ReturnType<typeof readModeFreshFromDisk>;
  * Checks that the goal, settings, objective, and generation still match the record.
  * `settings` is the project settings read fresh from disk by the caller.
  */
-function bindingProblem(input: AcceptanceInput, record: DecisionRecord, settings: FreshSettings): Problem | undefined {
-	const { goal } = input;
+function bindingProblem(goal: GoalAcceptanceView, record: DecisionRecord, settings: FreshSettings): Problem | undefined {
 	if (goal.status !== "active") return { reason: "goal-not-active", detail: `goal status is ${goal.status}` };
 	if (settings.mode === "manual") return { reason: "mode-manual", detail: "decisionMode is manual" };
 	if (settings.snapshotId !== record.policyVersion) {
@@ -157,7 +157,7 @@ export function acceptConsultantResult(input: AcceptanceInput): AcceptanceVerdic
 	if (record.consultants.some((entry) => entry.childRunId === launch.childRunId)) return { kind: "ignored", reason: "duplicate" };
 
 	const settings = readModeFreshFromDisk(input.cwd, input.env);
-	const binding = bindingProblem(input, record, settings);
+	const binding = bindingProblem(goal, record, settings);
 	if (binding) return invalidate(input.storage, input.goalId, record, binding);
 	const delivered = deliveredPayload(input);
 	if (!delivered.ok) return invalidate(input.storage, input.goalId, record, delivered.problem);
@@ -218,4 +218,60 @@ export function invalidateInterruptedDecisions(
 		invalidated.push(record.id);
 	}
 	return { kind: "done", invalidated };
+}
+
+/** The final resolution of a deliberation: what the model continues with (TECH §3 `outcome`). */
+export type DecisionResolutionOutcome = NonNullable<DecisionRecord["outcome"]>;
+
+export interface ResolutionAcceptanceInput {
+	storage: GoalStorageContext;
+	goalId: string;
+	/** Project root whose settings file is re-read from disk (cache-bypassing). */
+	cwd: string;
+	env?: NodeJS.ProcessEnv;
+	goal: GoalAcceptanceView;
+	decisionId: string;
+	/**
+	 * `agent`: an autonomous resolution (bounded-auto) — fresh mode, snapshot, objective, and
+	 * generation checks apply. `human`: the owner's own answer, not autonomous — only the
+	 * record's identity and open status are checked.
+	 */
+	source: "agent" | "human";
+	outcome: DecisionResolutionOutcome;
+}
+
+export type ResolutionAcceptanceVerdict =
+	| { kind: "decided"; record: DecisionRecord }
+	| { kind: "ignored"; reason: IgnoredReason }
+	| { kind: "invalidated"; reason: InvalidationReason; detail: string }
+	| { kind: "store-error"; reason: string };
+
+/**
+ * Accepts the final resolution of an open record (TECH §6, §8): on success the outcome
+ * is written and the record moves to `decided` (acceptance guard is the only writer). An
+ * autonomous resolution that fails a binding check moves the record to `invalidated`
+ * instead and writes no outcome. A terminal or unknown record is `ignored`.
+ */
+export function acceptDecisionResolution(input: ResolutionAcceptanceInput): ResolutionAcceptanceVerdict {
+	const { storage, goalId, goal } = input;
+	const listed = getDecisions(storage, goalId);
+	if (!listed.ok) return { kind: "store-error", reason: `decision store ${listed.error.code}: ${listed.error.message}` };
+	const record = listed.value.find((candidate) => candidate.id === input.decisionId);
+	if (!record) return { kind: "ignored", reason: "unknown-decision" };
+	if (record.status !== "open") return { kind: "ignored", reason: "not-open" };
+
+	if (input.source === "agent") {
+		const binding = bindingProblem(goal, record, readModeFreshFromDisk(input.cwd, input.env));
+		if (binding) {
+			const written = setDecisionStatus(storage, goalId, record.id, "invalidated", { writer: "acceptance-guard", expectedRevision: record.revision });
+			if (!written.ok) return { kind: "store-error", reason: `decision store ${written.error.code}: ${written.error.message}` };
+			return { kind: "invalidated", reason: binding.reason, detail: binding.detail };
+		}
+	}
+
+	const withOutcome = updateDecision(storage, goalId, record.id, (draft) => ({ ...draft, outcome: input.outcome }), record.revision);
+	if (!withOutcome.ok) return { kind: "store-error", reason: `decision store ${withOutcome.error.code}: ${withOutcome.error.message}` };
+	const settled = setDecisionStatus(storage, goalId, record.id, "decided", { writer: "acceptance-guard", expectedRevision: withOutcome.value.revision });
+	if (!settled.ok) return { kind: "store-error", reason: `decision store ${settled.error.code}: ${settled.error.message}` };
+	return { kind: "decided", record: settled.value };
 }

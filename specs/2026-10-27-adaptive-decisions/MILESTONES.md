@@ -53,6 +53,13 @@
 - gx-gqf.3 keyed accounting: chargeKeyed на GoalAccounting (childRunId-идемпотентность), usage из session-subscribe, бюджет-гейт beforeLaunch через budgetRemaining, unknown usage честный. Коммит f871405.
 - Известное: bd-экспорт в git не коммитится by design (stealth init) — final-bd-close отчитал closed=false с точной нотой; closes в bd durable.
 
+## 2026-10-27 — E6.1 (goal_decision: visibility, router wiring, advisory prefill)
+
+- `goal_decision` is registered lazily by `ensureDecisionTool` only when decisionMode is not `manual` and a goal is active (pi tools cannot be unregistered); `installGoalToolProfile(…, decisionEnabled)` advertises it through `applicableGoalTools` only while the goal is active. Manual registers nothing.
+- `executeDecisionTool`: validate, then `resolveDecision` with the injected runner, signal and budget (live goal, `GoalAccounting`). bounded-auto: `direct` via `applyDirectResolution`, consulted routes via `acceptDecisionResolution` (fresh mode, snapshot, objective, generation). advisory: `runGoalQuestionnaire` with the recommended option prefilled; an answer is recorded `decided` (source human); a cancelled, unavailable or failed dialog escalates and keeps the no-answer meaning.
+- Known gaps left for later: the lifecycle prompt (goal-core-tools.ts) is not updated yet (the tool description carries the routing guidance); `GoalRecord.activeDecisionId` is still not wired, so the per-result `acceptConsultantResult` guard is not on the tool path (the resolution-level guard is).
+- Tests: `tests/goal-decision-tool.test.ts` 22 cases (visibility, lazy registration, every outcome, end-to-end through `session_start` and the registered tool); `tests/goal-decision-runtime.test.ts` +5 (`acceptDecisionResolution`); `tests/goal-tool-names.test.ts` registry updated. `npm test` 1377/1377.
+
 ## Pre-existing issues tracked
 
 - gx-43n.5 (reparented to gx-773): 7 Windows-environment test failures (golden paths, shell harness, lock fault-injection, path asserts, recover bin) + manifest selfcheck red on HEAD Windows.

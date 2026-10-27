@@ -36,6 +36,7 @@ import { syncTerminalInputPause } from "./goal-widget.ts";
 import type { GoalCore } from "./goal-state.ts";
 import { filterGoalSessionContext } from "./goal-session-safety.ts";
 import { invalidateInterruptedDecisions } from "./goal-decision-runtime.ts";
+import { ensureDecisionTool } from "./goal-decision.ts";
 import { goalStorageContext } from "./storage/goal-root.ts";
 import { registerGoalContext } from "./goal-context.ts";
 import type { GoalMutationOutcome } from "./goal-service.ts";
@@ -294,7 +295,7 @@ export function registerGoalEvents(core: GoalCore): void {
 		// that cannot be invalidated is never accepted (no consultant from the previous session can deliver).
 		const decisionStorage = goalStorageContext(ctx);
 		for (const goalId of core.goalsById.keys()) invalidateInterruptedDecisions(decisionStorage, goalId);
-		core.installGoalToolProfile(!loadGoalSettings(ctx.cwd).disableTasks);
+		core.installGoalToolProfile(!loadGoalSettings(ctx.cwd).disableTasks, ensureDecisionTool(core, ctx.cwd));
 		rehydrateDraft(core, ctx);
 		syncTerminalInputPause(core, ctx);
 		if (event.reason === "resume" && !core.state.goal && !core.hasExplicitSessionFocus && otherOpenGoalCount(core.goalsById, null) > 1 && ctx.hasUI) {
@@ -374,7 +375,7 @@ export function registerGoalEvents(core: GoalCore): void {
 
 	pi.on("before_agent_start", async (event, ctx) => {
 		core.advanceTurnSeq();
-  if (!hasActiveDraft(core)) core.installGoalToolProfile(!loadGoalSettings(ctx.cwd).disableTasks);
+  if (!hasActiveDraft(core)) core.installGoalToolProfile(!loadGoalSettings(ctx.cwd).disableTasks, ensureDecisionTool(core, ctx.cwd));
 		const incomingGoalId = event.messageType === "custom"
 			? goalEventMessageId(event.message) : extractGoalIdFromInjectedMessage(event.prompt ?? "");
 		if (event.messageType !== "custom" && !incomingGoalId) core.interruption.continueWithUser(ctx);

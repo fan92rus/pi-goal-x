@@ -40,21 +40,39 @@
  *     record is invalidated (`cancelled`), and the route returns `cancelled`.
  *     A child that outlives the grace period is recorded with `orphaned`.
  *
- * This module does not register any tool (E6). It writes only through
- * goal-decision-record.ts and calls consultants only through the injected runner.
+ * Tool surface (E6.1, TECH §4): `registerDecisionTool` registers `goal_decision`, which is
+ * advertised only for an active goal when decisionMode is not manual (`ensureDecisionTool`;
+ * manual never registers it). `executeDecisionTool` runs one call:
+ *   - bounded-auto: a `direct` route is recorded by applyDirectResolution; a consulted route is
+ *     accepted by acceptDecisionResolution (fresh mode and binding checks) and the recommended
+ *     option is the decision. The text says what was decided.
+ *   - advisory: the owner answers the questionnaire with the recommendation prefilled. An answer
+ *     is recorded as decided (source human). A cancelled, unavailable, or failed dialog
+ *     escalates the record, and the model falls back to the blocker ladder.
+ *   - any escalation returns the ask-human instruction.
+ *
+ * This module writes only through goal-decision-record.ts and the runtime guard, and calls
+ * consultants only through the injected runner.
  */
 
 import { Type, type Static } from "@earendil-works/pi-ai";
 import { Value } from "typebox/value";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { defineTool, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { budgetLine, budgetRemaining, type BudgetLike, type GoalAccounting } from "./goal-accounting.ts";
-import type { ConsultantModel, ConsultantRole, ConsultantRunResult, CriticPayload, ResearcherPayload, runConsultant } from "./goal-decision-consultant.ts";
-import type { GoalDecisionCriticSettings, GoalDecisionSettings } from "./goal-decision-policy.ts";
-import { invalidateOpenDecision } from "./goal-decision-runtime.ts";
+import { goalDetails, renderGoalResult } from "./goal-format.ts";
+import { runConsultant, type ConsultantModel, type ConsultantRole, type ConsultantRunResult, type CriticPayload, type ResearcherPayload } from "./goal-decision-consultant.ts";
+import { readModeFreshFromDisk, resolveDecisionSettings, type GoalDecisionCriticSettings, type GoalDecisionSettings } from "./goal-decision-policy.ts";
+import { acceptDecisionResolution, invalidateOpenDecision, type DecisionResolutionOutcome, type ResolutionAcceptanceVerdict } from "./goal-decision-runtime.ts";
+import type { GoalRecord, GoalStatus } from "./goal-record.ts";
+import { DIALOG_UNAVAILABLE_HINT, runGoalQuestionnaire, type GoalQuestionnaireResult } from "./goal-questionnaire.ts";
 import type { ThinkingLevel } from "./goal-settings.ts";
+import type { GoalCore } from "./goal-state.ts";
+import { DECISION_TOOL_NAME } from "./goal-tool-names.ts";
 import {
 	createDecision,
 	getConsultationsLaunched,
+	getDecisions,
 	incrementConsultations,
 	reserveConsultations,
 	setDecisionStatus,
@@ -65,7 +83,7 @@ import {
 	type DecisionRoute,
 	type DecisionStoreError,
 } from "./goal-decision-record.ts";
-import type { GoalStorageContext } from "./storage/goal-root.ts";
+import { goalStorageContext, type GoalStorageContext } from "./storage/goal-root.ts";
 
 /** Per-field cap enforced at the router write boundary (TECH §3). */
 export const DECISION_TEXT_MAX = 300;
@@ -421,16 +439,26 @@ export function applyDirectResolution(
 	const settled = setDecisionStatus(storeCtx.storage, storeCtx.goalId, id, "decided", { writer: "acceptance-guard", expectedRevision: 0 });
 	if (!settled.ok) return { ok: false, reason: storeFailure(settled.error) };
 
+	return { ok: true, value: { decisionId: id, text: resolutionText(id, "direct", proposal, outcome) } };
+}
+
+/** Text the model continues with once a resolution is recorded as `decided` (TECH §4, §8). */
+function resolutionText(decisionId: string, route: DecisionRoute, proposal: DecisionProposal, outcome: DecisionResolutionOutcome): string {
+	const human = outcome.source === "human";
 	const lines = [
-		`Decision ${id} resolved by the agent (route: direct, source: agent).`,
+		human
+			? `Decision ${decisionId} answered by the owner (route: ${route}, source: human).`
+			: `Decision ${decisionId} resolved by the agent (route: ${route}, source: ${outcome.source}).`,
 		`Question: ${proposal.question}`,
-		`Chosen: ${chosen}`,
+		`Chosen: ${outcome.chosen ?? "none"}`,
 		`Authority: ${proposal.authorityBasis}`,
 		`Risks: ${outcome.risks.length > 0 ? outcome.risks.join("; ") : "none recorded"}`,
 	];
 	if (outcome.revisitWhen !== undefined) lines.push(`Revisit when: ${outcome.revisitWhen}`);
-	lines.push("Continue with the chosen option. Do not ask the owner about this fork again unless a revisit condition holds.");
-	return { ok: true, value: { decisionId: id, text: lines.join("\n") } };
+	lines.push(human
+		? "Continue with the owner's answer."
+		: "Continue with the chosen option. Do not ask the owner about this fork again unless a revisit condition holds.");
+	return lines.join("\n");
 }
 
 // ── consultants (TECH §5) ───────────────────────────────────────────────────
@@ -719,15 +747,25 @@ function appendConsultants(flow: ConsultationFlow, entries: ConsultantResult[], 
 /** Escalates a record that already has consultant entries: reason stored, status `escalated` (router writer). */
 function escalateConsulted(flow: ConsultationFlow, rawReason: string): DecisionResolution {
 	const reason = clipText(rawReason);
-	const { storeCtx, record, proposal } = flow;
+	const marked = markEscalated(flow.storeCtx, flow.record.id, reason);
+	if (!marked.ok) return { kind: "store-error", reason: marked.reason };
+	return { kind: "ask-human", reason, decisionId: flow.record.id, text: escalationText(flow.record.id, reason, flow.proposal) };
+}
+
+/** Moves an open record to `escalated` (router writer) and keeps the reason in routeJustification. */
+function markEscalated(storeCtx: DecisionStoreContext, decisionId: string, reason: string): { ok: true } | { ok: false; reason: string } {
+	const listed = getDecisions(storeCtx.storage, storeCtx.goalId);
+	if (!listed.ok) return { ok: false, reason: storeFailure(listed.error) };
+	const record = listed.value.find((candidate) => candidate.id === decisionId);
+	if (!record) return { ok: false, reason: `decision ${decisionId} not found` };
 	const reasoned = updateDecision(storeCtx.storage, storeCtx.goalId, record.id, (draft) => ({
 		...draft,
 		routeJustification: { ...draft.routeJustification, reasons: { ...draft.routeJustification.reasons, "ask-human": reason } },
 	}), record.revision);
-	if (!reasoned.ok) return { kind: "store-error", reason: storeFailure(reasoned.error) };
+	if (!reasoned.ok) return { ok: false, reason: storeFailure(reasoned.error) };
 	const escalated = setDecisionStatus(storeCtx.storage, storeCtx.goalId, record.id, "escalated", { writer: "router", expectedRevision: reasoned.value.revision });
-	if (!escalated.ok) return { kind: "store-error", reason: storeFailure(escalated.error) };
-	return { kind: "ask-human", reason, decisionId: record.id, text: escalationText(record.id, reason, proposal) };
+	if (!escalated.ok) return { ok: false, reason: storeFailure(escalated.error) };
+	return { ok: true };
 }
 
 /**
@@ -902,4 +940,255 @@ function escalate(storeCtx: DecisionStoreContext, proposal: DecisionProposal, re
 	const written = persistEscalation(storeCtx, proposal, reason);
 	if (!written.ok) return { kind: "store-error", reason: written.reason };
 	return { kind: "ask-human", reason, decisionId: written.value.decisionId, text: written.value.text };
+}
+
+// ── tool surface (E6.1, TECH §4, §8) ────────────────────────────────────────
+
+/** The focused goal as the tool reads it at each step: status, objective, scheduler generation, budget. */
+export interface DecisionGoalView {
+	id: string;
+	status: GoalStatus;
+	objective: string;
+	/** Scheduler generation (TECH §3); "" when the goal has no scheduler state. */
+	generation: string;
+	tokenBudget?: number;
+	usage: { tokensUsed: number };
+}
+
+/** Everything one goal_decision call reads or calls. Production passes the live session; tests inject fakes. */
+export interface DecisionToolDeps {
+	cwd: string;
+	env?: NodeJS.ProcessEnv;
+	storage: GoalStorageContext;
+	ctx: ExtensionContext;
+	/** The focused goal, read live at each step; null when no goal is focused. */
+	readGoal: () => DecisionGoalView | null;
+	runConsultant: ConsultantRunner;
+	signal?: AbortSignal;
+	accounting: GoalAccounting;
+	/** Owner dialog with the recommended option prefilled (advisory). */
+	ask: (question: string, options: string[], recommended: number, context: string) => Promise<GoalQuestionnaireResult>;
+}
+
+/** What one call needs after the route is known. */
+interface ResolutionContext {
+	deps: DecisionToolDeps;
+	goal: DecisionGoalView;
+	storeCtx: DecisionStoreContext;
+	proposal: DecisionProposal;
+	route: DecisionRoute;
+	decisionId: string;
+	/** Zero-based index of the option the model recommends (bounded-auto: takes). Validated in range. */
+	recommended: number;
+	/** Proposal risks plus consultant risks; recorded in the outcome. */
+	risks: string[];
+}
+
+/**
+ * Runs one goal_decision call and returns the text the model continues with. Nothing
+ * throws: a path that does not decide tells the model to ask the owner (or fall back to
+ * the blocker ladder), and a decision is only reported after the record is written.
+ */
+export async function executeDecisionTool(proposalInput: unknown, recommended: unknown, deps: DecisionToolDeps): Promise<string> {
+	const goal = deps.readGoal();
+	if (!goal || goal.status !== "active") {
+		return "goal_decision applies to an active goal, and no active goal is focused. Ask the owner with goal_question or in chat instead.";
+	}
+	const policy = resolveDecisionSettings(deps.cwd, deps.env);
+	if (policy.mode === "manual") return "decisionMode is manual: goal_decision is inactive. Ask the owner with goal_question.";
+	const validated = validateProposal(proposalInput);
+	if (!validated.ok) return `Invalid decision proposal (${validated.reason}). Nothing was recorded; fix the proposal or ask with goal_question.`;
+	const { proposal } = validated;
+	if (typeof recommended !== "number" || !Number.isInteger(recommended) || recommended < 0 || recommended >= proposal.options.length) {
+		return `recommended must be the zero-based index of one of the ${proposal.options.length} options. Nothing was recorded; resubmit the proposal.`;
+	}
+
+	const chosen = proposal.options[recommended] as string;
+	const storeCtx: DecisionStoreContext = {
+		storage: deps.storage,
+		goalId: goal.id,
+		objective: goal.objective,
+		policyVersion: readModeFreshFromDisk(deps.cwd, deps.env).snapshotId,
+		generation: goal.generation,
+	};
+	const consultation: ConsultationDeps = {
+		ctx: deps.ctx,
+		runConsultant: deps.runConsultant,
+		signal: deps.signal,
+		budget: { goal: () => deps.readGoal() ?? goal, accounting: deps.accounting },
+	};
+	const resolution = await resolveDecision(proposalInput, policy, storeCtx, consultation);
+	const context = (decisionId: string, route: DecisionRoute, risks: string[]): ResolutionContext => ({
+		deps, goal, storeCtx, proposal, route, decisionId, recommended, risks,
+	});
+	switch (resolution.kind) {
+		case "refused":
+			return `${resolution.reason}. Ask the owner with goal_question.`;
+		case "invalid":
+			return `Invalid decision proposal (${resolution.reason}). Nothing was recorded; fix the proposal or ask with goal_question.`;
+		case "store-error":
+			return `The decision could not be recorded (${resolution.reason}). Ask the owner with goal_question.`;
+		case "cancelled":
+			return `The deliberation was cancelled (${resolution.reason}). No decision was taken; continue on the normal blocker ladder.`;
+		case "ask-human":
+			return resolution.text;
+		case "direct": {
+			if (policy.mode === "bounded-auto") {
+				const applied = applyDirectResolution(storeCtx, proposalInput, chosen, policy);
+				return applied.ok ? applied.value.text : `The decision was not recorded (${applied.reason}). Ask the owner with goal_question.`;
+			}
+			const created = createDecision(deps.storage, goal.id, draftFor(storeCtx, proposal, "direct", resolution.routeJustification));
+			if (!created.ok) return `The decision could not be recorded (${storeFailure(created.error)}). Ask the owner with goal_question.`;
+			return ownerDecides(context(created.value.id, "direct", proposal.risks ?? []));
+		}
+		case "consulted": {
+			const risks = [...(proposal.risks ?? []), ...resolution.risks];
+			const consulted = context(resolution.decisionId, resolution.route, risks);
+			if (policy.mode === "bounded-auto") return settle(consulted, "agent", outcomeOf(consulted, "agent", chosen));
+			return ownerDecides(consulted);
+		}
+	}
+}
+
+function outcomeOf(rc: ResolutionContext, source: "agent" | "human", chosen: string): DecisionResolutionOutcome {
+	return {
+		chosen,
+		source,
+		risks: rc.risks,
+		...(rc.proposal.revisitWhen === undefined ? {} : { revisitWhen: rc.proposal.revisitWhen }),
+	};
+}
+
+/** Accepts a final resolution through the runtime guard and returns the text for the model (TECH §6, §8). */
+function settle(rc: ResolutionContext, source: "agent" | "human", outcome: DecisionResolutionOutcome): string {
+	const verdict = acceptDecisionResolution({
+		storage: rc.deps.storage,
+		goalId: rc.goal.id,
+		cwd: rc.deps.cwd,
+		env: rc.deps.env,
+		goal: rc.goal,
+		decisionId: rc.decisionId,
+		source,
+		outcome,
+	});
+	if (verdict.kind === "decided") return resolutionText(rc.decisionId, rc.route, rc.proposal, outcome);
+	if (source === "human") {
+		return `The owner answered "${outcome.chosen ?? ""}", but decision ${rc.decisionId} was not recorded (${describeRejection(verdict)}). Use the answer for this fork.`;
+	}
+	return `Decision ${rc.decisionId} was not accepted (${describeRejection(verdict)}). Nothing was decided; ask the owner with goal_question or continue on the blocker ladder.`;
+}
+
+function describeRejection(verdict: Exclude<ResolutionAcceptanceVerdict, { kind: "decided" }>): string {
+	switch (verdict.kind) {
+		case "invalidated":
+			return `invalidated: ${verdict.reason}: ${verdict.detail}`;
+		case "ignored":
+			return `ignored: ${verdict.reason}`;
+		case "store-error":
+			return `store error: ${verdict.reason}`;
+	}
+}
+
+/**
+ * Advisory (TECH §4, §8): the owner answers with the recommendation prefilled. An answer is
+ * recorded as decided (source human). A cancelled, unavailable, or failed dialog escalates the
+ * open record, and the meaning stays as today: no answer means the blocker ladder.
+ */
+async function ownerDecides(rc: ResolutionContext): Promise<string> {
+	const option = rc.proposal.options[rc.recommended] as string;
+	const context = `Recommended: ${option}. Risks: ${rc.risks.join("; ") || "none recorded"}.`;
+	const escalate = (reason: string, text: string): string => {
+		const marked = markEscalated(rc.storeCtx, rc.decisionId, reason);
+		return marked.ok ? text : `${text} (The escalation was not recorded: ${marked.reason}.)`;
+	};
+	let answer: GoalQuestionnaireResult;
+	try {
+		answer = await rc.deps.ask(rc.proposal.question, rc.proposal.options, rc.recommended, context);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		return escalate(`dialog failed: ${message}`, `Decision ${rc.decisionId} escalated: the owner dialog failed (${message}). Treat it as no answer and continue with the normal blocker ladder.`);
+	}
+	if (answer.unavailable === true) {
+		return escalate("no dialog", `Decision ${rc.decisionId} escalated. ${DIALOG_UNAVAILABLE_HINT} No dialog — treat it as no answer and continue with the normal blocker ladder.`);
+	}
+	if (answer.cancelled) {
+		return escalate("dialog cancelled", `Decision ${rc.decisionId} escalated: the owner cancelled the question — treat it as no answer. Continue with the normal blocker ladder.`);
+	}
+	const picked = answer.answers[0];
+	if (picked === undefined) {
+		return escalate("no answer", `Decision ${rc.decisionId} escalated: the owner gave no answer. Treat it as no answer and continue with the normal blocker ladder.`);
+	}
+	return settle(rc, "human", outcomeOf(rc, "human", picked.answer));
+}
+
+/** Tool parameters: the proposal plus the zero-based recommended option (TECH §4 input schema). */
+const DecisionToolParametersSchema = Type.Object({
+	...DecisionProposalSchema.properties,
+	recommended: Type.Integer({ minimum: 0, description: "Zero-based index of your recommended option. In bounded-auto this is the option you take." }),
+}, { additionalProperties: false });
+
+const DECISION_TOOL_DESCRIPTION = "Resolve a technical fork inside the active goal from the user's original request, instead of asking first. Submit the question, 2-8 options, the zero-based index of your recommended option, the authority basis from the request, facts, unknowns, and risks. Set materialRisk to false only when the choice is clearly reversible and departs from nothing in the request; an absent materialRisk counts as material. The router validates the proposal, runs read-only research or critique when the route needs it, then either returns the decision to continue with (bounded-auto) or asks the owner with your recommendation pre-selected (advisory). Any escalation tells you to ask with goal_question. Forks about money, data deletion, production, or secrets always escalate.";
+
+/** Registers goal_decision on the core's pi. Pi tools cannot be unregistered, so ensureDecisionTool calls this at most once per core. */
+export function registerDecisionTool(core: GoalCore): void {
+	const { pi } = core;
+	pi.registerTool(defineTool({
+		name: DECISION_TOOL_NAME,
+		label: "Decide Fork",
+		description: DECISION_TOOL_DESCRIPTION,
+		promptSnippet: "Resolve a technical fork inside the active goal from the original request, recording the rationale, instead of asking first.",
+		parameters: DecisionToolParametersSchema,
+		async execute(_id, params, signal, _update, ctx) {
+			const { recommended, ...proposalInput } = params;
+			const text = await executeDecisionTool(proposalInput, recommended, {
+				cwd: ctx.cwd,
+				storage: goalStorageContext(ctx),
+				ctx,
+				readGoal: () => decisionGoalView(core.state.goal),
+				runConsultant,
+				signal,
+				accounting: core.accounting,
+				ask: async (question, options, recommendedIndex, context) => {
+					core.enterGoalModal();
+					try {
+						return await runGoalQuestionnaire(ctx, [{ id: "decision", question, context, options, recommended: recommendedIndex }]);
+					} finally {
+						core.exitGoalModal();
+					}
+				},
+			});
+			return { content: [{ type: "text", text }], details: goalDetails(core.state.goal) };
+		},
+		renderCall() { return new Text(DECISION_TOOL_NAME, 0, 0); },
+		renderResult(result, options, theme) { return renderGoalResult(result, options, theme); },
+	}));
+}
+
+function decisionGoalView(goal: GoalRecord | null): DecisionGoalView | null {
+	if (!goal) return null;
+	return {
+		id: goal.id,
+		status: goal.status,
+		objective: goal.objective,
+		generation: goal.scheduler?.generation ?? "",
+		...(goal.tokenBudget === undefined ? {} : { tokenBudget: goal.tokenBudget }),
+		usage: { tokensUsed: goal.usage.tokensUsed },
+	};
+}
+
+const registeredCores = new WeakSet<GoalCore>();
+
+/**
+ * Registers goal_decision the first time a session has both a non-manual decisionMode and an
+ * active goal (TECH §4). A manual project, or a session without an active goal, registers nothing,
+ * so its tool surface is unchanged. Returns whether the router is enabled; the caller passes that to
+ * installGoalToolProfile, which advertises the tool only while the goal is active.
+ */
+export function ensureDecisionTool(core: GoalCore, cwd: string, env?: NodeJS.ProcessEnv): boolean {
+	const enabled = resolveDecisionSettings(cwd, env).mode !== "manual";
+	if (enabled && !registeredCores.has(core) && core.state.goal?.status === "active") {
+		registerDecisionTool(core);
+		registeredCores.add(core);
+	}
+	return enabled;
 }

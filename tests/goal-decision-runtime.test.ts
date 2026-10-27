@@ -6,6 +6,7 @@ import path from "node:path";
 import type { ConsultantRole, ConsultantRunResult } from "../extensions/goal-decision-consultant.ts";
 import {
 	acceptConsultantResult,
+	acceptDecisionResolution,
 	invalidateInterruptedDecisions,
 	invalidateOpenDecision,
 	type AcceptanceInput,
@@ -433,4 +434,69 @@ test("an unreadable decision store is reported as a store error and nothing is a
 	const verdict = accept(ctx, { launch: launch(record.id) });
 
 	assert.equal(verdict.kind, "store-error");
+});
+
+// ── resolution acceptance (E6.1: the final outcome of a deliberation) ──────
+
+
+const OUTCOME = { chosen: "yes", source: "agent" as const, risks: ["minor: none"] };
+
+test("an open record accepts an agent resolution in the same mode: outcome written, status decided", t => {
+	const ctx = setup(t);
+	const record = openRecord(ctx, writeMode(ctx, "bounded-auto"));
+
+	const verdict = acceptDecisionResolution({ storage: ctx.storage, goalId: GOAL, cwd: ctx.cwd, env: ctx.env, goal: goalView(record.id), decisionId: record.id, source: "agent", outcome: OUTCOME });
+
+	assert.equal(verdict.kind, "decided");
+	const stored = storedRecord(ctx, record.id);
+	assert.equal(stored.status, "decided");
+	assert.deepEqual(stored.outcome, OUTCOME);
+});
+
+test("an agent resolution after the project was switched to manual is invalidated and writes no outcome", t => {
+	const ctx = setup(t);
+	const record = openRecord(ctx, writeMode(ctx, "bounded-auto"));
+	writeMode(ctx, "manual");
+
+	const verdict = acceptDecisionResolution({ storage: ctx.storage, goalId: GOAL, cwd: ctx.cwd, env: ctx.env, goal: goalView(record.id), decisionId: record.id, source: "agent", outcome: OUTCOME });
+
+	assert.equal(verdict.kind, "invalidated");
+	if (verdict.kind === "invalidated") assert.equal(verdict.reason, "mode-manual");
+	assert.equal(storedRecord(ctx, record.id).status, "invalidated");
+	assert.equal(storedRecord(ctx, record.id).outcome, undefined);
+});
+
+test("an agent resolution for a changed objective is invalidated (objective-changed)", t => {
+	const ctx = setup(t);
+	const record = openRecord(ctx, writeMode(ctx, "bounded-auto"));
+
+	const verdict = acceptDecisionResolution({ storage: ctx.storage, goalId: GOAL, cwd: ctx.cwd, env: ctx.env, goal: goalView(record.id, { objective: `${OBJECTIVE}!` }), decisionId: record.id, source: "agent", outcome: OUTCOME });
+
+	assert.equal(verdict.kind, "invalidated");
+	if (verdict.kind === "invalidated") assert.equal(verdict.reason, "objective-changed");
+});
+
+test("a human answer skips the autonomous binding checks: recorded as decided even when the mode is manual", t => {
+	const ctx = setup(t);
+	const record = openRecord(ctx, writeMode(ctx, "advisory"));
+	writeMode(ctx, "manual");
+
+	const verdict = acceptDecisionResolution({ storage: ctx.storage, goalId: GOAL, cwd: ctx.cwd, env: ctx.env, goal: goalView(record.id), decisionId: record.id, source: "human", outcome: { chosen: "no", source: "human", risks: [] } });
+
+	assert.equal(verdict.kind, "decided");
+	assert.equal(storedRecord(ctx, record.id).outcome?.source, "human");
+});
+
+test("a resolution for a terminal or unknown record is ignored and writes nothing", t => {
+	const ctx = setup(t);
+	const record = openRecord(ctx, writeMode(ctx, "bounded-auto"));
+	const settled = setDecisionStatus(ctx.storage, GOAL, record.id, "escalated", { writer: "router", expectedRevision: record.revision });
+	assert.equal(settled.ok, true);
+
+	const terminal = acceptDecisionResolution({ storage: ctx.storage, goalId: GOAL, cwd: ctx.cwd, env: ctx.env, goal: goalView(record.id), decisionId: record.id, source: "agent", outcome: OUTCOME });
+	const unknown = acceptDecisionResolution({ storage: ctx.storage, goalId: GOAL, cwd: ctx.cwd, env: ctx.env, goal: goalView("dec-000000000000"), decisionId: "dec-000000000000", source: "agent", outcome: OUTCOME });
+
+	assert.deepEqual(terminal.kind === "ignored" ? terminal.reason : terminal.kind, "not-open");
+	assert.deepEqual(unknown.kind === "ignored" ? unknown.reason : unknown.kind, "unknown-decision");
+	assert.equal(storedRecord(ctx, record.id).outcome, undefined);
 });

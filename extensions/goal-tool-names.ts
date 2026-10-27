@@ -7,6 +7,8 @@ export const UPDATE_GOAL_TASK_TOOL_NAME = "update_goal_task";
 export const QUESTION_TOOL_NAME = "goal_question";
 export const QUESTIONNAIRE_TOOL_NAME = "goal_questionnaire";
 export const PROPOSE_DRAFT_TOOL_NAME = "propose_goal_draft";
+/** Decision router tool (TECH §4): visible only for an active goal when decisionMode is not manual. */
+export const DECISION_TOOL_NAME = "goal_decision";
 
 /** The stable core model surface: three tools, installed without phase-dependent sync. */
 export const CORE_GOAL_TOOL_NAMES = [CREATE_GOAL_TOOL_NAME, GET_GOAL_TOOL_NAME, UPDATE_GOAL_TOOL_NAME] as const;
@@ -28,7 +30,7 @@ export const DRAFTING_GOAL_TOOLS = [
 ] as const;
 
 /** Every goal tool this extension registers (used by installGoalToolProfile). */
-export const ALL_REGISTERED_GOAL_TOOLS = [...FIVE_GOAL_TOOLS, ...DRAFTING_GOAL_TOOLS] as const;
+export const ALL_REGISTERED_GOAL_TOOLS = [...FIVE_GOAL_TOOLS, ...DRAFTING_GOAL_TOOLS, DECISION_TOOL_NAME] as const;
 
 /**
  * Legacy work-tool classification plus the common host work tools. Scheduling
@@ -69,11 +71,12 @@ export const GOAL_PROGRESS_TOOL_NAMES = [
 export const POST_STOP_ALLOWED_TOOLS = ["get_goal"] as const;
 
 /** Advertise valid operations, leaving executor guards authoritative. */
-export function applicableGoalTools(goal: GoalRecord | null, tasksEnabled: boolean): string[] {
+export function applicableGoalTools(goal: GoalRecord | null, tasksEnabled: boolean, decisionEnabled = false): string[] {
  const names: string[] = [CREATE_GOAL_TOOL_NAME, GET_GOAL_TOOL_NAME];
  if (!goal) return names;
  if (["active", "paused", "budget_limited"].includes(goal.status)) names.push(UPDATE_GOAL_TOOL_NAME);
  if (goal.status === "active") names.push(QUESTION_TOOL_NAME);
+ if (decisionEnabled && goal.status === "active") names.push(DECISION_TOOL_NAME);
  if (tasksEnabled && ["active", "paused"].includes(goal.status)) names.push(SET_GOAL_TASKS_TOOL_NAME);
  if (tasksEnabled && goal.status === "active" && goal.taskList?.tasks.length) names.push(UPDATE_GOAL_TASK_TOOL_NAME);
  return names;

@@ -25,6 +25,7 @@
     "./tests/goal-decision-record.test.ts",
     "./tests/goal-decision-restart.test.ts",
     "./tests/goal-decision-runtime.test.ts",
+    "./tests/goal-decision-tool.test.ts",
     "./tests/goal-decision.test.ts",
     "./tests/goal-deferred-archival.test.ts",
     "./tests/goal-draft.test.ts",
