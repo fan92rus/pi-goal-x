@@ -112,3 +112,8 @@
 - gx-ypw.2 fault-injection F01–F11: порча sidecar, конкуренция за лок, stale snapshot/generation, дедлайн-аборт, orphan-grace, double-charge, сбой записи настроек — 16 кейсов, продакшен не тронут. Коммит 76dcabb.
 - gx-ypw.3 docs/adaptive-decisions.md + CHANGELOG + version bump 0.35.0 + pack dry-run; README не расширен. Решение владельца: материальная критика нескипаема (self-certified skip = дыра против S03; адаптивность — research-скипы и advisory). Коммит 6b65e38.
 - gx-ypw.4 (ремонт): test:all + lint зелёные на Windows — chmod-ловушки на win32 были no-op (портативные порчи: файл-вместо-директории, 0o444 на активный файл), таймауты stale-dispatch по соседям, env-чистка спавн-воркера, no-empty в upstream-sync. Гейты: check 0, lint 0, npm test 1448/1448, test:all exit 0 ×2 (1510 pass, 2 штатных skip). Ревью glm-5.3-flash ok + мутационная проверка обеих ловушек.
+## 2026-10-27 — E9 (gx-773.1, owner revision post-E7)
+
+- Полное послойное разрешение decision-ключей: глобальный файл задаёт дефолтный decisionMode + общие decisionCritic/decisionLimits, проектный переопределяет по ключу (как resolveLeaf у остальных опций). Fail-safe без fallthrough на явный невалидный слой; JSON null = absent.
+- snapshotId = sha256(global||NUL||project)[0:16] — правка любого файла посреди размышления инвалидирует; формат сменился, pre-E9 id инвалидированы однократно (fail-closed).
+- Ревью glm-5.3-flash ok (мутационная проверка, scratch-доказательство инвалидации по глобали). Коммит $(git rev-parse --short HEAD).
