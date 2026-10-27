@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
+import { pathToFileURL } from "node:url";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -42,9 +43,9 @@ if (wantWriteManifest) {
 	writeFileSync(manifestPath, JSON.stringify({
 		version: 1,
 		note: "Expected test-entry manifest for the runner self-check (npm run test:selfcheck). Regenerate with: node scripts/run-unit-tests.mjs --write-manifest",
-		unitFiles: unitFiles.map((file) => file.replace(projectRoot, ".")),
-		integrationFiles: integrationFiles.map((file) => file.replace(projectRoot, ".")),
-		e2eFiles: e2eFiles.map((file) => file.replace(projectRoot, ".")),
+		unitFiles: unitFiles.map((file) => file.replace(projectRoot, ".").replace(/\\/g, "/")),
+		integrationFiles: integrationFiles.map((file) => file.replace(projectRoot, ".").replace(/\\/g, "/")),
+		e2eFiles: e2eFiles.map((file) => file.replace(projectRoot, ".").replace(/\\/g, "/")),
 	}, null, 2) + "\n");
 	console.log("Wrote " + manifestPath + " (" + unitFiles.length + " unit, " + integrationFiles.length + " integration, " + e2eFiles.length + " e2e entries).");
 	process.exit(0);
@@ -55,7 +56,7 @@ if (wantSelfCheck) {
 		throw new Error("Missing " + manifestPath + ". Run: node scripts/run-unit-tests.mjs --write-manifest");
 	}
 	const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-	const rel = (file) => file.replace(projectRoot, ".");
+	const rel = (file) => file.replace(projectRoot, ".").replace(/\\/g, "/");
 	const expectedUnit = new Set(manifest.unitFiles ?? []);
 	const expectedIntegration = new Set(manifest.integrationFiles ?? []);
 	const expectedE2e = new Set(manifest.e2eFiles ?? []);
@@ -82,14 +83,16 @@ const startedAt = Date.now();
 // releases so the same script works across the supported Node range (22.19+).
 const isolationProbe = spawnSync(process.execPath, ["--test-isolation=none", "--test", "--help"], { stdio: "ignore" });
 const isolationArgs = isolationProbe.status === 0 ? ["--test-isolation=none"] : [];
+// Windows: node --test + absolute D:\ paths hit ERR_UNSUPPORTED_ESM_URL_SCHEME
+// ('d:' protocol) in the ESM loader; relative paths resolve against cwd (projectRoot).
 const result = spawnSync(
 	process.execPath,
 	[
-		"--import", join(projectRoot, "scripts", "test-adapter-hooks.mjs"),
+		"--import", pathToFileURL(join(projectRoot, "scripts", "test-adapter-hooks.mjs")).href,
 		"--experimental-strip-types",
 		"--test",
 		...isolationArgs,
-		...testFiles,
+		...testFiles.map((file) => "./" + relative(projectRoot, file).replace(/\\/g, "/")),
 	],
 	{ cwd: projectRoot, stdio: "inherit" },
 );
