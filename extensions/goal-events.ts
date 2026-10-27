@@ -650,6 +650,7 @@ export function registerGoalEvents(core: GoalCore): void {
 		core.interruption.settled();
 		core.scheduler.settled(ctx, !!goalId && core.isActionableContinuationGoal(goalId));
 		if (resumedInterruptedTurn) core.scheduler.schedule(ctx);
+		core.runtime.flushScheduledContinuation(ctx);
 		if (goalId && core.isActionableContinuationGoal(goalId)) return;
 		if (!networkErrorGoalId || !core.isActionableContinuationGoal(networkErrorGoalId)) return;
 		const recovery = loadGoalSettings(ctx.cwd).networkRecovery;

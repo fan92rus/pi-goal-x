@@ -102,6 +102,18 @@ export class GoalRuntime {
 		this.continuationTimer.unref?.();
 	}
 
+	/**
+	 * Dispatch a scheduled continuation now instead of on its timer. Used from
+	 * `agent_settled`, where Pi defers the follow-up into the still-open prompt;
+	 * a timer would fire after a `pi -p` prompt resolves and the host disposes.
+	 */
+	flushScheduledContinuation(ctx: ExtensionContext): void {
+		if (!this.continuationTimer || !this.continuationScheduledFor) return;
+		const goalId = this.continuationScheduledFor;
+		this.clearContinuationTimer();
+		this.sendQueuedContinuation(ctx, goalId);
+	}
+
 	/** Cancel a pending continuation for a goal id (e.g. after update/clear/focus change). */
 	cancelContinuationFor(goalId: string): void {
 		if (this.continuationQueuedFor === goalId) this.continuationQueuedFor = null;

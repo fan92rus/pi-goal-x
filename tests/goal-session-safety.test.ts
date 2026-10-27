@@ -64,6 +64,7 @@ test("stale settlement skips all scheduling work, including when the audit queue
 		auditMessages: new GoalAuditMessages(),
 		scheduler: { settled: () => { settlements++; }, isDenied: () => false },
 		interruption: { settled: () => {}, ignoreAbort: () => false, isHeld: () => false },
+		runtime: { flushScheduledContinuation: () => {} },
 	} as unknown as GoalCore;
 	registerGoalEvents(core);
 	const stale = { get sessionManager() { throw new Error(staleMessage); } } as unknown as ExtensionContext;

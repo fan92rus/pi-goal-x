@@ -107,6 +107,7 @@
   "e2eFiles": [
     "./tests/e2e/goal-context-system-sdk.test.ts",
     "./tests/e2e/goal-continuation-user.test.ts",
+    "./tests/e2e/goal-create-goal-print.test.ts",
     "./tests/e2e/goal-lifecycle-dashboard.test.ts",
     "./tests/e2e/goal-prompt-cache-sdk.test.ts",
     "./tests/e2e/goal-scheduler-sdk.test.ts",

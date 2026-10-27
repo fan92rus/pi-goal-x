@@ -4,6 +4,10 @@ All notable changes to pi-goal-x are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- `pi -p` no longer drops the goal continuation after `create_goal`: the follow-up turn now runs before the print-mode session is disposed, so the final text is produced instead of ending with `turn_end could not resolve the persisted assistant entry ID`.
+
 ## [0.36.0] — 2026-10-27
 
 This release carries the adaptive-decisions work recorded under 0.35.0 and 0.35.1, which were never published.
