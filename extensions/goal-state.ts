@@ -58,6 +58,12 @@ import { runGoalCompletionAuditor } from "./goal-auditor.ts";
  * `state.goal` mirrors the old `state` object: reading returns the focused
  * goal, assigning replaces it in the pool and updates the focus.
  */
+export interface ActiveGoalAudit {
+ controller: AbortController;
+ phase: "running" | "awaiting-choice" | "settling" | "settled";
+ cancel(reason: string): void;
+}
+
 export interface GoalCore {
 	pi: ExtensionAPI;
 	dependencies: { runCompletionAuditor?: typeof runGoalCompletionAuditor };
@@ -65,11 +71,12 @@ export interface GoalCore {
 	readonly goalsById: Map<string, GoalRecord>;
 	readonly focusedGoalId: string | null;
 	readonly focusRevision: number;
+	sessionOwner: object | null;
 	hasExplicitSessionFocus: boolean;
 	runningGoalId: string | null;
 	auditProgress: AuditorWidgetProgress | null;
 	auditAnimationTimer: ReturnType<typeof setInterval> | null;
-	auditAbortController: AbortController | null;
+	activeAudit: ActiveGoalAudit | null;
 	/** §15.4: finished audit result card shown briefly before the dashboard returns. */
 	auditResult: { verdict: AuditVerdict; report: string; at: string } | null;
 	setAuditResult(verdict: AuditVerdict, report: string): void;
@@ -77,7 +84,7 @@ export interface GoalCore {
 	goalModalDepth: number;
 	enterGoalModal(): void;
 	exitGoalModal(): void;
-	auditAborted: boolean;
+ invalidateSession(): void;
 	goalWorkToolCalledThisTurn: boolean;
 	tasksEnabled: boolean;
 	/** Whether goal_decision was advertised by the last installGoalToolProfile (TECH §4). */
@@ -156,7 +163,10 @@ export function createGoalCore(
 	let hasExplicitSessionFocus = false;
 
 	function assignFocusedGoalId(next: string | null): void {
-		if (focusedGoalId !== next) focusRevision += 1;
+		if (focusedGoalId !== next) {
+   focusRevision += 1;
+   activeAudit?.cancel("Goal focus changed during completion audit.");
+  }
 		focusedGoalId = next;
   if (profileInitialized && !draftingProfile) installGoalToolProfile(tasksEnabled);
 	}
@@ -240,11 +250,13 @@ export function createGoalCore(
 	let auditResultClearTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function setAuditResult(verdict: AuditVerdict, report: string): void {
-		auditResult = { verdict, report, at: nowIso() };
+		const result = { verdict, report, at: nowIso() };
+		auditResult = result;
 		if (auditResultClearTimer) clearTimeout(auditResultClearTimer);
 		// Short-lived foreground display (§2.5): the card is visible while the
 		// user reads it, then the normal dashboard returns automatically.
 		auditResultClearTimer = setTimeout(() => {
+			if (auditResult !== result) return;
 			auditResult = null;
 			auditResultClearTimer = null;
 			goalWidgetComponentRef.current?.invalidate();
@@ -258,8 +270,11 @@ export function createGoalCore(
 		auditResultClearTimer = null;
 		auditResult = null;
 	}
-	let auditAbortController: AbortController | null = null;
-	let auditAborted = false;
+	let activeAudit: ActiveGoalAudit | null = null;
+ function invalidateSession(): void {
+  focusRevision += 1;
+  activeAudit?.cancel("Session replaced or shut down during completion audit.");
+ }
 
 	let goalModalDepth = 0;
 	let debugMode = false;
@@ -369,17 +384,14 @@ export function createGoalCore(
 		}
 	}
 
-	function abortAudit(ctx: ExtensionContext): void {
-		if (!auditAbortController || !auditProgress) return;
-		auditAbortController.abort();
-		auditAbortController = null;
-		stopAuditAnimation();
-		auditProgress = null;
-		goalWidgetComponentRef.current?.invalidate();
-		// Record the abort as transient runtime state only; the completion flow
-		// decides the single canonical ledger outcome after the dialog choice.
-		auditAborted = true;
-	}
+	function abortAudit(_ctx: ExtensionContext): void {
+  if (!activeAudit || activeAudit.phase !== "running") return;
+  activeAudit.phase = "awaiting-choice";
+  activeAudit.controller.abort();
+  stopAuditAnimation();
+  auditProgress = null;
+  goalWidgetComponentRef.current?.invalidate();
+ }
 
 	function clearContinuationTimer(): void {
 		runtime.clearContinuationTimer();
@@ -582,14 +594,14 @@ export function createGoalCore(
 	let widgetRegistered = false;
 
 	function clearGoalWidget(ctx: ExtensionContext): void {
-		lastUiCtx = null;
-		if (ctx.hasUI) {
-			ctx.ui.setStatus("goal", undefined);
-			ctx.ui.setWidget(GOAL_WIDGET_KEY, undefined);
-		}
-		widgetRegistered = false;
-		goalWidgetComponentRef.current = null;
-	}
+  lastUiCtx = null;
+  widgetRegistered = false;
+  goalWidgetComponentRef.current = null;
+  if (ctx.hasUI) {
+   ctx.ui.setStatus("goal", undefined);
+   ctx.ui.setWidget(GOAL_WIDGET_KEY, undefined);
+  }
+ }
 
 	/**
 	 * Live above-editor widget for the active goal. Inspired by rpiv-todo's
@@ -738,18 +750,23 @@ export function createGoalCore(
 	}
 
 	async function loadState(ctx: ExtensionContext): Promise<void> {
-		clearGoalWidget(ctx);
-		focusStorageRoot = goalStorageRoot(ctx);
-		externalFocusRoot = focusStorageRoot !== path.resolve(ctx.cwd, ".pi/goals");
-		goalsById = await readActiveGoalPoolAsync(ctx);
+  const revision = ++focusRevision;
+  const storage = goalStorageContext(ctx);
+  const entries = ctx.sessionManager.getBranch();
+  const settings = loadGoalSettings(storage.cwd);
+  const pool = await readActiveGoalPoolAsync(storage);
+  if (revision !== focusRevision) return;
+  // The host may invalidate a context while disk I/O is pending.
+  ctx.sessionManager.getSessionId?.();
+  focusStorageRoot = storage.goalStorageRoot;
+  externalFocusRoot = focusStorageRoot !== path.resolve(storage.cwd, ".pi/goals");
+  goalsById = pool;
 		tasksEnabled = !loadGoalSettings(ctx.cwd).disableTasks;
-		focusRevision += 1; // Session reload/tree navigation invalidates pending async focus operations.
 		assignFocusedGoalId(null);
 		hasExplicitSessionFocus = false;
 		let focusEntry: GoalFocusEntry | null = null;
 		let legacyGoal: GoalRecord | null = null;
 		let legacyStateSeen = false;
-		const entries = ctx.sessionManager.getBranch();
 		for (let i = entries.length - 1; i >= 0; i--) {
 			const entry = entries[i] as { type?: string; customType?: string; data?: unknown };
 			if (entry.type !== "custom") continue;
@@ -765,7 +782,6 @@ export function createGoalCore(
 		if (legacyGoal && legacyGoal.status !== "complete") {
 			legacyGoal = sanitizeGoalPaths(ctx, mergeGoalPromptFromDisk(ctx, legacyGoal));
 		}
-		const settings = loadGoalSettings(ctx.cwd);
 		if (focusEntry && (focusEntry.storageRoot ?? path.resolve(ctx.cwd, ".pi/goals")) !== focusStorageRoot) {
 			focusEntry = { ...focusEntry, focusedGoalId: null };
 			legacyGoal = null;
@@ -943,6 +959,7 @@ export function createGoalCore(
 		pi,
 		dependencies,
 		state,
+		sessionOwner: null,
 		get goalsById() {
 			return goalsById;
 		},
@@ -984,24 +1001,20 @@ export function createGoalCore(
 		set auditAnimationTimer(value: ReturnType<typeof setInterval> | null) {
 			auditAnimationTimer = value;
 		},
-		get auditAbortController() {
-			return auditAbortController;
-		},
-		set auditAbortController(value: AbortController | null) {
-			auditAbortController = value;
-		},
+		get activeAudit() {
+   return activeAudit;
+  },
+  set activeAudit(value: ActiveGoalAudit | null) {
+   activeAudit = value;
+  },
 		get goalModalDepth() {
 			return goalModalDepth;
 		},
 		set goalModalDepth(value: number) {
 			goalModalDepth = value;
 		},
-		get auditAborted() {
-			return auditAborted;
-		},
-		set auditAborted(value: boolean) {
-			auditAborted = value;
-		},
+  invalidateSession,
+
 		get goalWorkToolCalledThisTurn() {
 			return goalWorkToolCalledThisTurn;
 		},

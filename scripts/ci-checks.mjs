@@ -43,11 +43,19 @@ export async function runChecks(checks, {directory, cwd=process.cwd(), concurren
 
 if(process.argv[1]===fileURLToPath(import.meta.url)) {
  const directory=process.env.PI_GOAL_CI_LOG_DIR??mkdtempSync(path.join(tmpdir(),'pi-goal-ci-'));
+ process.env.PI_GOAL_PACKAGE_EVIDENCE??=path.join(directory,'package');
+ process.env.PI_GOAL_CACHE_REPORT_DIR??=path.join(directory,'cache');
  console.log(`Validation logs: ${directory}`);
- const results=await runChecks([
+ const checks=[
   {name:'tests',args:['scripts/run-unit-tests.mjs','all','--selfcheck'],noSkippedTests:true},
   {name:'controls-cli',args:['experiments/controls/cli-walkthrough.mjs']},
   {name:'lifecycle-cli',args:['scripts/live-session-check.mjs']},
- ],{directory});
+  {name:'package',args:['scripts/package-stabilization-check.mjs']},
+  {name:'context',args:['experiments/context/run-gate.mjs']},
+  {name:'provider',args:['--experimental-strip-types','experiments/context/provider-crosscheck.mjs']},
+  {name:'cache',args:['--experimental-strip-types','experiments/context/cache-gate.mjs']},
+  {name:'retention',args:['--experimental-strip-types','experiments/context/retention-check.mjs']},
+ ];
+ const results=await runChecks(checks,{directory});
  process.exitCode=results.every(result=>result.passed)?0:1;
 }

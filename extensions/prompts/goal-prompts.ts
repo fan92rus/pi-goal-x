@@ -255,7 +255,8 @@ export function goalPromptParts(goal: GoalRecord, settings?: GoalSettings, conte
 	const { runs, instructions } = schedulerSummaryParts(goal.scheduler, settings?.maxAutonomousRuns, settings?.showAutonomousRuns, settings?.idleContinuationBackoff === true, settings?.commands);
 	const limits = `Limits: lifetime tokens=${goal.tokenBudget ?? "none"}; runs=${settings?.maxAutonomousRuns ?? "unlimited"}.`;
 	const state = [fixed, instructions, limits, "Usage spans goal turns, not context. Latest snapshot supersedes earlier snapshots."].filter(Boolean).join("\n");
-	const counters = `Goal snapshot: ${formatUsage(goal)}\n${contextUsageLine(contextUsage)}\n${runs}`;
+	const context = settings?.showContextUsage === true ? `\n${contextUsageLine(contextUsage)}` : "";
+	const counters = `Goal snapshot: ${formatUsage(goal)}${context}\n${runs}`;
 	return { state, counters };
 }
 

@@ -48,23 +48,14 @@ jobs:
       - name: Lint
         if: steps.changes.outputs.runtime == 'true'
         run: npm run lint
-      - name: Full tests, manifest and installed Pi workflows
+      - name: Runtime, installed package and cache regressions
         if: steps.changes.outputs.runtime == 'true'
         env:
           PI_GOAL_CI_LOG_DIR: ${{ runner.temp }}/pi-goal-validation
         run: node scripts/ci-checks.mjs
-      - name: Package dry run
-        if: steps.changes.outputs.runtime == 'true'
-        run: npm pack --dry-run
       - name: Production dependency audit
         if: steps.changes.outputs.runtime == 'true'
         run: npm audit --omit=dev
-      - name: Context and provider boundaries
-        if: steps.changes.outputs.runtime == 'true'
-        run: |
-          npm run context:gate
-          npm run context:provider-check
-          node --experimental-strip-types experiments/context/retention-check.mjs
       - name: Check out benchmark base
         if: steps.changes.outputs.runtime == 'true'
         uses: actions/checkout@v4
@@ -80,11 +71,11 @@ jobs:
           npm --prefix .benchmark-base run bench:naf -- after naf
           npm run bench:naf -- after naf
           PI_GOAL_BENCH_REFERENCE="$GITHUB_WORKSPACE/.benchmark-base/experiments/bench/baseline-naf-after.json" npm run bench:gate:naf
-      - name: Save failure details
-        if: failure()
+      - name: Save validation evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: validation-failure
+          name: validation
           path: |
             ${{ runner.temp }}/pi-goal-validation/
             experiments/runs/goal-controls/

@@ -76,19 +76,8 @@ export function clearGoalDrafting(core: GoalCore, ctx: ExtensionContext): void {
  * target still matches the focused goal; stale tweak drafts are tombstoned.
  */
 export function rehydrateDraft(core: GoalCore, ctx: ExtensionContext): void {
-	// Validate any live memory draft against the reloaded world first: a tweak
-	// draft whose target is no longer focused is stale and must not survive.
-	if (activeDraft(core)) {
-		const live = activeDraft(core)!;
-		if (live.mode === "tweak") {
-			core.reconcileFocusedGoalFromDisk(ctx);
-			if (!core.state.goal || core.state.goal.id !== live.targetGoalId) {
-				clearGoalDrafting(core, ctx);
-				ctx.ui.notify("The goal tweak draft is stale (its target goal changed); it was discarded.", "warning");
-			}
-		}
-		return;
-	}
+	const live = activeDraft(core);
+	activeDrafts.delete(core);
 	let session: GoalDraftSession | null = null;
 	try {
 		const entries = ctx.sessionManager.getBranch();
@@ -118,7 +107,9 @@ export function rehydrateDraft(core: GoalCore, ctx: ExtensionContext): void {
 			return;
 		}
 	}
-	activeDrafts.set(core, { mode: session.mode, originalTopic: session.seed, targetGoalId: session.targetGoalId, startedAt: session.startedAt, auditorEnabled: session.auditorEnabled });
+	activeDrafts.set(core, { mode: session.mode, originalTopic: session.seed, targetGoalId: session.targetGoalId, startedAt: session.startedAt, auditorEnabled: session.auditorEnabled,
+		...(live?.startedAt === session.startedAt && live.originalTopic === session.seed && live.mode === session.mode && live.targetGoalId === session.targetGoalId ? {questionnaireEcho: live.questionnaireEcho} : {}),
+	});
 	core.installDraftingToolProfile();
 }
 

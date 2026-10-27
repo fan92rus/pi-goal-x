@@ -3,11 +3,18 @@ import type { OracleConsultState } from "./goal-oracle.ts";
 import { isActivityEvent, sameActivityEvent } from "./goal-activity.ts";
 
 /** Bounded working set per goal; complete history remains in the JSONL ledger. */
+export type GoalAuditEvent = Extract<GoalLedgerEvent, {type: "audit_started" | "audit_result" | "audit_skipped"}>;
+export function auditApplies(latestId: string | undefined, event: GoalAuditEvent): boolean {
+ return event.type === "audit_started" || (event.type === "audit_skipped" && event.reason === "disabled") || latestId === undefined || event.auditId === latestId;
+}
+
 export interface GoalLedgerIndex {
  recent: GoalLedgerEvent[];
  activity: GoalLedgerEvent[];
  lastActivityEvent?: GoalLedgerEvent;
- audit?: GoalLedgerEvent;
+ audit?: GoalAuditEvent;
+ auditStarted?: GoalAuditEvent;
+ settledAudit?: GoalAuditEvent;
  completion?: GoalLedgerEvent;
  lifecycle?: GoalLedgerEvent;
  oracle: Map<string, OracleConsultState>;
@@ -23,7 +30,11 @@ export function indexLedgerEvent(index: Map<string, GoalLedgerIndex>, event: Goa
  goal.recent.push(event);
  if (goal.recent.length > 12) goal.recent.shift();
  if (lifecycleEvents.has(event.type)) goal.lifecycle = event;
- if (event.type === "audit_result") goal.audit = event;
+ if (event.type === "audit_started" || event.type === "audit_result" || event.type === "audit_skipped") {
+  if (event.type === "audit_started") goal.auditStarted = event;
+  if (event.type === "audit_result") goal.settledAudit = event;
+  if (auditApplies(goal.audit?.auditId, event)) goal.audit = event;
+ }
  if (event.type === "completion_requested") goal.completion = event;
  if (isActivityEvent(event) && (!goal.lastActivityEvent || !sameActivityEvent(event, goal.lastActivityEvent))) {
   goal.lastActivityEvent = event;

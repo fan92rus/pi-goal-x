@@ -129,6 +129,8 @@ export interface GoalSettingsResolvedShape {
 	 * finite allowance exists. Display only; enforcement is unaffected.
 	 */
 	showAutonomousRuns?: boolean;
+	/** Include context-window occupancy in new prompt snapshots (off by default). */
+	showContextUsage?: boolean;
 	strictExecutionContract?: boolean;
 	/** Delay repeated executions without recognized work (off by default). */
 	idleContinuationBackoff?: boolean;
@@ -371,6 +373,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
 	"pauseOrder",
 	"hideUnfocusedBanner",
 	"showAutonomousRuns",
+	"showContextUsage",
 	"hideUnfocusedPrompt",
 	"goalsRoot",
 	"oracle",
@@ -426,6 +429,7 @@ export function parseSettingsLayer(
 			case "auditorProjectResources":
 			case "hideUnfocusedBanner":
 			case "showAutonomousRuns":
+			case "showContextUsage":
 			case "hideUnfocusedPrompt": {
 				const parsed = asBool(value);
 				if (parsed === undefined) {
@@ -835,6 +839,11 @@ function resolvedSettingsSnapshot(cwd: string, env: NodeJS.ProcessEnv): Settings
 		globalValue: global.layer.showAutonomousRuns,
 		defaultValue: true,
 	}));
+	const showContextUsage = track("showContextUsage", resolveLeaf<boolean>({
+		projectValue: project.layer.showContextUsage,
+		globalValue: global.layer.showContextUsage,
+		defaultValue: false,
+	}));
 	const hideUnfocusedPrompt = track("hideUnfocusedPrompt", resolveLeaf<boolean>({
 		projectValue: project.layer.hideUnfocusedPrompt,
 		globalValue: global.layer.hideUnfocusedPrompt,
@@ -989,6 +998,7 @@ function resolvedSettingsSnapshot(cwd: string, env: NodeJS.ProcessEnv): Settings
 		auditorProjectResources,
 		hideUnfocusedBanner,
 		showAutonomousRuns,
+		showContextUsage,
 		hideUnfocusedPrompt,
 		goalsRoot,
 		stallTimeoutMinutes,
@@ -1358,6 +1368,7 @@ function buildPersistedLayer(settings: GoalSettings): Record<string, unknown> {
 	if (settings.auditorProjectResources !== undefined) persisted.auditorProjectResources = settings.auditorProjectResources;
 	if (settings.hideUnfocusedBanner !== undefined) persisted.hideUnfocusedBanner = settings.hideUnfocusedBanner;
 	if (settings.showAutonomousRuns !== undefined) persisted.showAutonomousRuns = settings.showAutonomousRuns;
+	if (settings.showContextUsage !== undefined) persisted.showContextUsage = settings.showContextUsage;
 	if (settings.goalsRoot !== undefined) persisted.goalsRoot = settings.goalsRoot;
 	if (settings.hideUnfocusedPrompt !== undefined) persisted.hideUnfocusedPrompt = settings.hideUnfocusedPrompt;
 	if ((settings as { networkRecovery?: ResolvedGoalNetworkRecoverySettings }).networkRecovery) {
@@ -1433,6 +1444,7 @@ export function effectiveSettingsReport(cwd: string, env: NodeJS.ProcessEnv = pr
 		{ key: "auditorProjectResources", label: "auditor project resources", format: () => String(snapshot.value.auditorProjectResources) },
 		{ key: "hideUnfocusedBanner", label: "hide unfocused banner", format: () => String(snapshot.value.hideUnfocusedBanner) },
 		{ key: "showAutonomousRuns", label: "show autonomous runs line", format: () => String(snapshot.value.showAutonomousRuns) },
+		{ key: "showContextUsage", label: "show context usage line", format: () => String(snapshot.value.showContextUsage) },
 		{ key: "goalsRoot", label: "goals root (reload to change)", format: () => snapshot.value.goalsRoot ?? ".pi/goals" },
 		{ key: "hideUnfocusedPrompt", label: "hide unfocused prompt", format: () => String(snapshot.value.hideUnfocusedPrompt) },
 		{ key: "idleContinuationBackoff", label: "slow repeated idle replies (opt-in)", format: () => String(snapshot.value.idleContinuationBackoff) },

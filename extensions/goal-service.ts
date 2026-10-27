@@ -1,3 +1,4 @@
+import { goalStorageContext, goalStorageRoot } from "./storage/goal-root.ts";
 import { cloneGoal, nowIso, type GoalFocusReason, type GoalRecord, type GoalTask, type GoalUsage } from "./goal-record.ts";
 import { appendGoalEvent, appendGoalEvents, type GoalLedgerEvent } from "./goal-ledger.ts";
 import { findTaskInTree, updateTaskInTree } from "./goal-policy.ts";
@@ -168,6 +169,7 @@ export class GoalService {
 	 */
 	private flushError: string | null = null;
 	private turnBase: GoalRecord | null = null;
+ private turnContext: GoalServiceContext | null = null;
 
 	private turn: { active: boolean; goalId: string | null; goal: GoalRecord | null; archive: boolean; ledger: GoalLedgerEvent[] } = {
 		active: false,
@@ -186,6 +188,7 @@ export class GoalService {
 			if (this.turn.active) return;
 		}
 		this.turn = { active: true, goalId, goal: null, archive: false, ledger: [] };
+  this.turnContext = goalStorageContext(ctx);
 		const focused = this.ref.getFocused();
 		this.turnBase = focused ? {...focused, usage: {...focused.usage}} : null;
 		this.flushError = null;
@@ -198,6 +201,7 @@ export class GoalService {
 	 */
 	flushTurn(ctx: GoalServiceContext): GoalRecord | null {
 		if (!this.turn.active) return null;
+  ctx = this.turnContext ?? ctx;
 		this.flushError = null;
 		const goal = this.turn.goal;
 		if (!goal) {
@@ -298,12 +302,14 @@ export class GoalService {
 	 * transaction. A batch is the common path; individual retries preserve the
 	 * existing best-effort behavior and keep failures observable per event.
 	 */
-	private appendLedgerEventsBestEffort(ctx: GoalServiceContext, events: GoalLedgerEvent[]): void {
-		if (events.length === 0) return;
-		if (events.length > 1 && appendGoalEvents(ctx, events).ok) return;
+	private appendLedgerEventsBestEffort(ctx: GoalServiceContext, events: GoalLedgerEvent[]): boolean {
+		if (events.length === 0) return true;
+		if (events.length > 1 && appendGoalEvents(ctx, events).ok) return true;
+  let success = true;
 		for (const event of events) {
 			const append = appendGoalEvent(ctx, event);
 			if (!append.ok) {
+    success = false;
 				this.ref.onDiagnostic({
 					severity: "warning",
 					source: "ledger",
@@ -313,6 +319,7 @@ export class GoalService {
 				});
 			}
 		}
+  return success;
 	}
 
 	/** Safe focused record reconciliation from disk. */
@@ -795,15 +802,28 @@ export class GoalService {
 		return { ok: true, goal: written, previousGoalId, goalId: written.id, focusChanged };
 	}
 
-	/** Append ledger events best-effort (audit flow / focus changes happen mid-turn, outside apply). */
-	appendEvents(ctx: GoalServiceContext, events: GoalLedgerEvent[]): void {
-		// P1-3: within a turn the events join the transaction's ledger batch.
-		if (this.turn.active) {
-			this.turn.ledger.push(...events);
-			return;
-		}
-		this.appendLedgerEventsBestEffort(ctx, events);
-	}
+	/** Audit outcomes can bypass the current turn without flushing unrelated work. */
+ appendEvents(ctx: GoalServiceContext, events: GoalLedgerEvent[], opts: {immediate?: boolean} = {}): boolean {
+  if (this.turn.active && !opts.immediate && this.turnContext && goalStorageRoot(this.turnContext) === goalStorageRoot(ctx)) {
+   this.turn.ledger.push(...events);
+   return true;
+  }
+  return this.appendLedgerEventsBestEffort(ctx, events);
+ }
+
+ /** Detach an outgoing session's buffer after its final persistence attempt. */
+ endSession(ctx?: GoalServiceContext): void {
+  try {
+   const storage = this.turnContext ?? ctx;
+   if (storage) this.flushTurn(storage);
+  } finally {
+   if (this.turn.active) this.ref.onDiagnostic({severity: "warning", source: "storage", message: this.flushError ?? "Outgoing goal changes could not be persisted before session replacement."});
+   this.turn = {active: false, goalId: null, goal: null, archive: false, ledger: []};
+   this.turnContext = null;
+   this.turnBase = null;
+   this.lastPersistedUsage = null;
+  }
+ }
 
 	/** Diagnostic write for the debug widget toggle (separate debug dir; not a goal mutation). */
 	writeDebugFile(ctx: GoalServiceContext, relPath: string, content: string): void {

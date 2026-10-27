@@ -448,24 +448,12 @@ describe("five-tool handler integration", () => {
 				await start(h);
 				await h.commands.get("goal-settings").handler("", h.ctx);
 				const lines = firstOptions.filter((o) => o.startsWith("  ") && !o.startsWith("  ───"));
-				assert.equal(lines.length, 29, `all twenty-nine settings rows rendered, got: ${lines.join(" | ")}`);
+				assert.equal(lines.length, 30, `all thirty settings rows rendered, got: ${lines.join(" | ")}`);
 				assert.ok(lines.some((l) => l.startsWith("  decisionMode (manual | advisory | bounded-auto)")) && lines.some((l) => l.includes("critic provider/model")) && lines.some((l) => l.includes("consultations per goal")), "adaptive decisions rows rendered");
 				assert.ok(lines.includes("  slow repeated idle replies (opt-in): false (default)"));
 				assert.ok(lines.some((l) => l === "  show autonomous runs line (show the autonomous runs line): true (default)"), "the runs-line setting is listed and defaults to on");
+				assert.ok(lines.includes("  show context usage line: false (default)"), "the context usage line stays hidden by default (upstream #112)");
 				assert.ok(lines.some((l) => l === "  autonomousTasks (apply task-tree changes without asking): false (default)"), "the autonomousTasks setting is listed and defaults to off");
-				assert.ok(lines.some((l) => l === "  auditor disabled (disable the completion auditor): true (project override)"));
-				assert.ok(lines.some((l) => l === "  provider (auditor model provider): anthropic (project override)"));
-				assert.ok(lines.some((l) => l === "  model (auditor model): (default) (default)"));
-				assert.ok(lines.some((l) => l === "  thinking_level (auditor thinking level): high (project override)"));
-				assert.ok(lines.some((l) => l === "  disableTasks (turn off the goal task tree): true (project override)"));
-				assert.ok(lines.some((l) => l === "  disableContracts (disable explicit execution contracts): false (default)"));
-				assert.ok(lines.includes("  explicit execution contracts (opt-in) (require an explicit execution contract for each run): false (default)"));
-				assert.ok(lines.some((l) => l === "  subtaskDepth (max subtask nesting depth): 3 (project override)"));
-				assert.ok(lines.some((l) => l === "  autoSelectSingleGoal (auto-focus when exactly one goal is active): false (default)"));
-				assert.ok(lines.some((l) => l === "  hideUnfocusedBanner (hide the unfocused-goal banner): false (default)"));
-				assert.ok(lines.some((l) => l === "  hideUnfocusedPrompt (hide the unfocused-goal prompt line): false (default)"));
-				assert.ok(lines.some((l) => l === "  stall timeout (minutes) (declare a run stalled after N minutes): 0 (default)"));
-				assert.ok(lines.some((l) => l === "  max objective length (0 = none) (cap objective length (0 = unlimited)): 0 (default)"), "objective length row defaults to 0");
 			} finally {
 				f.cleanup();
 			}

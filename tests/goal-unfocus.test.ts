@@ -465,7 +465,11 @@ test("an approved completion audit cannot complete or archive a goal after unfoc
 		assert.deepEqual(readFileSync(fixture.activePath), originalGoalFile);
 		assert.equal(readdirSync(path.join(fixture.cwd, ".pi", "goals", "archived")).length, 0);
 		const ledger = readFileSync(path.join(fixture.cwd, ".pi", "goals", "goal_events.jsonl"), "utf8");
-		assert.doesNotMatch(ledger, /"type":"audit_result"/);
+		const outcomes = ledger.trim().split("\n").map(line => JSON.parse(line)).filter(event => event.type === "audit_result");
+		assert.equal(outcomes.length, 1);
+		assert.equal(outcomes[0].verdict, "error");
+		assert.equal(outcomes[0].goalId, fixture.goal.id);
+		assert.match(outcomes[0].report, /focus changed/i);
 		assert.doesNotMatch(ledger, /"type":"goal_completed"/);
 	} finally {
 		fixture.cleanup();

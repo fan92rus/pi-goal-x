@@ -9,6 +9,16 @@ const run = new (Object.getPrototypeOf(async function () {}).constructor)('fs', 
 const pkg = {name: 'pi-goal-x', version: '0.31.8', integrity: 'sha512-fixture', shasum: 'fixture'};
 const metadata = {version: pkg.version, dist: {integrity: pkg.integrity, shasum: pkg.shasum}};
 
+test('publication tests its final tarball after packing and before publishing', () => {
+ const packed = workflow.indexOf('      - name: Pack once and smoke-test recovery CLI');
+ const smoke = workflow.indexOf('      - name: Test the exact publication tarball');
+ const publish = workflow.indexOf('      - name: Publish exact tarball with OIDC and verify registry');
+ assert.ok(packed >= 0 && smoke > packed && publish > smoke);
+ const configuration = workflow.slice(smoke, workflow.indexOf('      - uses:', smoke));
+ assert.match(configuration, /PI_GOAL_PACKAGE_TARBALL: \$\{\{ env\.TARBALL \}\}/);
+ assert.match(configuration, /run: node scripts\/package-stabilization-check\.mjs/);
+});
+
 async function simulate({existing = false, mismatch = false, unavailable = false, latest = '0.31.7', delay = 0} = {}) {
  const result = {publishes: 0, sleeps: 0, receipts: 0};
  let versions = 0, tags = 0;

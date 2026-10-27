@@ -37,6 +37,20 @@ This release carries the adaptive-decisions work recorded under 0.35.0 and 0.35.
 ### Fixed
 
 - Active goals no longer burn autonomous-run allowance on empty "waiting" turns while an async subagent is running. The goal prompt tells the agent to hold the turn open with `bg_wait` until the subagent completes, and the scheduler itself defers implicit-ready continuation delivery while subagents are alive (checked through the in-process pi-subagents RPC; absent pi-subagents fails open, a 10-minute max-deferral fuse guarantees delivery even if a subagent never finishes, and completion resumes the continuation immediately). Waiting-phase polling and user interjections are unaffected.
+## [0.34.1] — 2026-10-27
+
+Includes #118.
+
+### Fixed
+
+- Complete session cleanup after Pi invalidates a context, keep outgoing writes in their original project, and settle interrupted completion audits once against the audited goal. A newer unfinished audit no longer shows an older verdict (#113, #109).
+- Accept provider-filled empty `update_goal` arguments and payload-free ready filler alongside lifecycle status. Report real field conflicts as tool errors before flushing pending work (#115, #117).
+- Exclude skipped tasks from pending counts so complete-and-skipped task trees can reach the independent completion auditor (#110, #111).
+- Leave every Goal shortcut to a focused Pi dialog or foreign capturing overlay, including Escape and remapped pause keys (#114, #116).
+
+### Changed
+
+- Hide context-window occupancy in new goal prompt snapshots by default. Enable `showContextUsage` in `/goal-settings` to display it; accounting, budgets, compaction and retained prompt prefixes keep their existing behavior (#112).
 
 ## [0.34.0] — 2026-10-24
 
