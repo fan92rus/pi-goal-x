@@ -303,3 +303,34 @@ Expanded the real TUI dispatch test to all three foreign surfaces during ordinar
 ### Final review: stop retired startup dialogs before the next UI step
 
 A barrier-driven regression found one remaining startup interleaving: an old multi-goal resume selector could return after replacement and open its next confirmation for the replacement's paused goal. The test failed at the unexpected-confirmation assertion. One owner check after the selector now ends that retired startup before another dialog can open. No new state or abstraction was added; the replacement stays paused with its modal depth unchanged. Focused lifecycle, type and lint gates pass. The preceding commit passed all 1,293 tests with zero skips, both installed CLI suites and the expanded packed-artifact smoke; final integrated CI is refreshed for this guard.
+
+## Verified implementation and release candidate
+
+Final production code is `e854732caacae6dbaab9455035dc566ead0b3570`, on `codex/post-release-stabilization`, [PR #118](https://github.com/tmonk/pi-goal-x/pull/118). [CI run 40529974454](https://github.com/tmonk/pi-goal-x/actions/runs/40529974454) passed both jobs on 2026-10-27. GitHub tested merge commit `0866213002723403a6804f18229811efd96d815e` combining that head with unchanged main `fe0e38f`; local source checks use the branch head. No source PR head was accepted unchanged, and the five issues/six source PRs were rechecked without new pushes or scope changes.
+
+| Gate | Verified result |
+| --- | --- |
+| Full source suite / manifest | 1,294 passed, zero failures/skips; 87 unit + 1 integration + 9 e2e entry files |
+| Minimum runtime / host | Linux Node 22.19.0, Pi 1.4.0; type/lint, 12 workflow/runner tests after the final publication-gate addition |
+| Native Windows | 31 sharing/persistence/session/transaction tests passed, zero skips, Node 22.19.0 |
+| Installed Pi workflows | All 11 terminal-control cases and the three-request draft/execution/independent-audit/archive lifecycle passed |
+| Packed artifact | 129 source-independent runtime/TUI/adapter tests, zero skips, plus the real two-request Responses/auditor archival worker |
+| Context / provider | All 24 semantic fixtures and six outgoing real-SDK request shapes passed, including three Responses schema-compatibility modes |
+| Release cache comparison | 408 adapter scenarios, exactly 276 requested counter-block removals; explicit true, immutable prefixes/tools/options and markers preserved; 1,000 bounded transitions |
+| Benchmark | Same-runner baseline/candidate, 105 rows, no regressions; existing cache read/rebuild and cold-start invariants passed |
+| Dependency/package checks | Production audit: zero vulnerabilities; pack dry-run passed; no production dependency added |
+| Test quality | Nine deliberately broken variants caught at behavioral assertions; payload controls reject missing/moved markers and early-content/schema edits |
+
+Local macOS Node 26.10 repeats the full suite, CLI/package/context/provider/cache and retention gates; those results are kept distinct from minimum-Node Linux and native Windows evidence. No paid live-provider hit rate or optimization is claimed. The default-off occupancy control eliminates counter-only snapshots/resets; #108's instruction-bearing task updates retain their existing safe resets.
+
+### Artifact traceability
+
+The Linux CI tarball for 0.34.1 has SHA-256 `611682c234bbee6123fb208395dd4ef69743147fb683164b7c3b87ae8a3c589a` and integrity `sha512-AIF8FTMGyEo2hVRSYqxrRHTYs0rs+1IOa9TWeW3Su0pDspJMEanO8MRKP1Dp5W72vWHxmVp5FA7TJ3uUa/1MDg==`. CI retains its package, installation log, runtime/Responses tests, cache reports/comparison and control traces. Downloaded copies are under `/tmp/pi-goal-ci-evidence-40529974454`; local packed/runtime and mutation evidence lives in the invocation-owned temporary directories identified by the gate output. These temporary paths are supporting evidence; the linked CI run is the review reference.
+
+The local archive SHA-256 is `f04f180181dc0f178b427275902d2a1bb08492f619f816413a9aeb3ec27558ef`. Comparing the archives found identical file sets, file-content hashes, modes, uid/gid and mtimes; compressed archive identity differs. Publication therefore runs the same expanded regression smoke against its already-packed `TARBALL`, after applying release ranking and before upload/publish. The smoke accepts an explicit tarball without repacking, records its own digest, and installs/executes those exact bytes. A workflow ordering/binding guard complements the actual installed-tarball execution. Trusted publishing still packs once and publishes that tested file; any new runtime/package change must rerun the gates.
+
+### Maintenance effect and remaining release operations
+
+The production diff touches 19 existing files: 524 added lines and 588 removed, a net removal of 64 lines. This is supporting evidence, not a line-count acceptance target. Completion has one commit path and one attempt-scoped finalizer; session events share teardown; drafting has one authoritative rehydration/profile decision; every shortcut shares one focus guard; task counting remains one walker; context visibility remains one existing-path boolean. Audit identity and bounded index fields are justified by cross-session and long-history failing regressions. No alternate retention mode, visibility subsystem, framework or production dependency ships.
+
+Implementation completion criteria are satisfied and the spec is ready for review. Main, published npm versions, release tags and the original issue/PR states have not been changed. Merge/release approval, trusted-publication rehearsal, tagging/publication, registry-artifact verification and subsequent issue/superseded-PR disposition remain release operations. Keep #108 open unless a separately proven optimization ships; keep #96 deferred. Do not call this an already published or registry-verified release.

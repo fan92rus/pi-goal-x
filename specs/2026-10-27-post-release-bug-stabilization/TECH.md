@@ -1,10 +1,12 @@
 # Technical plan
 
+Implementation status: verified release candidate in [PR #118](https://github.com/tmonk/pi-goal-x/pull/118), runtime commit `e854732caacae6dbaab9455035dc566ead0b3570`. [CI run 40529974454](https://github.com/tmonk/pi-goal-x/actions/runs/40529974454) passed the full Linux Node 22.19/Pi 1.4 gates and focused native Windows persistence gates. The following sections preserve the acceptance contract and intake baseline; final evidence and deviations are in `MILESTONES.md`. Publication is a subsequent release operation.
+
 ## 1. Evidence baseline
 
 ### 1.1 Repository and release state
 
-This plan covers every open issue and pull request rechecked on 2026-10-27. GitHub main and the local checkout are `fe0e38f8cd03bfacc9baca730e9a902d3cff116e`, package 0.34.0, with `@earendil-works/pi-coding-agent` 1.4.0 installed. The signed [v0.34.0 tag](https://github.com/tmonk/pi-goal-x/releases/tag/v0.34.0) resolves to `8f0c28b08a152efef9da2728e7f8e96b02455506`; only ranking/spec/validation records changed between that commit and main. Pin both identities in the comparison artifacts rather than calling main the release tag.
+This plan covers every open issue and pull request rechecked on 2026-10-27. At intake, GitHub main and the local checkout were `fe0e38f8cd03bfacc9baca730e9a902d3cff116e`, package 0.34.0, with `@earendil-works/pi-coding-agent` 1.4.0 installed. The signed [v0.34.0 tag](https://github.com/tmonk/pi-goal-x/releases/tag/v0.34.0) resolves to `8f0c28b08a152efef9da2728e7f8e96b02455506`; only ranking/spec/validation records changed between that commit and main. Pin both identities in the comparison artifacts rather than calling main the release tag.
 
 The earlier planning run recorded the following passes on the unmodified baseline (see `MILESTONES.md`; these are historical results, not runs repeated by this plan revision):
 
@@ -25,7 +27,7 @@ The current implementation already has two deliberate cache layers that the fixe
 - `goal-live-retention.ts` retains exact request-only goal-state tails by session, anchor and base-history fingerprint. Identical retries add no blocks. History rewrites, policy-bearing state changes, unsafe tool-result insertion, empty-to-nonempty history changes and bounded rollover reset retention.
 - `goal-prompt-cache.ts` relocates an existing explicit provider cache marker from the transient live tail to real history. It does not enable caching, alter the requested retention tier, add markers or split a tool-call/result pair.
 
-Existing tests cover literal-prefix reuse, retry stability, bounded block/byte growth, per-session separation, delayed tool results, compaction/history rewrites, marker placement for Anthropic and Bedrock, and real SDK serialization for Anthropic Messages, OpenAI Completions and OpenAI Responses shapes. The provider worker currently exercises eight cache-retention/serialization cases, while the context fixtures protect the stable system prefix across deltas, model changes and compaction.
+Existing tests cover literal-prefix reuse, retry stability, bounded block/byte growth, per-session separation, delayed tool results, compaction/history rewrites, marker placement for Anthropic and Bedrock, and real SDK serialization for Anthropic Messages, OpenAI Completions and OpenAI Responses shapes. At intake, the provider worker exercised eight cache-retention/serialization cases, while the context fixtures protect the stable system prefix across deltas, model changes and compaction.
 
 These tests are a strong semantic base but do not yet produce one release artifact that compares 0.34.0 with the integrated branch and explains every prefix break. The first milestone adds that comparative gate before runtime fixes.
 

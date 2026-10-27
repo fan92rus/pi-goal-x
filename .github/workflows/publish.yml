@@ -97,6 +97,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/package-smoke"
           tar -xzf "$RUNNER_TEMP/release/pi-goal-x-${RELEASE_TAG#v}.tgz" -C "$RUNNER_TEMP/package-smoke"
           node "$RUNNER_TEMP/package-smoke/package/scripts/recover-session-checkpoints.mjs" --help
+      - name: Test the exact publication tarball
+        env:
+          PI_GOAL_PACKAGE_TARBALL: ${{ env.TARBALL }}
+          PI_GOAL_PACKAGE_EVIDENCE: ${{ runner.temp }}/release/stabilization
+        run: node scripts/package-stabilization-check.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: npm-${{ env.RELEASE_TAG }}-${{ github.run_attempt }}

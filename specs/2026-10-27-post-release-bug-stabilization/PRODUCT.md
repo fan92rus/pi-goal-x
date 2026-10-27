@@ -1,10 +1,11 @@
 # Post-release bug stabilization
 
-Status: implementation in progress  
+Status: implemented; verified release candidate ready for review
+
 Proposed release: 0.34.1, bug fixes first  
 Planning baseline: `fe0e38f` (0.34.0 main)
 
-Rechecked on 2026-10-27 against all five open issues and six open PRs. The released `v0.34.0` tag points to `8f0c28b`; its runtime, dependencies and tests are identical to `fe0e38f`. This is the current stabilization plan; the older open-PR disposition document is historical. This revision plans implementation and release gates; it does not mark any fix as implemented or any PR as accepted.
+Rechecked on 2026-10-27 against all five open issues and six source PRs. The released `v0.34.0` tag points to `8f0c28b`; its runtime, dependencies and tests are identical to `fe0e38f`. The implementation is in [PR #118](https://github.com/tmonk/pi-goal-x/pull/118). Final runtime commit `e854732` passed the complete Linux/minimum-Node and native Windows gates; `MILESTONES.md` records the fixes, review decisions and artifact evidence. The older open-PR disposition document is historical. Version 0.34.1 is prepared and tested, not published.
 
 ## Why this work comes first
 

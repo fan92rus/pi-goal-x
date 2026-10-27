@@ -19,8 +19,15 @@ const run=(command,args,cwd)=>{
  }
 };
 try {
- const [packed]=JSON.parse(run('npm',['pack','--json','--pack-destination',evidence],root));
- const tarball=path.join(evidence,packed.filename);
+ let tarball=process.env.PI_GOAL_PACKAGE_TARBALL, integrity;
+ if (tarball) {
+  tarball=path.resolve(tarball);
+  integrity=`sha512-${createHash('sha512').update(readFileSync(tarball)).digest('base64')}`;
+ } else {
+  const [packed]=JSON.parse(run('npm',['pack','--json','--pack-destination',evidence],root));
+  tarball=path.join(evidence,packed.filename);
+  integrity=packed.integrity;
+ }
  writeFileSync(path.join(project,'package.json'),JSON.stringify({private:true,type:'module'}));
  const peers=['@earendil-works/pi-ai','@earendil-works/pi-coding-agent','@earendil-works/pi-tui','typebox'].map(name=>`${name}@${JSON.parse(readFileSync(path.join(root,'node_modules',name,'package.json'),'utf8')).version}`);
  writeFileSync(path.join(evidence,'install.log'),run('npm',['install','--no-audit','--no-fund',tarball,...peers],project));
@@ -49,7 +56,7 @@ try {
  assert.equal(JSON.parse(sdk.trim().split('\n').at(-1)).archived,true);
  writeFileSync(path.join(evidence,'responses.log'),sdk);
  const version=JSON.parse(readFileSync(path.join(installed,'package.json'),'utf8')).version;
- const report={version,source:run('git',['rev-parse','HEAD'],root).trim(),tarball,integrity:packed.integrity,sha256:createHash('sha256').update(readFileSync(tarball)).digest('hex'),installedEntry:entry,testedEntry,passed:true};
+ const report={version,source:run('git',['rev-parse','HEAD'],root).trim(),tarball,integrity,sha256:createHash('sha256').update(readFileSync(tarball)).digest('hex'),installedEntry:entry,testedEntry,passed:true};
  writeFileSync(path.join(evidence,'package.json'),JSON.stringify(report,null,2)+'\n');
  console.log(`Installed package PASS: ${version}; lifecycle, tool input, skipped tasks, focus, context and Responses/auditor smoke. Evidence: ${evidence}`);
 } finally {rmSync(project,{recursive:true,force:true});}
