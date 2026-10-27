@@ -147,6 +147,10 @@ export interface GoalSettingsResolvedShape {
 	/** Issue #72: suppress the model-facing [PI GOAL UNFOCUSED] prompt (default false). */
 	hideUnfocusedPrompt?: boolean;
 	goalsRoot?: string;
+	/** Decision-mode keys: opaque here; owned + validated by goal-decision-policy.ts (specs/2026-10-27-adaptive-decisions/TECH.md §2). */
+	decisionMode?: string;
+	decisionCritic?: Record<string, unknown>;
+	decisionLimits?: Record<string, unknown>;
 	/** Issue #26: opt-in read-only blocker Oracle configuration (sparse). */
 	oracle?: GoalOracleSettingsLayer;
 	/**
@@ -578,6 +582,24 @@ export function parseSettingsLayer(
 					}
 				}
 				if (Object.keys(nr).length > 0) layer.networkRecovery = nr;
+				break;
+			}
+			case "decisionMode": {
+				// Decision keys are owned by goal-decision-policy.ts, which reads the
+				// project file fresh and fails safe to "manual". Any string is accepted
+				// (a typo must not brick settings-mutation flows) and carried opaquely so
+				// layer-clone writes preserve it. Only the gross shape is checked.
+				if (typeof value !== "string") diagnostics.push(diagnostic("invalid_value", "decisionMode must be a string", key));
+				else layer.decisionMode = value;
+				break;
+			}
+			case "decisionCritic":
+			case "decisionLimits": {
+				// Same ownership note as decisionMode: shape-check only; field-level
+				// validation lives in goal-decision-policy.ts. Stored opaquely verbatim.
+				if (!value || typeof value !== "object" || Array.isArray(value)) diagnostics.push(diagnostic("invalid_value", `${key} must be an object`, key));
+				else if (key === "decisionCritic") layer.decisionCritic = value as Record<string, unknown>;
+				else layer.decisionLimits = value as Record<string, unknown>;
 				break;
 			}
 			default:
@@ -1293,6 +1315,11 @@ function buildPersistedLayer(settings: GoalSettings): Record<string, unknown> {
 	if (settings.strictExecutionContract !== undefined) persisted.strictExecutionContract = settings.strictExecutionContract;
 	if (settings.maxAutonomousRuns !== undefined) persisted.maxAutonomousRuns = settings.maxAutonomousRuns;
 	if (settings.stallTimeoutMinutes !== undefined) persisted.stallTimeoutMinutes = settings.stallTimeoutMinutes;
+	// Decision keys round-trip opaquely (owned by goal-decision-policy.ts).
+	const dec = settings as GoalSettingsResolvedShape;
+	if (dec.decisionMode !== undefined) persisted.decisionMode = dec.decisionMode;
+	if (dec.decisionCritic !== undefined) persisted.decisionCritic = dec.decisionCritic;
+	if (dec.decisionLimits !== undefined) persisted.decisionLimits = dec.decisionLimits;
 	if (settings.objectiveMaxChars !== undefined) persisted.objectiveMaxChars = settings.objectiveMaxChars;
 	if (settings.keybindings) persisted.keybindings = structuredClone(settings.keybindings);
 	if (settings.commands) persisted.commands = structuredClone(settings.commands);
