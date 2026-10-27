@@ -13,6 +13,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { tmpdir } from "node:os";
 import { createCodingToolDefinitions as createCodingTools, createReadOnlyToolDefinitions as createReadOnlyTools } from "../../node_modules/@earendil-works/pi-coding-agent/dist/core/tools/index.js";
 import { buildSystemPrompt } from "../../node_modules/@earendil-works/pi-coding-agent/dist/core/system-prompt.js";
 import { runGoalCompletionAuditor } from "../../extensions/goal-auditor.ts";
@@ -22,20 +23,19 @@ import { FIXTURES, userMessage, v2CheckpointMessage, assistantMessage } from "./
 import { serializeGoalFile } from "../../extensions/storage/goal-files.ts";
 import { GOAL_LEDGER_FILE } from "../../extensions/goal-ledger.ts";
 
-const HOST_TOOLS = createCodingTools("/tmp/goal-context-capture");
-const ALL_HOST_TOOLS = [...HOST_TOOLS, ...createReadOnlyTools("/tmp/goal-context-capture")];
+const HOST_TOOLS = createCodingTools("/fixture");
 export function sdkSystem(definitions, customPrompt) {
  const raw = buildSystemPrompt({ customPrompt, cwd: "/fixture", skills: [], contextFiles: [], selectedTools: definitions.map(t => t.name), toolSnippets: Object.fromEntries(definitions.map(t => [t.name, t.promptSnippet ?? ""])), promptGuidelines: definitions.flatMap(t => t.promptGuidelines ?? []) });
  // SDK installation location is not extension overhead and differs in CI.
  return raw.replaceAll(fs.realpathSync(new URL("../../node_modules/@earendil-works/pi-coding-agent", import.meta.url)), "/sdk");
 }
 const BASE_SYSTEM = sdkSystem(HOST_TOOLS);
-const CAPTURE_CWD = process.env.PI_GOAL_CONTEXT_CAPTURE_CWD ?? "/tmp/goal-context-capture";
 
-function createCapture() {
+function createCapture(cwd) {
+ const hostTools = createCodingTools(cwd);
 	const handlers = new Map();
 	const tools = [];
- let activeTools = HOST_TOOLS.map(t => t.name);
+ let activeTools = hostTools.map(t => t.name);
 
 	const mockPi = {
 		registerTool: (def) => tools.push(def),
@@ -57,18 +57,18 @@ function createCapture() {
 	};
 
 	const ctx = {
-		cwd: CAPTURE_CWD,
+		cwd: cwd,
 		hasUI: false,
 		sessionManager: {
 			getBranch: () => [],
-			getCwd: () => CAPTURE_CWD,
+			getCwd: () => cwd,
 			getSessionId: () => "capture",
-			getRoot: () => CAPTURE_CWD,
+			getRoot: () => cwd,
 			append: () => {},
 			buildSessionContext: () => ({ messages: [], sessionId: "capture", model: null, thinkingLevel: "medium" }),
 			getSessionFile: () => undefined,
 		},
-		getSystemPrompt: () => sdkSystem(activeTools.map(name => [...HOST_TOOLS, ...tools].find(t => t.name === name)).filter(Boolean)),
+		getSystemPrompt: () => sdkSystem(activeTools.map(name => [...hostTools, ...tools].find(t => t.name === name)).filter(Boolean)),
 		isIdle: () => true,
 		hasPendingMessages: () => false,
 		modelRegistry: { getAvailable: () => [] },
@@ -108,11 +108,10 @@ function createCapture() {
 }
 
 /** Materialize goal files, focus entry, and ledger events for a scenario. */
-function materializeState(scenario) {
-	fs.rmSync(CAPTURE_CWD, { recursive: true, force: true });
-	fs.mkdirSync(path.join(CAPTURE_CWD, ".pi", "goals", "archived"), { recursive: true });
+function materializeState(scenario, cwd) {
+	fs.mkdirSync(path.join(cwd, ".pi", "goals", "archived"), { recursive: true });
 
-	if (scenario.settings) fs.writeFileSync(path.join(CAPTURE_CWD, ".pi/pi-goal-x-settings.json"), JSON.stringify(scenario.settings));
+	if (scenario.settings) fs.writeFileSync(path.join(cwd, ".pi/pi-goal-x-settings.json"), JSON.stringify(scenario.settings));
  const entries = [];
  if (scenario.draftPrompt) entries.push({ type: "custom", customType: "pi-goal-draft", data: { version: 1, mode: "goal", seed: "build the thing", startedAt: "2026-08-23T12:00:00.000Z", auditorEnabled: true } });
 	const goals = scenario.goal ? [scenario.goal] : [];
@@ -121,7 +120,7 @@ function materializeState(scenario) {
 	for (const goal of goals) {
 		const relPath = `.pi/goals/active_goal_${goal.id}.md`;
 		goal.activePath = relPath;
-		fs.writeFileSync(path.join(CAPTURE_CWD, relPath), serializeGoalFile(goal), "utf8");
+		fs.writeFileSync(path.join(cwd, relPath), serializeGoalFile(goal), "utf8");
 		entries.push({ type: "custom", customType: "pi-goal-state", data: { version: 3, goal } });
 	}
 
@@ -136,7 +135,7 @@ function materializeState(scenario) {
 
 	if (scenario.ledgerEvents?.length > 0) {
 		const lines = scenario.ledgerEvents.map((e) => JSON.stringify(e)).join("\n");
-		fs.writeFileSync(path.join(CAPTURE_CWD, GOAL_LEDGER_FILE), `${lines}\n`, "utf8");
+		fs.writeFileSync(path.join(cwd, GOAL_LEDGER_FILE), `${lines}\n`, "utf8");
 	}
 	return entries;
 }
@@ -152,13 +151,16 @@ function baseConversation(goal) {
 }
 
 /** Capture one fixture's composed request. */
-export async function captureOne(fixtureId) {
+export async function captureOne(fixtureId, { inspect } = {}) {
 	const build = FIXTURES[fixtureId];
 	if (!build) throw new Error(`unknown fixture: ${fixtureId}`);
 	const scenario = build();
 
-	const capture = createCapture();
-	const entries = materializeState(scenario);
+	const cwd = fs.mkdtempSync(path.join(tmpdir(), "goal-context-capture-"));
+ try {
+	const capture = createCapture(cwd);
+	const entries = materializeState(scenario, cwd);
+ const allHostTools = [...createCodingTools(cwd), ...createReadOnlyTools(cwd)];
 	await capture.startSession(entries);
 	if (fixtureId === "post-compaction-turn") await capture.compact();
  const turn = await capture.runTurn(scenario.trigger ?? "continue");
@@ -173,7 +175,7 @@ export async function captureOne(fixtureId) {
   const createSession = async options => ({ session: {
    subscribe: () => () => {}, abort: () => {},
    prompt: async text => {
-    const defs = options.tools.map(t => typeof t === "string" ? [...ALL_HOST_TOOLS, ...(options.customTools ?? [])].find(d => d.name === t) : t).filter(Boolean);
+    const defs = options.tools.map(t => typeof t === "string" ? [...allHostTools, ...(options.customTools ?? [])].find(d => d.name === t) : t).filter(Boolean);
     childRequests.push({ kind: fixtureId === "oracle-consultation" ? "oracle" : "auditor", system: sdkSystem(defs, options.resourceLoader?.getSystemPrompt()), messages: [userMessage(text)], tools: defs.map(toolCapture) });
    },
   } });
@@ -188,7 +190,7 @@ export async function captureOne(fixtureId) {
   }
  }
  const providerMessages = await capture.runContext(messages);
- return {
+ const result = {
   childRequests,
   sdkGuidanceChars: capture.ctx.getSystemPrompt().length - BASE_SYSTEM.length,
   hostTools: HOST_TOOLS.map(toolCapture),
@@ -198,6 +200,11 @@ export async function captureOne(fixtureId) {
 		messages: providerMessages,
 		tools: capture.activeTools.map(toolCapture),
 	};
+ await inspect?.(result, {cwd, scenario, capture, baseMessages: messages});
+ return result;
+ } finally {
+  fs.rmSync(cwd, {recursive: true, force: true});
+ }
 }
 
 function toolCapture(t) { return { name: t.name, description: t.description ?? "", schema: t.parameters ?? t.schema ?? null }; }

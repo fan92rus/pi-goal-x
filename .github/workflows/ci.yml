@@ -61,9 +61,12 @@ jobs:
         run: npm audit --omit=dev
       - name: Context and provider boundaries
         if: steps.changes.outputs.runtime == 'true'
+        env:
+          PI_GOAL_CACHE_REPORT_DIR: ${{ runner.temp }}/pi-goal-validation/cache
         run: |
           npm run context:gate
           npm run context:provider-check
+          npm run context:cache-gate
           node --experimental-strip-types experiments/context/retention-check.mjs
       - name: Check out benchmark base
         if: steps.changes.outputs.runtime == 'true'
@@ -80,8 +83,8 @@ jobs:
           npm --prefix .benchmark-base run bench:naf -- after naf
           npm run bench:naf -- after naf
           PI_GOAL_BENCH_REFERENCE="$GITHUB_WORKSPACE/.benchmark-base/experiments/bench/baseline-naf-after.json" npm run bench:gate:naf
-      - name: Save failure details
-        if: failure()
+      - name: Save validation evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: validation-failure

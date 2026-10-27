@@ -73,7 +73,9 @@
     "test:oracle": "node --experimental-strip-types --test tests/goal-oracle.test.ts",
     "bench:comprehensive": "node --import ./experiments/bench/bench-adapter-hooks.mjs --expose-gc --experimental-strip-types experiments/bench/comprehensive.mjs",
     "bench:gate:comprehensive": "node experiments/bench/comprehensive-gate.mjs",
-    "test:controls-cli": "node experiments/controls/cli-walkthrough.mjs"
+    "test:controls-cli": "node experiments/controls/cli-walkthrough.mjs",
+    "context:cache-report": "node --experimental-strip-types experiments/context/cache-report.mjs",
+    "context:cache-gate": "node --experimental-strip-types experiments/context/cache-gate.mjs"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": ">=1.4.0 <2.0.0",
