@@ -151,10 +151,11 @@ function baseConversation(goal) {
 }
 
 /** Capture one fixture's composed request. */
-export async function captureOne(fixtureId, { inspect } = {}) {
+export async function captureOne(fixtureId, { inspect, settings } = {}) {
 	const build = FIXTURES[fixtureId];
 	if (!build) throw new Error(`unknown fixture: ${fixtureId}`);
 	const scenario = build();
+	if (settings) scenario.settings = {...scenario.settings, ...settings};
 
 	const cwd = fs.mkdtempSync(path.join(tmpdir(), "goal-context-capture-"));
  try {

@@ -8,8 +8,59 @@ import { cacheGoalHistory } from "../extensions/goal-prompt-cache.ts";
 import { GOAL_AUDIT_ENTRY } from "../extensions/goal-format.ts";
 import { filterGoalSessionContext } from "../extensions/goal-session-safety.ts";
 import { LiveTailRetention } from "../extensions/goal-live-retention.ts";
+import {stabilizationHarness} from "./stabilization-utils.ts";
+import {mutateSettingsLayer} from "../extensions/goal-settings.ts";
 
 const live = "[PI GOAL ACTIVE goalId=fixture]\nUsage: 123 tokens";
+
+test("real adapters preserve registered context visibility, retries and toggles", async () => {
+ for (const flavor of ["openai-responses", "openai-completions", "anthropic-messages", "anthropic-compatible-completions"] as const) {
+  const work = mkdtempSync(path.join(tmpdir(), "goal-visibility-wire-"));
+  try {
+   const runtime = await ModelRuntime.create({authPath: path.join(work, "auth"), modelsPath: null, allowModelNetwork: false, refreshOnCreate: false});
+   const api = flavor === "anthropic-compatible-completions" ? "openai-completions" : flavor;
+   runtime.registerProvider("visibility", {baseUrl: "http://127.0.0.1:1", api, apiKey: "fixture-only", models: [{id: "fixture", name: "fixture", reasoning: false, input: ["text"], cost: {input: 0, output: 0, cacheRead: 0, cacheWrite: 0}, contextWindow: 1000, maxTokens: 128}]});
+   const model = runtime.getModel("visibility", "fixture")!;
+   if (flavor === "anthropic-compatible-completions") model.compat = {cacheControlFormat: "anthropic", supportsLongCacheRetention: true};
+   for (const cacheRetention of ["none", "short", "long"] as const) {
+    const h = stabilizationHarness();
+    try {
+     h.ctx.model = model;
+     await h.start();
+     const base = [{role: "user", content: "real unchanged history", timestamp: 1}];
+     const capture = async () => {
+      const {messages} = await h.event("context_with_system", {messages: base});
+      let payload: any;
+      const tools = [...h.tools.values()].filter(tool => ["create_goal", "get_goal", "update_goal", "set_goal_tasks", "update_goal_task"].includes(tool.name));
+      await runtime.streamSimple(model, {systemPrompt: "stable host", messages: convertToLlm(messages), tools}, {sessionId: "visibility-fixed", cacheRetention, onPayload: value => {
+       payload = value; h.event("before_provider_request", {payload}); throw new Error("Captured before dispatch");
+      }}).result();
+      assert.ok(payload);
+      return payload;
+     };
+     let previous = await capture();
+     assert.doesNotMatch(JSON.stringify(previous), /Context snapshot:/);
+     h.ctx.getContextUsage = () => ({tokens: 900, contextWindow: 1000});
+     assert.deepEqual(await capture(), previous, "hidden occupancy does not change payloads");
+     for (const value of [true, false, true]) {
+      mutateSettingsLayer({scope: "project", cwd: h.cwd, mutation: {op: "set", path: ["showContextUsage"], value}});
+      const next = await capture();
+      assert.deepEqual(next.tools, previous.tools);
+      assert.deepEqual(next.system, previous.system);
+      if (flavor.startsWith("openai")) {
+       const a = previous.input ?? previous.messages, b = next.input ?? next.messages;
+       assert.deepEqual(b.slice(0, a.length), a, "toggle preserves the implicit prefix");
+      }
+      assert.deepEqual(await capture(), next, "retry adds no tail");
+      const latest = h.core.state.goal!;
+      assert.equal(latest.usage.tokensUsed, 0);
+      previous = next;
+     }
+    } finally {await h.cleanup();}
+   }
+  } finally {rmSync(work, {recursive: true, force: true});}
+ }
+});
 // Exercise Pi's actual serializers. onPayload throws before HTTP dispatch, so
 // these checks require neither credentials nor a paid request.
 for (const flavor of ["anthropic-messages", "openai-completions", "openai-responses", "anthropic-compatible-completions"] as const) {

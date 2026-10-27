@@ -33,7 +33,7 @@ export function summarize(payload, transients=[]) {
  return {
   immutable:digest({system:payload.system,instructions:payload.instructions,systemMessages:blocks.filter(b=>b.role==='system'||b.role==='developer'),tools:payload.tools}),
   options:digest(Object.fromEntries(Object.entries(payload).filter(([k])=>!['system','instructions','tools','messages','input'].includes(k)))),
-  blocks:blocks.map(block=>({hash:digest(block),bytes:Buffer.byteLength(JSON.stringify(block)),...(textBlock(block)===undefined?{}:{text:textBlock(block)})})),
+  blocks:blocks.map(block=>({hash:digest(block),bytes:Buffer.byteLength(JSON.stringify(block)),raw:block,...(textBlock(block)===undefined?{}:{text:textBlock(block)})})),
   bytes:Buffer.byteLength(JSON.stringify(payload)), markers,
  };
 }
@@ -52,10 +52,17 @@ export function compareReports(baseline, candidate) {
   assert.equal(b.blocks.length,a.blocks.length,`${b.id}: unexpected block count`);
   for(let j=0;j<a.blocks.length;j++) {
    if(a.blocks[j].hash===b.blocks[j].hash) continue;
-   const old=a.blocks[j].text, next=b.blocks[j].text;
-   // These fixtures have unavailable occupancy. Only fresh goal counters may differ.
-   assert.ok(typeof old==='string' && old.startsWith('Goal snapshot:') && old.includes('\nContext snapshot: unavailable\n'),`${b.id}: unexplained block ${j}`);
-   assert.equal(next,old.replace('\nContext snapshot: unavailable\n','\n'),`${b.id}: unexpected counter edit`);
+   assert.ok(!b.id.endsWith('/context-explicit-true'),`${b.id}: explicit opt-in differs from release`);
+   let edits=0;
+   const expected=value=>{
+    if(typeof value==='string' && value.startsWith('Goal snapshot:') && value.includes('\nContext snapshot: unavailable\n')) {edits++;return value.replace('\nContext snapshot: unavailable\n','\n');}
+    if(Array.isArray(value))return value.map(expected);
+    if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,expected(v)]));
+    return value;
+   };
+   const approved=expected(a.blocks[j].raw);
+   assert.ok(edits>0,`${b.id}: unexplained block ${j}`);
+   assert.deepEqual(b.blocks[j].raw,approved,`${b.id}: unexpected counter edit`);
    differences.push({scenario:b.id,block:j,reason:'default-context-display-off',removedBytes:a.blocks[j].bytes-b.blocks[j].bytes});
   }
   if(a.reuse) {
@@ -96,6 +103,7 @@ export async function buildReport() {
      return row;
     };
     for(const id of Object.keys(FIXTURES)) await captureOne(id,{inspect:async captured=>{await serialize(id,captured);}});
+    for(const value of [false,true]) await captureOne('active-regular-no-tasks',{settings:{showContextUsage:value},inspect:async captured=>{await serialize(`context-explicit-${value}`,captured);}});
     await captureOne('active-regular-no-tasks',{inspect:async (captured,{capture,baseMessages})=>{
      const base=[...baseMessages];
      let previous;

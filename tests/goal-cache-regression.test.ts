@@ -28,6 +28,6 @@ test("approved display removal must be exact and confined to a goal counter bloc
  const baseline = {version: 1, rows: [{id: "counter", ...summarize({messages: [{role: "user", content: "Goal snapshot: 12 tokens\nContext snapshot: unavailable\nAutonomous runs: 1/3"}]})}]};
  const candidate = {version: 1, rows: [{id: "counter", ...summarize({messages: [{role: "user", content: "Goal snapshot: 12 tokens\nAutonomous runs: 1/3"}]})}]};
  assert.equal(compareReports(baseline, candidate).approvedDifferences.length, 1);
- candidate.rows[0].blocks[0].text += " extra instruction";
+ candidate.rows[0] = {id: "counter", ...summarize({messages: [{role: "user", content: "Goal snapshot: 12 tokens\nAutonomous runs: 1/3 extra instruction"}]})};
  assert.throws(() => compareReports(baseline, candidate), /unexpected counter edit/);
 });
