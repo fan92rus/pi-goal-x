@@ -4,6 +4,12 @@ All notable changes to pi-goal-x are documented here.
 
 ## [Unreleased]
 
+## [0.35.1] — 2026-10-27
+
+### Changed
+
+- Adaptive decisions: fault-injection acceptance for `decisionMode`. Corrupt or foreign decision sidecars, a held decision lock, deadline and orphan cancellation of consultants, repeated usage charges, a failing settings write during a mode switch, and a corrupt settings file each end in a typed error, an escalation, or a rejected acceptance, and none rewrites the faulty file. No runtime behavior changed.
+
 ## [0.35.0] — 2026-10-27
 
 ### Added

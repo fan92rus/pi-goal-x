@@ -69,3 +69,34 @@ Gaps and limits (documented, not widened in E7):
 - **G9.** S18 "multiple goals" is one project with goals in sequence. Concurrent multi-goal focus is a non-goal (PRODUCT).
 - **G10.** The scripted `createSession` seam is the only fake. The production SDK session factory is not launched by any acceptance case: consulted routes through the registered tool use the real factory only in production.
 - **G11.** No user-facing `docs/` page for `decisionMode` was written; no E7 criterion requires one. The CHANGELOG entry is the only release note.
+
+## E7.2 fault-injection evidence
+
+Evidence: the `F<nn>` cases in `tests/goal-decision-acceptance.test.ts` (16 cases, same entry points as S01–S22: the registered tool, `session_start`, `executeDecisionTool` with the real router, runtime guard, record store, accounting, and `mutateSettingsLayer`). Write failures use the restorable-fs pattern of `tests/windows/atomic-rename.test.ts` (`t.mock.method` on the `fs` default export, `syncBuiltinESMExports`, restored when the test ends). Fault seams are the existing ones: the `createSession` factory (hung prompt, uncancellable abort, reported usage), `cancelGraceMs`, and the `limits` settings. No production code changed.
+
+| Fault | Cases | Observed outcome | Related |
+| --- | --- | --- | --- |
+| Corrupt decision sidecar | F01 (tool) + F01 (session start) | `decision store corrupt`; no consultant launched; file byte-identical; session still starts; restart invalidation is best-effort | S12 |
+| Foreign decision sidecar | F01 | `decision store foreign`; nothing launched; file byte-identical | — |
+| Corrupt / foreign consultation counter | F01 ×2 | `decision store corrupt` / `foreign`; no launch; counter byte-identical; the created record stays `open`, never decided (R1) | S15 |
+| Decision lock held by a live writer before the record | F03 | `decision store locked`; nothing written; the holder's lock left alone; works again after release | — |
+| Decision lock taken while a researcher runs | F04 | the finished consultant is not persisted; owner told the decision could not be recorded; record `open` with no consultants; no further launch (R1) | S10 |
+| Stale settings snapshot (unrelated project edit, mode unchanged) during the critic | F05 | `invalidated: settings-snapshot`; no outcome | S11, S20 |
+| Two deliberations interleaved at consultant awaits | F06 | both records kept, both `decided`, counter exactly 2, two researchers live at once | S04, S10 |
+| Deadline abort mid-consultant | F07 | `aborted` (20 ms deadline); escalated; no critic; child aborted once and disposed; usage `unknown` (R4) | S13, S15 |
+| Orphan grace expiry | F08 | `orphaned: true` on each unstopped child; not disposed; router returns without waiting; no further wave; record `invalidated` (`cancelled`) | S12 |
+| Accounting double-charge attempt | F09 | two 300-token children pend 600 once; a repeated key charges 0; the budget gate refuses a third launch with the `600/600` line | S10, S15 |
+| Settings write failure during a mode switch (idle) | F10 | `ENOSPC` thrown; project file byte-identical; no temp file or lock left; mode stays `bounded-auto`; the same switch succeeds after the failure clears | S17, S19 |
+| Settings write failure during a mode switch (mid-critic) | F10 | mode stays `bounded-auto`; deliberation `decided` (source agent); the switcher receives the error | S20 |
+| Corrupt project settings file | F11 ×2 | reads `manual`; goal_decision refuses without writing; file left as found; corruption mid-critic ⇒ `invalidated: mode-manual` | S17, S20 |
+
+Residual risks (documented, not changed in E7.2):
+
+- **R1 (open record after a failed write).** A record created before a failing store read or write (F01 counter cases, F04 lock) stays `open`. The owner-facing text says the decision could not be recorded, although an `open` record exists. It is never accepted in this session (`activeDecisionId` is not wired, G2) and is invalidated as `restarted` at the next `session_start`.
+- **R2 (error label).** When the per-goal counter cannot be read at launch, the consultant record carries errorCode `budget`, not a store code; the summary text carries the store code (`decision store foreign: …`). The route still escalates.
+- **R3 (silent restart).** A corrupt sidecar at `session_start` is skipped silently by the best-effort restart invalidation (no journal entry). The next `goal_decision` reports the typed error.
+- **R4 (usage of cancelled children).** A consultant that is cancelled or times out reports `unknown` usage even when some usage events arrived, so partial tokens are not charged. This under-counts; it never fabricates a number.
+- **R5 (snapshot strictness).** Any project settings edit, even of an unrelated key, invalidates an in-flight deliberation (TECH §2 snapshot semantics). This is conservative; task-tree edits do not invalidate (S21).
+- **R6 (generation).** `generation` is a `randomUUID` (goal-scheduler-state.ts), so an A→B→A change cannot pass the generation check.
+- **R7 (injected error code).** Injected write failures are `ENOSPC`, which the atomic renamer does not retry on any platform, so the outcome is deterministic. Real Windows sharing contention (`EPERM`/`EACCES`/`EBUSY` retries) stays covered by `tests/windows/atomic-rename.test.ts`, which runs only natively on Windows.
+- **R8 (test seams).** The fault cases lower `consultantDeadlineMs` to 20 ms and `cancelGraceMs` to 20 ms through their seams so the suite stays fast. The production defaults (120 000 ms, 5 000 ms) are unchanged and are checked by S15 and the consultant unit suite.

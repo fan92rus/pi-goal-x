@@ -11,10 +11,16 @@
  *
  * No network, no real model, no real UI. Scenarios whose mechanism is not reachable through
  * these entry points are documented in MATRIX.md (E7.1 section), not faked here.
+ *
+ * Fault cases (E7.2, titled "F<nn> ...", MATRIX.md E7.2 section) use the same entry points with
+ * injected faults: corrupt or foreign sidecars, held locks, a hung or uncancellable child, and
+ * failing settings writes. A write failure is injected with the restorable-fs pattern of
+ * tests/windows/atomic-rename.test.ts (t.mock.method on the fs default export, restored at test end).
  */
 
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import fsDefault, { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync, type PathLike } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -37,9 +43,11 @@ import { readModeFreshFromDisk, resolveDecisionSettings } from "../extensions/go
 import {
 	buildDecisionFingerprint,
 	createDecision,
+	getConsultationsLaunched,
 	getDecisions,
 	objectiveAnchor,
 	type ConsultantResult,
+	type DecisionDraft,
 	type DecisionRecord,
 } from "../extensions/goal-decision-record.ts";
 import { readGoalLedger } from "../extensions/goal-ledger.ts";
@@ -56,6 +64,7 @@ import { DECISION_FORK_RULE } from "../extensions/prompts/goal-prompts.ts";
 import { DECISION_TOOL_NAME } from "../extensions/goal-tool-names.ts";
 import { writeActiveGoalFile } from "../extensions/storage/goal-files.ts";
 import { goalStorageContext } from "../extensions/storage/goal-root.ts";
+import { mutateSettingsLayer } from "../extensions/goal-settings.ts";
 
 const GOAL = "goal-a";
 const OBJECTIVE = "Migrate the local cache to WAL mode end to end";
@@ -123,6 +132,14 @@ interface Script {
 	during?: (role: ConsultantRole) => void;
 	researcher?: (prompt: string) => unknown;
 	critic?: (prompt: string) => unknown;
+	/** The child's prompt never settles (a hung child). */
+	hang?: (role: ConsultantRole) => boolean;
+	/** The child's abort() never settles (an uncancellable child). */
+	abortHangs?: boolean;
+	/** Grace period override for the runner (default CANCEL_GRACE_MS). */
+	cancelGraceMs?: number;
+	/** Usage reported by the child as one assistant message_end event before it submits. */
+	tokens?: number;
 }
 
 interface Launch {
@@ -135,6 +152,8 @@ interface Log {
 	launches: Launch[];
 	live: number;
 	peak: number;
+	aborts: number;
+	disposed: number;
 }
 
 interface FakeSubmitTool {
@@ -151,13 +170,18 @@ function consultantRunner(script: Script, log: Log): ConsultantRunner {
 		const factory: ConsultantSessionFactory = async (options) => {
 			const submit = (options.customTools as unknown as FakeSubmitTool[])[0]!;
 			log.launches.push({ role: args.role, deadlineMs: args.deadlineMs, modelId: (options.model as { id?: string } | undefined)?.id ?? "" });
+			const listeners: Array<(event: unknown) => void> = [];
 			const session: ConsultantSession = {
 				prompt: async () => {
 					log.live += 1;
 					log.peak = Math.max(log.peak, log.live);
 					try {
 						await new Promise<void>((resolve) => setImmediate(resolve));
+						if (script.hang?.(args.role)) await new Promise<void>(() => {});
 						script.during?.(args.role);
+						if (script.tokens !== undefined) {
+							for (const listener of [...listeners]) listener({ type: "message_end", message: { role: "assistant", usage: { totalTokens: script.tokens } } });
+						}
 						const payload = args.role === "researcher"
 							? (script.researcher ?? (() => RESEARCH_OK))(args.prompt)
 							: (script.critic ?? (() => CRITIC_OK))(args.prompt);
@@ -166,12 +190,24 @@ function consultantRunner(script: Script, log: Log): ConsultantRunner {
 						log.live -= 1;
 					}
 				},
-				abort: () => {},
-				dispose: () => {},
+				abort: () => {
+					log.aborts += 1;
+					return script.abortHangs ? new Promise<void>(() => {}) : undefined;
+				},
+				dispose: () => {
+					log.disposed += 1;
+				},
+				subscribe: (listener) => {
+					listeners.push(listener);
+					return () => {
+						const index = listeners.indexOf(listener);
+						if (index >= 0) listeners.splice(index, 1);
+					};
+				},
 			};
 			return { session };
 		};
-		return runConsultant({ ...args, createSession: factory });
+		return runConsultant({ ...args, createSession: factory, cancelGraceMs: script.cancelGraceMs });
 	}) as unknown as ConsultantRunner;
 }
 
@@ -211,7 +247,7 @@ function harness(t: test.TestContext, options: HarnessOptions): Harness {
 	const goal = {
 		current: { id: GOAL, status: "active", objective: OBJECTIVE, generation: "gen-1", usage: { tokensUsed: 0 }, ...options.goal } as DecisionGoalView,
 	};
-	const log: Log = { launches: [], live: 0, peak: 0 };
+	const log: Log = { launches: [], live: 0, peak: 0, aborts: 0, disposed: 0 };
 	const asked: AskCall[] = [];
 	const ctx = {
 		cwd,
@@ -835,4 +871,275 @@ test("S22 planted instructions in a read file do not widen the mode: only the pr
 	const text = await h.call(proposal(), 0);
 	assert.match(text, /decisionMode is manual/);
 	assert.deepEqual(h.records(), []);
+});
+
+// ── E7.2 fault injection (MATRIX.md E7.2 section) ───────────────────────────
+//
+// Each fault ends in an honest degradation (a typed store error or escalation the owner is told about)
+// or in a rejected acceptance; none of them decides silently or rewrites a faulty file.
+
+const DECISIONS_DIR = (cwd: string): string => path.join(cwd, ".pi", "goals", "decisions");
+const DECISION_FILE = (cwd: string, goalId: string): string => path.join(DECISIONS_DIR(cwd), `${goalId}.json`);
+const COUNTER_FILE = (cwd: string, goalId: string): string => path.join(DECISIONS_DIR(cwd), `${goalId}.consultations.json`);
+const GOAL_LOCK_FILE = (cwd: string, goalId: string): string => path.join(cwd, ".pi", "goals", ".locks", `${goalId}.decisions.lock`);
+
+/** A per-goal decision lock held by a live writer (this process): neither stale nor reclaimable. */
+function holdDecisionLock(cwd: string, goalId: string): void {
+	mkdirSync(path.dirname(GOAL_LOCK_FILE(cwd, goalId)), { recursive: true });
+	writeFileSync(GOAL_LOCK_FILE(cwd, goalId), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+}
+
+/**
+ * Restorable fs fault (tests/windows/atomic-rename.test.ts pattern): a rename whose destination ends with
+ * `suffix` fails with ENOSPC; every other rename reaches the real fs. The returned restore step may be
+ * called early; it also runs when the test ends.
+ */
+function failRenamesTo(t: test.TestContext, suffix: string): () => void {
+	const rename = fsDefault.renameSync;
+	t.mock.method(fsDefault, "renameSync", (source: PathLike, destination: PathLike) => {
+		if (String(destination).endsWith(suffix)) {
+			throw Object.assign(new Error(`ENOSPC: no space left on device, rename '${String(source)}' -> '${String(destination)}'`), { code: "ENOSPC" });
+		}
+		return rename(source, destination);
+	});
+	syncBuiltinESMExports();
+	const restore = (): void => {
+		t.mock.restoreAll();
+		syncBuiltinESMExports();
+	};
+	t.after(restore);
+	return restore;
+}
+
+/** Text of a valid decision sidecar that belongs to goal-b, written next to the goal-b record it came from. */
+function goalBSidecarText(cwd: string): string {
+	const draft: DecisionDraft = {
+		objective: "Keep the rollback journal",
+		policyVersion: readModeFreshFromDisk(cwd).snapshotId,
+		question: "Keep the journal?",
+		options: ["keep", "drop"],
+		route: "direct",
+		routeJustification: { skipped: [], reasons: {} },
+		authorityBasis: "The request covers the journal.",
+		facts: [],
+		unknowns: [],
+		consultants: [],
+		generation: "gen-b",
+	};
+	const created = createDecision({ cwd }, "goal-b", draft);
+	assert.ok(created.ok, "goal-b fixture record written");
+	return readFileSync(DECISION_FILE(cwd, "goal-b"), "utf8");
+}
+
+const SIDECAR_FAULTS = [
+	{ name: "corrupt decision sidecar", code: "corrupt", kind: "record" as const, file: (cwd: string) => DECISION_FILE(cwd, GOAL), text: (_cwd: string) => "[{\"id\": " },
+	{ name: "foreign decision sidecar", code: "foreign", kind: "record" as const, file: (cwd: string) => DECISION_FILE(cwd, GOAL), text: goalBSidecarText },
+	{ name: "corrupt consultation counter", code: "corrupt", kind: "counter" as const, file: (cwd: string) => COUNTER_FILE(cwd, GOAL), text: (_cwd: string) => "{\"goalId\": " },
+	{ name: "foreign consultation counter", code: "foreign", kind: "counter" as const, file: (cwd: string) => COUNTER_FILE(cwd, GOAL), text: (_cwd: string) => JSON.stringify({ goalId: "goal-b", consultationsLaunched: 0 }) },
+];
+
+for (const fault of SIDECAR_FAULTS) {
+	test(`F01 ${fault.name}: goal_decision reports a typed ${fault.code} error, launches nothing, and never overwrites the sidecar`, async (t) => {
+		const h = harness(t, { mode: "bounded-auto", critic: CRITIC_SETTINGS.decisionCritic });
+		const text = fault.text(h.cwd);
+		mkdirSync(DECISIONS_DIR(h.cwd), { recursive: true });
+		writeFileSync(fault.file(h.cwd), text);
+		const before = readFileSync(fault.file(h.cwd), "utf8");
+
+		const reply = await h.call(proposal({ selfRoute: "research", unknowns: ["how the cache is opened"] }), 0);
+		assert.match(reply, new RegExp(`decision store ${fault.code}`), "the typed store error reaches the model");
+		assert.deepEqual(h.log.launches, [], "no consultant launched on a faulty store");
+		assert.equal(readFileSync(fault.file(h.cwd), "utf8"), before, "the faulty sidecar is byte-identical");
+		if (fault.kind === "counter") {
+			// The record was created before the counter was read: it stays open, is never decided, and is invalidated at the next session start.
+			assert.equal(h.records()[0]?.status, "open");
+			assert.equal(h.records()[0]?.outcome, undefined);
+		} else {
+			assert.match(reply, /could not be recorded/);
+		}
+	});
+}
+
+test("F01 corrupt decision sidecar seen by a new session: restart invalidation is best-effort, the session starts, and goal_decision reports the typed error without rewriting the file", async (t) => {
+	const cwd = mkdtempSync(path.join(tmpdir(), "pi-goal-acceptance-f01-"));
+	t.after(() => rmSync(cwd, { recursive: true, force: true }));
+	const fixture = sessionFixture(cwd, "bounded-auto", "active");
+	mkdirSync(DECISIONS_DIR(cwd), { recursive: true });
+	writeFileSync(DECISION_FILE(cwd, fixture.goalId!), "[{\"id\": ");
+	const session = mockSession(cwd, fixture.sessionEntries);
+	await session.startSession();
+	const text = await session.callDecision(proposal(), 0);
+	assert.match(text, /decision store corrupt/);
+	assert.doesNotMatch(text, /source: agent/, "nothing was decided");
+	assert.equal(readFileSync(DECISION_FILE(cwd, fixture.goalId!), "utf8"), "[{\"id\": ");
+});
+
+test("F03 decision lock held by a live writer: goal_decision fails fast with a typed locked error, launches nothing, and works again once the lock clears", async (t) => {
+	const h = harness(t, { mode: "bounded-auto" });
+	holdDecisionLock(h.cwd, GOAL);
+	const text = await h.call(proposal({ selfRoute: "research", unknowns: ["how the cache is opened"] }), 0);
+	assert.match(text, /decision store locked/);
+	assert.deepEqual(h.log.launches, [], "no consultant launched without a record");
+	assert.equal(existsSync(DECISION_FILE(h.cwd, GOAL)), false, "nothing was written");
+	assert.equal(existsSync(GOAL_LOCK_FILE(h.cwd, GOAL)), true, "the live holder's lock is left alone");
+	rmSync(GOAL_LOCK_FILE(h.cwd, GOAL));
+	const recovered = await h.call(proposal(), 0);
+	assert.match(recovered, /resolved by the agent/);
+	assert.equal(h.records()[0]?.status, "decided");
+});
+
+test("F04 decision lock taken by another writer while a researcher runs: the finished consultant is not persisted, the owner is told it was not recorded, and nothing is decided", async (t) => {
+	const h = harness(t, { mode: "bounded-auto", script: { during: () => holdDecisionLock(h.cwd, GOAL) } });
+	const text = await h.call(proposal({ selfRoute: "research", unknowns: ["how the cache is opened"] }), 0);
+	assert.match(text, /could not be recorded \(decision store locked/);
+	assert.match(text, /Ask the owner with goal_question/);
+	assert.deepEqual(h.log.launches.map((launch) => launch.role), ["researcher"], "no further launch after the failed write");
+	const [record] = h.records();
+	assert.equal(record?.status, "open", "the record is neither decided nor silently escalated");
+	assert.deepEqual(record?.consultants, [], "the consultant result that could not be written is absent");
+	rmSync(GOAL_LOCK_FILE(h.cwd, GOAL));
+});
+
+test("F05 stale settings snapshot: another session edits the project settings during the critic; acceptance is rejected even though the mode is unchanged", async (t) => {
+	const h = harness(t, {
+		mode: "bounded-auto",
+		critic: CRITIC_SETTINGS.decisionCritic,
+		script: { during: () => writeSettings(h.cwd, { decisionMode: "bounded-auto", ...CRITIC_SETTINGS, decisionLimits: { maxRounds: 2 } }) },
+	});
+	const text = await h.call(unsureProposal({ selfRoute: "critique" }), 0);
+	assert.match(text, /invalidated: settings-snapshot/);
+	assert.equal(h.records()[0]?.status, "invalidated");
+	assert.equal(h.records()[0]?.outcome, undefined);
+});
+
+test("F06 interleaved deliberations on one goal: both records survive the shared sidecar, each is decided once, and the launch count is exact", async (t) => {
+	const h = harness(t, { mode: "bounded-auto" });
+	const [first, second] = await Promise.all([
+		h.call(proposal({ selfRoute: "research", unknowns: ["how the cache is opened"] }), 0),
+		h.call(proposal({ question: "Batch the WAL checkpoints?", options: ["batch", "per write"], selfRoute: "research", unknowns: ["how checkpoints are issued"] }), 0),
+	]);
+	assert.match(first, /resolved by the agent/);
+	assert.match(second, /resolved by the agent/);
+	const records = h.records();
+	assert.equal(records.length, 2, "neither write was lost");
+	assert.equal(new Set(records.map((record) => record.id)).size, 2);
+	assert.deepEqual(records.map((record) => record.status), ["decided", "decided"]);
+	assert.deepEqual(records.map((record) => record.consultants.length), [1, 1]);
+	assert.equal(h.log.launches.length, 2);
+	assert.equal(h.log.peak, 2, "the two researchers overlapped");
+	assert.deepEqual(getConsultationsLaunched({ cwd: h.cwd }, GOAL), { ok: true, value: 2 });
+});
+
+test("F07 deadline abort mid-consultant: the hung researcher is aborted at its deadline, the route escalates with the aborted code, and no critic follows", async (t) => {
+	const h = harness(t, {
+		mode: "bounded-auto",
+		critic: CRITIC_SETTINGS.decisionCritic,
+		limits: { consultantDeadlineMs: 20 },
+		script: { hang: (role) => role === "researcher" },
+	});
+	const text = await h.call(unsureProposal({ selfRoute: "research+critique", unknowns: ["how the cache is opened"] }), 0);
+	assert.match(text, /escalated/);
+	assert.match(text, /aborted: Consultant researcher exceeded its 20 ms deadline/);
+	assert.deepEqual(h.log.launches.map((launch) => launch.role), ["researcher"], "no critic after a failed research phase");
+	assert.equal(h.log.aborts, 1, "the child was asked to stop once");
+	assert.equal(h.log.disposed, 1, "a child that stopped is disposed");
+	const [record] = h.records();
+	assert.equal(record?.status, "escalated");
+	assert.equal(record?.outcome, undefined);
+	assert.equal(record?.consultants[0]?.usage, "unknown");
+	assert.equal(record?.consultants[0]?.schemaPayload, null, "a payload that never arrived is not stored");
+	assert.match(record?.consultants[0]?.summary ?? "", /^aborted: Consultant researcher exceeded its 20 ms deadline/);
+});
+
+test("F08 orphan grace expiry: a cancelled child that never stops is orphaned after the grace period, is neither awaited nor disposed, and no further wave starts", async (t) => {
+	const controller = new AbortController();
+	const h = harness(t, {
+		mode: "bounded-auto",
+		signal: controller.signal,
+		script: { during: () => controller.abort(), abortHangs: true, cancelGraceMs: 20 },
+	});
+	const started = Date.now();
+	const text = await h.call(proposal({ selfRoute: "research", unknowns: ["u1", "u2", "u3"] }), 0);
+	assert.ok(Date.now() - started < 4_000, "the route does not wait on the orphaned child");
+	assert.match(text, /The deliberation was cancelled/);
+	assert.deepEqual(h.log.launches.map((launch) => launch.role), ["researcher", "researcher"], "the third unknown's wave never launches");
+	assert.equal(h.log.disposed, 0, "an orphaned child is never disposed");
+	const [record] = h.records();
+	assert.equal(record?.status, "invalidated");
+	assert.equal(record?.outcome, undefined);
+	assert.equal(record?.consultants.length, 2);
+	assert.ok(record?.consultants.every((entry) => entry.orphaned === true), "each unstopped child is marked orphaned");
+});
+
+test("F09 accounting double-charge attempt: each finished consultant is charged once, a repeated charge for its key is refused, and the budget gate counts the keyed total once", async (t) => {
+	const h = harness(t, { mode: "bounded-auto", goal: { tokenBudget: 600 }, script: { tokens: 300 } });
+	await h.call(proposal({ selfRoute: "research", unknowns: ["u1", "u2"] }), 0);
+	const [record] = h.records();
+	assert.equal(h.deps.accounting.pendingKeyedTokens(), 600, "two consultants at 300 tokens, each charged once");
+	assert.deepEqual(h.deps.accounting.chargeKeyed(`${record?.id}/consultant-1`, 300, 0), { tokens: 0, seconds: 0 }, "a repeated delivery charges nothing");
+	assert.equal(h.deps.accounting.pendingKeyedTokens(), 600, "no double charge");
+	const refused = await h.call(proposal({ question: "Batch the WAL checkpoints?", options: ["batch", "per write"], selfRoute: "research", unknowns: ["u3"] }), 0);
+	assert.match(refused, /escalated/);
+	assert.match(refused, /token budget: 600\/600 used, 0 remaining/);
+	assert.equal(h.log.launches.length, 2, "the refused launch never starts");
+});
+
+test("F10 settings write failure during a mode switch: the switch throws, the project file stays byte-identical, and no temporary file or lock is left", (t) => {
+	const h = harness(t, { mode: "bounded-auto" });
+	const before = readFileSync(settingsFile(h.cwd), "utf8");
+	const restore = failRenamesTo(t, "pi-goal-x-settings.json");
+	assert.throws(() => mutateSettingsLayer({ scope: "project", cwd: h.cwd, env: h.env, mutation: { op: "set", path: ["decisionMode"], value: "manual" } }), { code: "ENOSPC" });
+	restore();
+	assert.equal(readFileSync(settingsFile(h.cwd), "utf8"), before);
+	assert.equal(resolveDecisionSettings(h.cwd, h.env).mode, "bounded-auto", "the mode did not change");
+	assert.deepEqual(readdirSync(path.join(h.cwd, ".pi")).sort(), ["pi-goal-x-settings.json"]);
+	mutateSettingsLayer({ scope: "project", cwd: h.cwd, env: h.env, mutation: { op: "set", path: ["decisionMode"], value: "manual" } });
+	assert.equal(resolveDecisionSettings(h.cwd, h.env).mode, "manual", "the same switch succeeds once the write works");
+});
+
+test("F10 a mode switch whose write fails during the critic: the mode stays bounded-auto, the deliberation is still accepted, and the switcher gets the error", async (t) => {
+	let switchError: unknown;
+	const h = harness(t, {
+		mode: "bounded-auto",
+		critic: CRITIC_SETTINGS.decisionCritic,
+		script: {
+			during: () => {
+				try {
+					mutateSettingsLayer({ scope: "project", cwd: h.cwd, env: h.env, mutation: { op: "set", path: ["decisionMode"], value: "manual" } });
+				} catch (error) {
+					switchError = error;
+				}
+			},
+		},
+	});
+	failRenamesTo(t, "pi-goal-x-settings.json");
+	const text = await h.call(unsureProposal({ selfRoute: "critique" }), 0);
+	assert.equal((switchError as NodeJS.ErrnoException | undefined)?.code, "ENOSPC");
+	assert.match(text, /resolved by the agent \(route: critique, source: agent\)/);
+	assert.equal(h.records()[0]?.status, "decided");
+	assert.equal(resolveDecisionSettings(h.cwd, h.env).mode, "bounded-auto");
+});
+
+test("F11 corrupt project settings file: the mode reads as manual, goal_decision refuses without writing, and the file is left as found", async (t) => {
+	const h = harness(t, { mode: "bounded-auto" });
+	const corrupt = "{ \"decisionMode\": ";
+	writeFileSync(settingsFile(h.cwd), corrupt);
+	assert.equal(resolveDecisionSettings(h.cwd, h.env).mode, "manual");
+	const text = await h.call(proposal(), 0);
+	assert.match(text, /decisionMode is manual/);
+	assert.deepEqual(h.log.launches, []);
+	assert.equal(existsSync(DECISION_FILE(h.cwd, GOAL)), false, "nothing was recorded");
+	assert.equal(readFileSync(settingsFile(h.cwd), "utf8"), corrupt, "the corrupt file is not rewritten");
+});
+
+test("F11 project settings corrupted during the critic: the acceptance reads manual and the deliberation is invalidated (mode-manual)", async (t) => {
+	const h = harness(t, {
+		mode: "bounded-auto",
+		critic: CRITIC_SETTINGS.decisionCritic,
+		script: { during: () => writeFileSync(settingsFile(h.cwd), "{ \"decisionMode\": ") },
+	});
+	const text = await h.call(unsureProposal({ selfRoute: "critique" }), 0);
+	assert.match(text, /invalidated: mode-manual/);
+	assert.equal(h.records()[0]?.status, "invalidated");
+	assert.equal(h.records()[0]?.outcome, undefined);
 });

@@ -92,3 +92,10 @@
 - Gaps documented in MATRIX.md (E7.1 section, G2–G11): the per-result guard and `activeDecisionId` are not on the production tool path (G2); preference and materiality are semantic (G3, G4); S13 escalates at the failing phase rather than at the round limit (G5); S21 byte-compare and S22 real-model behavior are not re-verified (G6, G7).
 - Release: `0.34.0` → `0.35.0` in `package.json` and `package-lock.json`; CHANGELOG `[0.35.0]` takes the Unreleased items and adds the adaptive-decisions entry. `npm pack --dry-run` checked; no publish, no tag.
 - Gate: `npm test` 1430/1430 (was 1399; +31 acceptance cases); `npm run check` clean; test manifest refreshed with `--write-manifest`.
+
+## 2026-10-27 — E7.2 (fault-injection acceptance, release 0.35.1)
+
+- `tests/goal-decision-acceptance.test.ts` +16 `F<nn>` cases (47 in the file): corrupt, foreign, and held-lock sidecars, a lock taken mid-deliberation, a stale snapshot, interleaved deliberations, deadline and orphan cancellation, accounting double-charge, settings write failure during a mode switch (idle and mid-critic), corrupt settings. Write faults use the restorable-fs pattern of `tests/windows/atomic-rename.test.ts`.
+- Every fault ends in a typed error, an escalation, or a rejected acceptance; none rewrites the faulty file. No production change: no fault broke an acceptance criterion. Residual risks R1–R8 (open record after a failed write, error label of a counter read failure, silent restart skip, partial usage of cancelled children) are in MATRIX.md, E7.2 section.
+- Release: `0.35.0` → `0.35.1` (`package.json`, `package-lock.json`), CHANGELOG `[0.35.1]`. 0.35.0 was never published or tagged, so the bump is a patch on top of it; the main agent decides whether E7 ships as 0.35.1 or folds into 0.35.0.
+- Gate: see the E7.2 report (`npm test`, `npm run check`, eslint, `npm pack --dry-run`); no publish, no tag.
