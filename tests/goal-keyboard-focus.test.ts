@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {TuiMainScreen} from "@earendil-works/pi-tui";
+import {TuiMainScreen} from "@earendil-works/pi-tui/dist/tui-main-screen.js";
 import {stabilizationHarness} from "./stabilization-utils.ts";
 import {createMockTheme} from "./tui-test-utils.ts";
 import {mutateSettingsLayer} from "../extensions/goal-settings.ts";

@@ -5,7 +5,7 @@ import {latestAuditorResultForGoal} from "../extensions/goal-ledger.ts";
 import {buildGoalHistoryBlock} from "../extensions/goal-format.ts";
 import {readGoalLedger} from "../extensions/goal-ledger.ts";
 import {goalRuntimeEvents, invalidateGoalLedgerCache} from "../extensions/goal-ledger.ts";
-import {writeActiveGoalFile} from "../extensions/storage/goal-files.ts";
+import {writeActiveGoalFile, parseGoalFile} from "../extensions/storage/goal-files.ts";
 import {mkdirSync, rmSync} from "node:fs";
 import path from "node:path";
 
@@ -15,10 +15,12 @@ const stale = () => {throw new Error("This extension ctx is stale after session 
 for (const event of ["session_start", "session_tree", "session_shutdown"]) test(`${event}: stale getters cannot skip cleanup`, async () => {
  const h = stabilizationHarness();
  try {
-  await h.start();
+  let invalidated = false;
+  const ctx = new Proxy(h.ctx, {get(target, key) {if (invalidated && (key === "hasUI" || key === "cwd" || key === "sessionManager")) return stale(); return Reflect.get(target, key);}});
+  await h.event("session_start", {reason: "start"}, ctx);
   let unsubscribed = 0;
   h.core.terminalInputUnsubscribe = () => {unsubscribed++;};
-  const ctx = new Proxy(h.ctx, {get(target, key) {if (key === "hasUI" || key === "cwd" || key === "sessionManager") return stale(); return Reflect.get(target, key);}});
+  invalidated = true;
   await h.event(event, {reason: "start"}, ctx);
   assert.equal(unsubscribed, 1);
   assert.equal(h.core.terminalInputUnsubscribe, null);
@@ -224,6 +226,17 @@ test("late shutdown cannot evict a replacement prefix with the same cache identi
   assert.deepEqual(advanced.slice(0, first.length), first);
   await h.event("session_shutdown", {}, h.ctx);
   assert.deepEqual((await h.event("context_with_system", {messages: base}, incoming.ctx)).messages, advanced);
+  const unseenOldContext = {...h.ctx};
+  assert.equal(await h.event("context_with_system", {messages: base}, unseenOldContext), undefined, "an unseen callback from the outgoing manager cannot use replacement state");
+  const payload = {messages: [{role: "user", content: "old request"}]};
+  assert.equal(await h.event("before_provider_request", {payload}, unseenOldContext), undefined);
+  const invalidatedOldContext = new Proxy(unseenOldContext, {get(target, key) {return key === "sessionManager" ? stale() : Reflect.get(target, key);}});
+  const replacementWidget = h.core.goalWidgetComponentRef.current;
+  await h.event("session_shutdown", {}, invalidatedOldContext);
+  assert.equal(h.core.goalWidgetComponentRef.current, replacementWidget);
+  const stillLive = await h.event("context_with_system", {messages: base}, incoming.ctx);
+  assert.ok(stillLive, "an unseen stale shutdown must leave replacement context live");
+  assert.deepEqual(stillLive.messages, advanced);
  } finally {await h.event("session_shutdown", {}, incoming.ctx); await h.cleanup(); await incoming.cleanup();}
 });
 
@@ -251,4 +264,92 @@ test("a long-running audit stays authoritative beyond the bounded recent-event w
   invalidateGoalLedgerCache();
   assert.equal(latestAuditorResultForGoal(goalRuntimeEvents(h.ctx, h.goal.id), h.goal.id)?.report, "current result");
  } finally {await h.cleanup();}
+});
+
+test("fixed-seed lifecycle traces preserve project ownership, settlement and retry identity", async () => {
+ const seed = 0x113115, trace: string[] = [], attempts: any[] = [];
+ let random = seed;
+ const choose = (size: number) => {random = (Math.imul(random, 1664525) + 1013904223) >>> 0; return random % size;};
+ const h = stabilizationHarness(async args => {
+  const pending = deferred<any>();
+  const auditId = readGoalLedger(args.ctx).events.filter(e => e.type === "audit_started").at(-1)?.auditId;
+  attempts.push({args, pending, auditId, done: false});
+  return pending.promise;
+ });
+ const other = stabilizationHarness(), projects = [h, other];
+ const history: any[][] = projects.map(() => [{role: "user", content: "trace history", timestamp: 1}]);
+ let owner = 0;
+ const check = () => {
+  for (const project of projects) {
+   assert.notEqual(parseGoalFile(path.join(project.cwd, project.goal.activePath!))?.status, "complete");
+   for (const start of project.ledger().filter(e => e.type === "audit_started")) {
+    const outcomes = project.ledger().filter(e => (e.type === "audit_result" || e.type === "audit_skipped") && e.auditId === start.auditId);
+    assert.ok(outcomes.length <= 1, `duplicate outcome ${start.auditId}`);
+    const running = attempts.find(a => !a.done && a.auditId === start.auditId && a.args.signal === h.core.activeAudit?.controller.signal && a.args.ctx === project.ctx);
+    if (!running) assert.equal(outcomes.length, 1, "retired attempts settle before the next transition");
+   }
+  }
+  if (!h.core.activeAudit) {
+   assert.equal(h.core.auditAnimationTimer, null);
+   assert.equal(h.core.auditProgress, null);
+  }
+  assert.equal(h.core.goalModalDepth, 0);
+ };
+ try {
+  for (const [i, project] of projects.entries()) writeActiveGoalFile(project.ctx, {...project.goal, objective: `Independent project ${i}`});
+  await h.start();
+  for (let step = 0; step < 120; step++) {
+   const action = choose(11), ctx = projects[owner]!.ctx;
+   trace.push(`${step}:${owner}:${action}`);
+   if (action === 0 || action === 1) {
+    if (action === 0) owner = 1 - owner;
+    await h.event(action === 0 ? "session_start" : "session_tree", {}, projects[owner]!.ctx);
+   } else if (action === 2 && !h.core.activeAudit && h.core.state.goal?.status === "active") {
+    const before = attempts.length;
+    const promise = h.call("update_goal", {status: "complete"}, ctx);
+    assert.equal(attempts.length, before + 1);
+    attempts.at(-1).promise = promise;
+   } else if (action === 3 || action === 4 || action === 5) {
+    const pending = attempts.filter(a => !a.done);
+    const attempt = pending[choose(pending.length)];
+    if (attempt) {
+     if (action === 4) attempt.pending.reject(new Error("trace auditor failure"));
+     else {
+      if (action === 5 && attempt.args.signal === h.core.activeAudit?.controller.signal) h.core.abortAudit(ctx);
+      attempt.pending.resolve(attempt.args.signal.aborted ? {...approved, error: "Auditor aborted."} : {approved: false, output: "More verification needed."});
+     }
+     await attempt.promise; attempt.done = true;
+    }
+   } else if (action === 6) {
+    h.core.setFocusedGoalId(null, ctx, "selected");
+    h.core.setFocusedGoalId(projects[owner]!.goal.id, ctx, "selected");
+   } else if (action === 7 && !h.core.activeAudit) {
+    if (h.core.state.goal?.status === "active") h.core.pauseActiveGoal(ctx);
+    else h.core.scheduler.resume(ctx);
+   } else if (action === 8) {
+    history[owner]!.push({role: "assistant", content: `Work ${step}`, timestamp: step + 2});
+    const first = await h.event("context_with_system", {messages: history[owner]}, ctx);
+    assert.deepEqual(await h.event("context_with_system", {messages: history[owner]}, ctx), first);
+   } else if (action === 9 && h.core.state.goal) {
+    const disk = projects[owner]!.disk(), state = structuredClone(h.core.state.goal);
+    const rejected = await h.call("update_goal", {status: "complete", reason: "a real blocker"}, ctx);
+    assert.equal(rejected.isError, true);
+    assert.equal(projects[owner]!.disk(), disk);
+    assert.deepEqual(h.core.state.goal, state);
+   } else if (action === 10 && !h.core.activeAudit && h.core.state.goal?.status === "active") {
+    await h.event("turn_start", {}, ctx);
+    await h.call("set_goal_tasks", {tasks: [{id: "trace-task", title: "Verify trace work"}], block_completion: false}, ctx);
+    await h.call("update_goal_task", {task_id: "trace-task", status: "complete", evidence: "trace verification"}, ctx);
+    await h.event("turn_end", {message: {role: "assistant", stopReason: "stop"}}, ctx);
+   }
+   assert.equal(h.core.state.goal?.objective, `Independent project ${owner}`);
+   check();
+  }
+  assert.ok(attempts.length >= 3, "the fixed seed must exercise multiple audits");
+ } catch (error) {throw new Error(`Lifecycle seed ${seed}; trace ${trace.join(",")}`, {cause: error});}
+ finally {
+  await h.event("session_shutdown", {}, projects[owner]!.ctx);
+  for (const attempt of attempts.filter(a => !a.done)) {attempt.pending.resolve(approved); await attempt.promise; attempt.done = true;}
+  try {check();} finally {await h.cleanup(); await other.cleanup();}
+ }
 });

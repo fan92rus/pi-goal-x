@@ -86,13 +86,14 @@ export function registerGoalEvents(core: GoalCore): void {
 	let networkErrorRecoveryAfterSettleFor: string | null = null;
 
 	registerGoalContext(pi, (input, ctx) => {
-		// Reassert startup rejection at the awaited provider boundary, before
-		// any rejected run can send a request.
-		if (core.scheduler.isDenied()) ctx.abort?.();
 		const filtered = filterGoalSessionContext(input);
 		const messages = compactGoalCheckpointContext(filtered ?? input, core.state.goal) ?? filtered;
 		const base = messages ?? input;
   if (contexts.has(ctx) && contexts.get(ctx) !== session) return messages;
+  try {if (session && ctx.sessionManager !== session.manager) return messages;}
+  catch (error) {if (isStaleExtensionContextError(error)) return messages; throw error;}
+  // Reassert startup rejection only for the current host's provider boundary.
+  if (core.scheduler.isDenied()) ctx.abort?.();
   if (session) contexts.set(ctx, session);
 		const sessionKey = sessionKeyFor(ctx);
   if (session) {
@@ -340,7 +341,6 @@ export function registerGoalEvents(core: GoalCore): void {
    if (session !== owner) return;
    if (ctx.hasUI) ctx.ui.setStatus("goal-interrupt", undefined);
    if (core.controlWarnings?.length) ctx.ui.notify(`Goal command settings were not applied: ${core.controlWarnings.join(" ")} Open /goal-settings controls to correct them.`, "warning");
-   core.installGoalToolProfile(!loadGoalSettings(ctx.cwd).disableTasks);
    rehydrateDraft(core, ctx);
    syncTerminalInputPause(core, ctx);
 		if (event.reason === "resume" && !core.state.goal && !core.hasExplicitSessionFocus && otherOpenGoalCount(core.goalsById, null) > 1 && ctx.hasUI) {
@@ -660,7 +660,14 @@ export function registerGoalEvents(core: GoalCore): void {
   // A delayed shutdown of a previously observed owner cannot touch its successor.
   if (contexts.has(ctx) && contexts.get(ctx) !== session) return;
   try {if (session && ctx.sessionManager !== session.manager) return;}
-  catch (error) {if (!isStaleExtensionContextError(error)) throw error;}
+  catch (error) {
+   if (!isStaleExtensionContextError(error)) throw error;
+   if (session && contexts.get(ctx) !== session) {
+    // An unseen stale callback cannot retire an owner whose host is still live.
+    try {session.ctx.sessionManager; return;}
+    catch (ownerError) {if (!isStaleExtensionContextError(ownerError)) throw ownerError;}
+   }
+  }
   teardown(ctx);
  });
 }

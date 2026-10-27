@@ -751,7 +751,7 @@ export function createGoalCore(
   const pool = await readActiveGoalPoolAsync(storage);
   if (revision !== focusRevision) return;
   // The host may invalidate a context while disk I/O is pending.
-  ctx.isIdle();
+  ctx.sessionManager.getSessionId?.();
   focusStorageRoot = storage.goalStorageRoot;
   externalFocusRoot = focusStorageRoot !== path.resolve(storage.cwd, ".pi/goals");
   goalsById = pool;

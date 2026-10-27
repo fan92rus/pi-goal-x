@@ -81,8 +81,8 @@ function createCapture(cwd) {
 	piGoalExtension(mockPi);
 
 	async function startSession(entries) {
-		const sessionManager = { ...ctx.sessionManager, getBranch: () => entries };
-		await handlers.get("session_start")({ reason: "start" }, { ...ctx, sessionManager });
+		ctx.sessionManager.getBranch = () => entries;
+		await handlers.get("session_start")({ reason: "start" }, ctx);
 	}
 
 	async function runTurn(triggerPrompt) {

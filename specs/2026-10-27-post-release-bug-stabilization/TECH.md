@@ -534,6 +534,8 @@ PR #96 remains deferred because it changes user-message delivery and continuatio
 
 ## 6. Validation ladder
 
+Integrated session restoration uses the incoming durable draft entry as authority. Rehydration owns the drafting/execution profile decision; startup must not install a competing profile first or retain a different branch's memory draft. Preserve transient questionnaire context only when its saved draft identity matches.
+
 ### 6.1 Per-track loop
 
 For each behavior track, including context visibility:

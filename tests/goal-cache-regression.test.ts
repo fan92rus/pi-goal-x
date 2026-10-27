@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 // @ts-expect-error Shared JavaScript experiment entry point.
-import { summarize, compareReports, investigateCache } from "../experiments/context/cache-report.mjs";
+import { summarize, compareReports, investigateCache } from "../experiments/context/cache-compare.mjs";
 
 const report = () => ({version: 1, rows: [{id: "fixture", ...summarize({messages: [{role: "system", content: "policy"}, {role: "user", content: "history"}], tools: [{name: "read", parameters: {type: "object"}}], prompt_cache_key: "fixed"})}]});
 
@@ -49,4 +49,20 @@ test("approved display removal must be exact and confined to a goal counter bloc
  assert.equal(compareReports(baseline, candidate).approvedDifferences.length, 1);
  candidate.rows[0] = {id: "counter", ...summarize({messages: [{role: "user", content: "Goal snapshot: 12 tokens\nAutonomous runs: 1/3 extra instruction"}]})};
  assert.throws(() => compareReports(baseline, candidate), /unexpected counter edit/);
+});
+
+test("cache gate rejects serialized early-content changes and removed or relocated markers", () => {
+ const payload = {system: "host policy", messages: [{role: "user", content: [{type: "text", text: "stable history", cache_control: {type: "ephemeral"}}, {type: "text", text: "more history"}]}], tools: [{name: "read", parameters: {type: "object", properties: {}}}]};
+ const wrap = (value: typeof payload) => ({version: 1, rows: [{id: "wire", ...summarize(value)}]});
+ const baseline = wrap(payload);
+ for (const mutate of [
+  (p: any) => {p.system = "changed host policy";},
+  (p: any) => {p.messages[0].content[0].text = "changed early history";},
+  (p: any) => {p.tools[0].parameters.properties.path = {type: "string"};},
+  (p: any) => {delete p.messages[0].content[0].cache_control;},
+  (p: any) => {p.messages[0].content[1].cache_control = p.messages[0].content[0].cache_control; delete p.messages[0].content[0].cache_control;},
+ ]) {
+  const candidate = structuredClone(payload); mutate(candidate);
+  assert.throws(() => compareReports(baseline, wrap(candidate)));
+ }
 });

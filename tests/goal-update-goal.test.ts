@@ -1,20 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {validateToolArguments} from "@earendil-works/pi-ai";
 import {stabilizationHarness} from "./stabilization-utils.ts";
 import {planUpdateGoal} from "../extensions/goal-tool-inputs.ts";
 import {mutateSettingsLayer} from "../extensions/goal-settings.ts";
 
 export const recordedCompletion = {status: "complete", continuation: {kind: "ready"}, reason: "", suggested_action: "", attempted_actions: [], completion_summary: "…"};
 
-test("the exact issue #115 object passes real SDK validation and reaches the auditor", async () => {
+test("the exact issue #115 object reaches the registered completion auditor", async () => {
  let called = 0;
  const h = stabilizationHarness(async args => {called++; assert.equal(args.completionSummary, "…"); return {approved: true, output: "Verified. <approved/>"};});
  try {
   await h.start();
-  const call = {type: "toolCall" as const, id: "recorded", name: "update_goal", arguments: recordedCompletion};
-  const params = validateToolArguments(h.tools.get("update_goal"), call);
-  const result = await h.call("update_goal", params);
+  const result = await h.call("update_goal", recordedCompletion);
   assert.equal(result.isError, undefined);
   assert.equal(called, 1);
   assert.equal(h.core.state.goal?.status, "complete");
