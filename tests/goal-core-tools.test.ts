@@ -630,7 +630,13 @@ test("focus changed while audit runs cancels completion without modifying the go
 		assert.ok(text.includes("no longer focused"), `completion must be cancelled, got: ${text.slice(0, 120)}`);
 		assert.equal(activeGoalFiles(f.cwd).length, 1, "goal must remain open and unmodified");
 		const events = ledgerEvents(f.cwd);
-		assert.equal(events.some((e) => e.type === "audit_result"), false, "no audit result when focus changed during audit");
+		const outcomes = events.filter((e) => e.type === "audit_result");
+		assert.equal(outcomes.length, 1, "focus interruption has exactly one recorded outcome");
+		const outcome = outcomes[0];
+		assert.ok(outcome);
+		assert.equal(outcome.verdict, "error");
+		assert.match(String(outcome.report), /focus changed/i);
+		assert.equal(outcome.goalId, events.find((e) => e.type === "audit_started")?.goalId);
 	} finally {
 		f.cleanup();
 	}

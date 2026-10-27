@@ -12,7 +12,7 @@ import type { GoalKeybindings } from "./goal-settings.ts";
 
 import { truncateText } from "./goal-core.ts";
 import type { GoalLedgerEvent, GoalLedgerEvent as LedgerEvent } from "./goal-ledger.ts";
-import { latestAuditorResultForGoal, latestEventsForGoal } from "./goal-ledger.ts";
+import { latestAuditorResultForGoal, latestAuditForGoal, latestEventsForGoal } from "./goal-ledger.ts";
 import type { GoalRecord, GoalTask } from "./goal-record.ts";
 import { deriveGoalDashboardModel, formatCompactTokens, formatDashboardDuration } from "./widgets/goal-dashboard-model.ts";
 import {
@@ -99,6 +99,7 @@ export function buildGoalStatusText(options: GoalStatusTextOptions): string {
 		parts.push(renderActivityBlock(model.recentActivity, PLAIN_THEME, width).join("\n"));
 	}
 	const audit = latestAuditorResultForGoal(events, model.goalId);
+ if (latestAuditForGoal(events, model.goalId)?.type === "audit_started") parts.push("Latest audit: no recorded result.");
 	if (audit) {
 		parts.push(lastAuditBlock(audit, width));
 	}
@@ -268,6 +269,7 @@ function buildVerboseStatus(goal: GoalRecord, model: ReturnType<typeof deriveGoa
 		}
 	}
 	const audit = latestAuditorResultForGoal(events, goal.id);
+ if (latestAuditForGoal(events, goal.id)?.type === "audit_started") lines.push("", "Latest audit: no recorded result.");
 	if (audit) {
 		lines.push("", `Last audit (${audit.at.slice(0, 10)}): ${audit.verdict}`);
 		lines.push(truncateText(audit.report.replace(/\s+/g, " "), 400));

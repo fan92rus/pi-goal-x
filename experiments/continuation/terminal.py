@@ -51,6 +51,9 @@ with open(config["raw"], "wb", buffering=0) as raw:
                     resize(*action["resize"])
                 if action.get("stop"):
                     os.kill(pid, signal.SIGTERM)
+                if "id" in action and config.get("ack"):
+                    with open(config["ack"], "w", encoding="utf8") as acknowledged:
+                        acknowledged.write(str(action["id"]))
             offset = actions.tell()
         if os.waitpid(pid, os.WNOHANG)[0]:
             break

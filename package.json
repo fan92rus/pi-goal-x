@@ -1,6 +1,6 @@
 {
   "name": "pi-goal-x",
-  "version": "0.34.0",
+  "version": "0.34.1",
   "description": "Adds /goal to pi: conversational goal planning, flexible or ordered goals, persistent progress, and an independent completion auditor.",
   "license": "MIT",
   "author": "pi-goal-x contributors",
@@ -73,7 +73,9 @@
     "test:oracle": "node --experimental-strip-types --test tests/goal-oracle.test.ts",
     "bench:comprehensive": "node --import ./experiments/bench/bench-adapter-hooks.mjs --expose-gc --experimental-strip-types experiments/bench/comprehensive.mjs",
     "bench:gate:comprehensive": "node experiments/bench/comprehensive-gate.mjs",
-    "test:controls-cli": "node experiments/controls/cli-walkthrough.mjs"
+    "test:controls-cli": "node experiments/controls/cli-walkthrough.mjs",
+    "context:cache-report": "node --experimental-strip-types experiments/context/cache-report.mjs",
+    "context:cache-gate": "node --experimental-strip-types experiments/context/cache-gate.mjs"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": ">=1.4.0 <2.0.0",

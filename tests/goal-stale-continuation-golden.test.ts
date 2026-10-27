@@ -131,10 +131,8 @@ function sessionEntriesFor(goal: GoalRecord) {
 async function startSession(handlers: HandlerMap, ctx: ExtensionContext, entries: unknown[]) {
 	const ss = handlers["session_start"];
 	assert.ok(ss, "session_start handler must be registered");
-	await ss({ reason: "start" }, {
-		...ctx,
-		sessionManager: { ...ctx.sessionManager, getBranch: () => entries },
-	} as unknown as ExtensionContext);
+	ctx.sessionManager.getBranch = () => entries as ReturnType<ExtensionContext["sessionManager"]["getBranch"]>;
+	await ss({ reason: "start" }, ctx);
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

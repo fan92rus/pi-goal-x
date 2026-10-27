@@ -169,7 +169,7 @@ export function registerGoalCommands(core: GoalCore): void {
 		core.runningGoalId = null;
 		core.runtime.setCheckpoint(null);
 		core.runtime.clearPostCompactReminder();
-		if (core.auditAbortController) core.auditAbortController.abort();
+		core.activeAudit?.cancel("Goal cleared during completion audit.");
 		if (detachedGoalId && wasBusy) {
 			try {
 				ctx.abort?.();
@@ -389,6 +389,7 @@ export function registerGoalCommands(core: GoalCore): void {
 		{ key: "strictExecutionContract", label: "explicit execution contracts (opt-in)", section: "Goal behavior", kind: "boolean" },
 		{ key: "maxAutonomousRuns", label: "autonomous run allowance", section: "Goal behavior", kind: "positiveInteger" },
 		{ key: "showAutonomousRuns", label: "show autonomous runs line", section: "Goal behavior", kind: "boolean" },
+		{ key: "showContextUsage", label: "show context usage line", section: "Goal behavior", kind: "boolean" },
 		{ key: "stallTimeoutMinutes", label: "stall timeout (minutes)", section: "Goal behavior", kind: "positiveInteger" },
 		{ key: "objectiveMaxChars", label: "max objective length (0 = none)", section: "Goal behavior", kind: "positiveInteger" },
 		{ key: "idleContinuationBackoff", label: "slow repeated idle replies (opt-in)", section: "Advanced execution", kind: "boolean",
@@ -409,7 +410,7 @@ export function registerGoalCommands(core: GoalCore): void {
 	];
 
 	function settingsValue(config: GoalSettings, key: keyof GoalSettings | string): string {
-		if (key === "idleContinuationBackoff" || key === "strictExecutionContract" || key === "disabled" || key === "disableTasks" || key === "disableContracts" || key === "autoSelectSingleGoal" || key === "auditorProjectResources" || key === "hideUnfocusedBanner" || key === "hideUnfocusedPrompt" || key === "showAutonomousRuns") {
+		if (key === "idleContinuationBackoff" || key === "strictExecutionContract" || key === "disabled" || key === "disableTasks" || key === "disableContracts" || key === "autoSelectSingleGoal" || key === "auditorProjectResources" || key === "hideUnfocusedBanner" || key === "hideUnfocusedPrompt" || key === "showAutonomousRuns" || key === "showContextUsage") {
 			return config[key] === true ? "true" : "false";
 		}
 		if (key === "subtaskDepth") return config.subtaskDepth !== undefined ? String(config.subtaskDepth) : "1";

@@ -42,7 +42,7 @@ const server=http.createServer(async(req,res)=>{
   systemPresent:!!system,executionPromptCorrect:system.includes('create_goal')&&!system.includes('propose_goal_draft'),systemSHA256:createHash('sha256').update(system).digest('hex')});
  fs.writeFileSync(path.join(cwd,'requests.json'),JSON.stringify(requests,null,2)+'\n');
  // Give the operator time to use ordinary pause controls while work is visible.
- if(action.tool==='write')await new Promise(resolve=>setTimeout(resolve,6000));
+ if(action.tool==='write')await new Promise(resolve=>setTimeout(resolve,scenario==='foreign-focus'?15000:6000));
  if(res.destroyed)return;
  res.writeHead(200,{'content-type':'text/event-stream'});
  const emit=(delta,finish_reason=null)=>res.write(`data: ${JSON.stringify({id:'terminal-fixture',object:'chat.completion.chunk',created:1,model:'fixture',choices:[{index:0,delta,finish_reason}]})}\n\n`);
@@ -55,12 +55,13 @@ fs.writeFileSync(path.join(agentDir,'settings.json'),JSON.stringify({defaultProv
 fs.writeFileSync(path.join(agentDir,'models.json'),JSON.stringify({providers:{fixture:{baseUrl:`http://127.0.0.1:${server.address().port}/v1`,api:'openai-completions',apiKey:'fixture',models:[{id:'fixture',name:'Fixture',contextWindow:200000,maxTokens:512}]}}}));
 fs.writeFileSync(path.join(cwd,'actions.jsonl'),'');
 const observerArgs=[];
+if(scenario==='foreign-focus')observerArgs.push('-e',path.join(repository,'experiments/controls/foreign-focus.mjs'));
 if(process.env.PI_GOAL_TERMINAL_READY_FILE){
  const observer=path.join(cwd,'ready-observer.mjs');
  fs.writeFileSync(observer,`import fs from 'node:fs';\nexport default function(pi){pi.on('session_start',()=>fs.writeFileSync(${JSON.stringify(process.env.PI_GOAL_TERMINAL_READY_FILE)},'ready\\n'));}\n`);
  observerArgs.push('-e',observer);
 }
-const config={cwd,raw:path.join(cwd,'terminal.bin'),actions:path.join(cwd,'actions.jsonl'),env:{PI_CODING_AGENT_DIR:agentDir,PI_GOAL_GLOBAL_SETTINGS_FILE:globalFile,PI_OFFLINE:'1',TERM:'xterm-256color'},argv:[process.execPath,piCLI,'--offline','-ne','-ns','-np','-nc','--no-themes','--approve','-e',path.join(production?repository:roots.candidate,'extensions/goal.ts'),...observerArgs,'--session-dir',path.join(cwd,'sessions')]};
+const config={cwd,raw:path.join(cwd,'terminal.bin'),actions:path.join(cwd,'actions.jsonl'),ack:path.join(cwd,'actions-ack'),env:{PI_CODING_AGENT_DIR:agentDir,PI_GOAL_GLOBAL_SETTINGS_FILE:globalFile,PI_OFFLINE:'1',TERM:'xterm-256color'},argv:[process.execPath,piCLI,'--offline','-ne','-ns','-np','-nc','--no-themes','--approve','-e',path.join(production?repository:roots.candidate,'extensions/goal.ts'),...observerArgs,'--session-dir',path.join(cwd,'sessions')]};
 fs.writeFileSync(path.join(cwd,'host.json'),JSON.stringify({sdk:piVersion,cli:piCLI})+'\n');
 fs.writeFileSync(path.join(cwd,'config.json'),JSON.stringify(config));
 console.log(JSON.stringify({cwd,actions:config.actions,raw:config.raw,objective}));

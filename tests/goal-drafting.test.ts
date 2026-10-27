@@ -699,6 +699,29 @@ test("an unconfirmed draft survives session_tree rehydration", async () => {
 	}
 });
 
+test("tree navigation restores only the incoming branch's durable draft", async () => {
+	const cwd = mkdtempSync(path.join(tmpdir(), "goal-draft-branch-"));
+	try {
+		const h = createHarness(cwd);
+		await h.sessionStart();
+		await h.commands.get("goal")!.handler("Original branch topic", h.ctx);
+		const originalBranch = h.ctx.sessionManager.getBranch;
+		h.ctx.sessionManager.getBranch = () => [];
+		await h.sessionTree();
+		assert.equal(h.activeTools().includes("propose_goal_draft"), false);
+		assert.ok(h.activeTools().includes("read"), "ordinary work tools remain available");
+		const rejected = await runProposal(h, proposalParams("Wrong branch"));
+		assert.match(rejected.content[0].text, /No guided goal draft is active/i);
+		assert.equal(activeGoalFiles(cwd).length, 0);
+		assert.equal(h.entries().filter((e: any) => e.customType === DRAFT_ENTRY).length, 1, "navigation does not tombstone the other branch's draft");
+		h.ctx.sessionManager.getBranch = originalBranch;
+		await h.sessionTree();
+		assert.ok(h.activeTools().includes("propose_goal_draft"));
+		await runProposal(h, proposalParams("Original branch topic.\nSuccess criteria: verified."));
+		assert.match(firstGoal(cwd).objective, /Original branch topic/);
+	} finally {rmSync(cwd, {recursive: true, force: true});}
+});
+
 test("a second draft offers resume, replace, or cancel and never silently discards", async () => {
 	const cwd = mkdtempSync(path.join(tmpdir(), "goal-draft-second-"));
 	mkdirSync(path.join(cwd, ".pi", "goals", "archived"), { recursive: true });

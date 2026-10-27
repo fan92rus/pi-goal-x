@@ -26,6 +26,8 @@ allowance as well; it defaults to `true`.
 
 Agents may edit this setting. Changing it does not replenish consumed runs; explicit `/goal-resume` renews the period and continues now, including from a waiting goal. No configured allowance is required unless the effective limit is zero, which disables resume. Tool calls within a run are not separate runs. Existing token budgets still apply.
 
+`showContextUsage` defaults to `false`. Set it to `true` to include context-window occupancy in new goal prompt snapshots. Accounting, budgets and automatic compaction continue normally. Existing snapshots remain historical.
+
 Explicit `ready` is optional in default mode. A goal saved before next actions were
 removed still loads, with its `nextAction` field stripped during normalization.
 New `wait` declarations require strict mode; otherwise they return a non-terminating error. Previously saved waits retain their deadline, checks, and repair rules when upgrading or disabling strict mode, and may be re-declared with the same identity. Mode changes never resume a paused goal or renew consumed runs.

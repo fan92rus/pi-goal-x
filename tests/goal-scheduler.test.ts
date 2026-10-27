@@ -216,8 +216,9 @@ test("update_goal rejects mixed forms and scheduler cloning protects rollback", 
 	const h = await fixture(t, 5);
 	h.begin();
 	const tool = h.tools.get("update_goal");
-	const mixed = await tool.execute("mixed", { status: "complete", continuation: { kind: "ready" } }, undefined, undefined, h.ctx);
+	const mixed = await tool.execute("mixed", { status: "complete", continuation: { kind: "wait", reason: "external job", deadline: "2099-01-01T00:00:00Z" } }, undefined, undefined, h.ctx);
 	assert.equal(mixed.terminate, false);
+	assert.equal(mixed.isError, true);
 	h.ready();
 	const before = structuredClone(h.core.state.goal!.scheduler);
 	const clone = cloneGoal(h.core.state.goal!); clone.scheduler!.used = 999;
@@ -875,6 +876,7 @@ test("prompt cache: cleared scheduling instructions vanish from retained history
 
 test("prompt cache: model changes and missing identities cannot replay another request's counters", async t => {
  const h = await fixture(t);
+ await h.handlers.session_start!({}, h.ctx);
  const history = [{role: "user", content: "inspect", timestamp: 1}];
  const request = async (ctx: ExtensionContext) => (await h.handlers.context_with_system!({messages: history}, ctx)).messages as any[];
  const initial = {...h.ctx, model: {provider: "provider-a", id: "model-a"}} as ExtensionContext;
@@ -886,12 +888,14 @@ test("prompt cache: model changes and missing identities cannot replay another r
   assert.match(out.at(-1).content, /123456 tokens/);
  }
  const unknown = {...h.ctx, sessionManager: {...h.ctx.sessionManager, getSessionId: () => undefined}} as unknown as ExtensionContext;
+ await h.handlers.session_start!({}, unknown);
  await request(unknown);
  h.core.state.goal!.usage.tokensUsed = 234567;
  const next = await request(unknown);
  assert.equal(next.filter(m => m.customType === "pi-goal-live-context").length, 2);
  assert.ok(!JSON.stringify(next).includes("123456 tokens"));
- await h.handlers.session_shutdown!({}, initial);
+ await h.handlers.session_shutdown!({}, unknown);
+ await h.handlers.session_start!({}, initial);
  const restarted = await request(initial);
  assert.equal(restarted.filter(m => m.customType === "pi-goal-live-context").length, 2);
  assert.match(restarted.at(-1).content, /234567 tokens/);
