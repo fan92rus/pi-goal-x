@@ -1,6 +1,6 @@
 # Technical plan
 
-Implementation status: final shortcut ownership correction under validation; previously verified release candidate in [PR #118](https://github.com/tmonk/pi-goal-x/pull/118), runtime commit `e854732caacae6dbaab9455035dc566ead0b3570`. [CI run 40529974454](https://github.com/tmonk/pi-goal-x/actions/runs/40529974454) passed the full Linux Node 22.19/Pi 1.4 gates and focused native Windows persistence gates. The following sections preserve the acceptance contract and intake baseline; final evidence and deviations are in `MILESTONES.md`. Publication is a subsequent release operation.
+Implementation status: verified release candidate in [PR #118](https://github.com/tmonk/pi-goal-x/pull/118), runtime commit `584a469152bae62ca1fae59a158e12f75011a3c3`. [CI run 40532597453](https://github.com/tmonk/pi-goal-x/actions/runs/40532597453) passed the full Linux Node 22.19/Pi 1.4 gates and focused native Windows persistence gates. The following sections preserve the acceptance contract and intake baseline; final evidence and deviations are in `MILESTONES.md`. Publication is a subsequent release operation.
 
 ## 1. Evidence baseline
 
