@@ -11,7 +11,9 @@
  *     errorCode. There is no prose path;
  *   - the deadline timer and the AbortSignal both cancel the child
  *     (session.abort()) and return `aborted`. The runner never waits on a child
- *     that ignores cancellation: the prompt is raced against cancellation;
+ *     that ignores cancellation: the prompt is raced against cancellation, and
+ *     the abort itself is awaited at most CANCEL_GRACE_MS. A child that has not
+ *     reached idle by then is reported with `orphaned: true` and is not disposed;
  *   - the caller minimizes the prompt, resolves the model, and supplies the
  *     budget gate (`beforeLaunch`). This module reads no settings and writes no
  *     decision record (E4.2 owns the record write, E5 the accounting).
@@ -32,6 +34,8 @@ import type { ThinkingLevel } from "./goal-settings.ts";
 export const CONSULTANT_TEXT_MAX = 1000;
 /** Per-array cap for consultant lists. */
 export const CONSULTANT_LIST_MAX = 16;
+/** Longest wait for a cancelled child to reach idle before it is reported as orphaned (TECH §6). */
+export const CANCEL_GRACE_MS = 5_000;
 
 const ConsultantText = Type.String({ minLength: 1, maxLength: CONSULTANT_TEXT_MAX, pattern: "\\S" });
 
@@ -104,7 +108,8 @@ export type ConsultantErrorCode = "config" | "budget" | "provider" | "aborted" |
 
 export type ConsultantRunResult<R extends ConsultantRole> =
 	| { ok: true; payload: ConsultantPayloadByRole[R]; usage?: { tokens?: number } }
-	| { ok: false; errorCode: ConsultantErrorCode; message: string };
+	/** `orphaned` (aborted only): the child did not reach idle within the grace period; it may still be running. */
+	| { ok: false; errorCode: ConsultantErrorCode; message: string; orphaned?: true };
 
 /** Result of the pre-launch budget gate (E5 supplies the real check). */
 export type ConsultantLaunchGate = { ok: true } | { ok: false; reason: string };
@@ -132,6 +137,8 @@ export interface RunConsultantArgs<R extends ConsultantRole> {
 	/** Wall-clock deadline for the whole consultation, including session creation. */
 	deadlineMs: number;
 	signal?: AbortSignal;
+	/** Grace period for a cancelled child to reach idle (default CANCEL_GRACE_MS). */
+	cancelGraceMs?: number;
 	/** Pre-launch gate; a refusal returns `budget` and launches nothing. */
 	beforeLaunch?: () => ConsultantLaunchGate;
 	/** Injectable session factory for tests (same seam as the oracle and the auditor). */
@@ -170,6 +177,25 @@ function readAssistantTokens(event: unknown): number | undefined {
 	return typeof total === "number" && Number.isFinite(total) ? total : undefined;
 }
 
+/**
+ * Asks a child to stop and waits at most `graceMs` for it to reach idle. Resolves
+ * true when the abort settled, false when it did not settle in time or threw.
+ */
+function abortAndSettle(session: ConsultantSession, graceMs: number): Promise<boolean> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const grace = new Promise<boolean>((resolve) => {
+		timer = setTimeout(() => resolve(false), graceMs);
+	});
+	let aborting: Promise<unknown>;
+	try {
+		aborting = Promise.resolve(session.abort());
+	} catch (error) {
+		aborting = Promise.reject(error);
+	}
+	const settled = aborting.then(() => true, () => false);
+	return Promise.race([settled, grace]).finally(() => clearTimeout(timer));
+}
+
 /** Ignore a session that finishes creation after the consultation was already cancelled. */
 function discardLateSession(creating: Promise<{ session: ConsultantSession }>): void {
 	creating.then(
@@ -187,7 +213,10 @@ function discardLateSession(creating: Promise<{ session: ConsultantSession }>): 
  */
 export async function runConsultant<R extends ConsultantRole>(args: RunConsultantArgs<R>): Promise<ConsultantRunResult<R>> {
 	const spec = ROLE_SPECS[args.role];
-	const fail = (errorCode: ConsultantErrorCode, message: string): ConsultantRunResult<R> => ({ ok: false, errorCode, message });
+	const graceMs = args.cancelGraceMs ?? CANCEL_GRACE_MS;
+	const fail = (errorCode: ConsultantErrorCode, message: string, orphaned = false): ConsultantRunResult<R> => (
+		orphaned ? { ok: false, errorCode, message, orphaned: true } : { ok: false, errorCode, message }
+	);
 
 	if (!args.model) {
 		return fail("config", `Consultant ${args.role} model is not configured. The executor model is NOT used silently.`);
@@ -202,6 +231,8 @@ export async function runConsultant<R extends ConsultantRole>(args: RunConsultan
 	const run: {
 		cancelReason?: "deadline" | "signal";
 		session?: ConsultantSession;
+		/** Settles true when the cancelled child reached idle within the grace period, false otherwise. */
+		aborting?: Promise<boolean>;
 		submitted?: { payload: unknown };
 		tokens?: number;
 	} = {};
@@ -212,18 +243,20 @@ export async function runConsultant<R extends ConsultantRole>(args: RunConsultan
 	const cancel = (reason: "deadline" | "signal"): void => {
 		if (run.cancelReason) return;
 		run.cancelReason = reason;
-		if (run.session) void run.session.abort();
+		if (run.session) run.aborting = abortAndSettle(run.session, graceMs);
 		wakeCancelled();
 	};
 	const onSignalAbort = (): void => cancel("signal");
 	const timer = setTimeout(() => cancel("deadline"), args.deadlineMs);
 	args.signal?.addEventListener("abort", onSignalAbort, { once: true });
-	const abortedResult = (): ConsultantRunResult<R> => fail(
-		"aborted",
-		run.cancelReason === "deadline"
+	const cancelledResult = async (): Promise<ConsultantRunResult<R>> => {
+		const settled = run.aborting ? await run.aborting : true;
+		if (settled) run.session?.dispose?.();
+		const message = run.cancelReason === "deadline"
 			? `Consultant ${args.role} exceeded its ${args.deadlineMs} ms deadline.`
-			: `Consultant ${args.role} was cancelled.`,
-	);
+			: `Consultant ${args.role} was cancelled.`;
+		return settled ? fail("aborted", message) : fail("aborted", `${message} It did not stop within ${graceMs} ms and is marked orphaned.`, true);
+	};
 
 	const submitTool = defineTool({
 		name: spec.toolName,
@@ -263,12 +296,12 @@ export async function runConsultant<R extends ConsultantRole>(args: RunConsultan
 		const created = await Promise.race([creating, cancelled]);
 		if (!created) {
 			discardLateSession(creating);
-			return abortedResult();
+			return cancelledResult();
 		}
 		run.session = created.session;
 		if (run.cancelReason) {
-			void run.session.abort();
-			return abortedResult();
+			run.aborting = abortAndSettle(run.session, graceMs);
+			return cancelledResult();
 		}
 		unsubscribe = run.session.subscribe?.((event) => {
 			const tokens = readAssistantTokens(event);
@@ -276,16 +309,17 @@ export async function runConsultant<R extends ConsultantRole>(args: RunConsultan
 		});
 		await Promise.race([run.session.prompt(buildConsultantPrompt(args.role, args.prompt)), cancelled]);
 	} catch (error) {
-		if (run.cancelReason) return abortedResult();
+		if (run.cancelReason) return cancelledResult();
 		return fail("provider", error instanceof Error ? error.message : String(error));
 	} finally {
 		clearTimeout(timer);
 		args.signal?.removeEventListener("abort", onSignalAbort);
 		unsubscribe?.();
-		run.session?.dispose?.();
+		// A cancelled session is disposed by cancelledResult, and only once it has settled.
+		if (!run.cancelReason) run.session?.dispose?.();
 	}
 
-	if (run.cancelReason) return abortedResult();
+	if (run.cancelReason) return cancelledResult();
 	if (!run.submitted) return fail("invalid_output", `Consultant ${args.role} returned no structured result.`);
 	return {
 		ok: true,

@@ -27,6 +27,15 @@
 
 - gx-ufd.1 `goal-decision-consultant.ts` (worker haiku-5-5, review glm-5.3-flash ok): runConsultant — fresh in-memory session, tools read/grep/find/ls + один submit (нет write/edit/bash/делегации), createSession-шов, дедлайн-таймер + AbortSignal, типизированные payload researcher/critic, invalid_output/config/aborted/budget-коды, beforeLaunch-хук (точка бюджет-гейта E5), usage из session-событий (никогда не выдумывается); 16 unit-тестов на инъекции; selfcheck-orphan решается оркестратором на мерже (практика с E2).
 
+## 2026-10-27 — E5.2 (pause/cancel/restart/orphan)
+
+- Cancellation: the router passes its AbortSignal to every consultant; a fired signal stops further waves and the critic, invalidates the open record (`cancelled`, acceptance-guard writer) and returns `cancelled`. Consultant entries already appended stay in the record.
+- Orphans: a cancelled child whose `abort()` has not settled within `CANCEL_GRACE_MS` (5 000 ms, new numeric value, not in TECH §9 — owner to confirm) is reported `orphaned`, is never awaited beyond the grace period and is not disposed; its record entry carries `orphaned: true`. A late submit after cancellation is refused by the submit tool.
+- Restart: `session_start` invalidates every open record of the active goal pool (`restarted`); nothing is relaunched. Consulted-but-unaccepted records are open too and are invalidated the same way (fail closed).
+- Late results: acceptance already rejected a non-active goal; invalidated records answer `not-open`, so a late delivery cannot resume a stopped goal.
+- Tests: consultant 3, router 5, runtime 5, restart through the real `session_start` hook 1 (14 cases). `npm test` 1339/1339.
+- Not wired yet (E6): the `goal_decision` tool must pass its execute signal into `ConsultationDeps.signal`.
+
 ## Pre-existing issues tracked
 
 - gx-43n.5 (reparented to gx-773): 7 Windows-environment test failures (golden paths, shell harness, lock fault-injection, path asserts, recover bin) + manifest selfcheck red on HEAD Windows.

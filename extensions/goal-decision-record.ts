@@ -54,7 +54,11 @@ const UsageSchema = Type.Union([
 	Type.Literal("unknown"),
 ]);
 
-/** One consultant run (researcher or critic). Summaries are capped per TECH §5. */
+/**
+ * One consultant run (researcher or critic). Summaries are capped per TECH §5.
+ * `orphaned: true` marks a child that was cancelled but never reached idle within
+ * the grace period (TECH §6): it may still be running and is never awaited.
+ */
 export const ConsultantResultSchema = Type.Object({
 	role: Type.Union([Type.Literal("researcher"), Type.Literal("critic")]),
 	childRunId: Type.String({ minLength: 1 }),
@@ -62,6 +66,7 @@ export const ConsultantResultSchema = Type.Object({
 	usage: UsageSchema,
 	summary: Type.String({ maxLength: 300 }),
 	schemaPayload: Type.Unknown(),
+	orphaned: Type.Optional(Type.Literal(true)),
 });
 
 const OutcomeSchema = Type.Object({

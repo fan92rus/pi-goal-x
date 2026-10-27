@@ -892,3 +892,94 @@ test("the cap is read from the policy: with a cap of 1 the critic wave is refuse
 	assert.deepEqual(fake.calls.map((call) => call.role), ["researcher"]);
 	assert.equal(countedLaunches(ctx), 1);
 });
+
+// ── cancellation (TECH §6, E5.2) ────────────────────────────────────────────
+
+const ORPHANED_RUN: AnyRunResult = {
+	ok: false,
+	errorCode: "aborted",
+	message: "Consultant researcher was cancelled. It did not stop within 5000 ms and is marked orphaned.",
+	orphaned: true,
+};
+
+test("a cancel during the research wave ends the route: record invalidated, no further wave and no critic", async t => {
+	const ctx = storeCtx(t);
+	const controller = new AbortController();
+	const fake = fakeRunner((args) => {
+		if (args.role === "researcher") controller.abort();
+		return args.role === "researcher" ? researcherAnswers() : { ok: true, payload: CRITIC_OK };
+	});
+	const deps: ConsultationDeps = { ...depsFor(fake, ctx.cwd), signal: controller.signal };
+	const resolved = await resolveDecision(
+		proposal({ selfRoute: "research+critique", unknowns: ["write volume", "disk layout"], materialRisk: true }),
+		criticPolicy({ maxParallelConsultants: 1 }),
+		ctx,
+		deps,
+	);
+
+	assert.equal(resolved.kind, "cancelled");
+	if (resolved.kind !== "cancelled") return;
+	assert.deepEqual(fake.calls.map((call) => call.role), ["researcher"], "neither the second unknown nor the critic launches");
+	const [record] = storedRecords(ctx);
+	assert.equal(resolved.decisionId, record?.id);
+	assert.equal(record?.status, "invalidated");
+	assert.deepEqual(record?.consultants.map((entry) => entry.childRunId), ["consultant-1"], "the completed launch stays recorded");
+});
+
+test("a cancel during the critic wave invalidates the record after the critic run is recorded", async t => {
+	const ctx = storeCtx(t);
+	const controller = new AbortController();
+	const fake = fakeRunner((args) => {
+		if (args.role === "critic") controller.abort();
+		return args.role === "researcher" ? researcherAnswers() : { ok: true, payload: CRITIC_OK };
+	});
+	const deps: ConsultationDeps = { ...depsFor(fake, ctx.cwd), signal: controller.signal };
+	const resolved = await resolveDecision(proposal({ selfRoute: "research+critique", unknowns: ["write volume"], materialRisk: true }), criticPolicy(), ctx, deps);
+
+	assert.equal(resolved.kind, "cancelled");
+	const [record] = storedRecords(ctx);
+	assert.equal(record?.status, "invalidated");
+	assert.deepEqual(record?.consultants.map((entry) => entry.role), ["researcher", "critic"]);
+});
+
+test("an already-cancelled signal writes nothing and launches nothing", async t => {
+	const ctx = storeCtx(t);
+	const controller = new AbortController();
+	controller.abort();
+	const fake = fakeRunner(researcherAnswers);
+	const deps: ConsultationDeps = { ...depsFor(fake, ctx.cwd), signal: controller.signal };
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["write volume"] }), policy(), ctx, deps);
+
+	assert.equal(resolved.kind, "cancelled");
+	if (resolved.kind === "cancelled") assert.equal(resolved.decisionId, undefined);
+	assert.equal(fake.calls.length, 0);
+	assert.equal(sidecarExists(ctx), false);
+});
+
+test("an orphaned child is recorded with orphaned: true and the route ends cancelled", async t => {
+	const ctx = storeCtx(t);
+	const controller = new AbortController();
+	const fake = fakeRunner(() => {
+		controller.abort();
+		return ORPHANED_RUN;
+	});
+	const deps: ConsultationDeps = { ...depsFor(fake, ctx.cwd), signal: controller.signal };
+	const resolved = await resolveDecision(proposal({ selfRoute: "research", unknowns: ["write volume"] }), policy(), ctx, deps);
+
+	assert.equal(resolved.kind, "cancelled");
+	const [record] = storedRecords(ctx);
+	assert.equal(record?.status, "invalidated");
+	const entry = record?.consultants[0];
+	assert.equal(entry?.orphaned, true);
+	assert.equal(entry?.usage, "unknown");
+	assert.equal(entry?.schemaPayload, null);
+});
+
+test("a settled child carries no orphaned marker in the record", async t => {
+	const ctx = storeCtx(t);
+	const fake = fakeRunner(researcherAnswers);
+	await resolveDecision(proposal({ selfRoute: "research", unknowns: ["write volume"] }), policy(), ctx, depsFor(fake, ctx.cwd));
+
+	const [record] = storedRecords(ctx);
+	assert.equal(record?.consultants[0] && "orphaned" in record.consultants[0], false);
+});

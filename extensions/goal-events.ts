@@ -35,6 +35,8 @@ import { hasActiveDraft, rehydrateDraft } from "./goal-drafting.ts";
 import { syncTerminalInputPause } from "./goal-widget.ts";
 import type { GoalCore } from "./goal-state.ts";
 import { filterGoalSessionContext } from "./goal-session-safety.ts";
+import { invalidateInterruptedDecisions } from "./goal-decision-runtime.ts";
+import { goalStorageContext } from "./storage/goal-root.ts";
 import { registerGoalContext } from "./goal-context.ts";
 import type { GoalMutationOutcome } from "./goal-service.ts";
 
@@ -287,6 +289,11 @@ export function registerGoalEvents(core: GoalCore): void {
 		invalidateGoalLedgerCache();
 		core.goalService.flushTurn(ctx); // P1-3: persist any buffered transaction before reload
 		await core.loadState(ctx);
+		// Restart (TECH §6): a deliberation still open here lost its consultants with the previous session.
+		// Focus is reset on reload, so every goal of the active pool is checked. Best-effort: an open record
+		// that cannot be invalidated is never accepted (no consultant from the previous session can deliver).
+		const decisionStorage = goalStorageContext(ctx);
+		for (const goalId of core.goalsById.keys()) invalidateInterruptedDecisions(decisionStorage, goalId);
 		core.installGoalToolProfile(!loadGoalSettings(ctx.cwd).disableTasks);
 		rehydrateDraft(core, ctx);
 		syncTerminalInputPause(core, ctx);

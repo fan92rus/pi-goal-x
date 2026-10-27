@@ -21,8 +21,12 @@
  * acceptance guard is its only writer). Acceptance itself writes nothing: the
  * caller persists the accepted result (and any `decided` status) afterwards.
  *
- * Cancelling in-flight children on pause, accounting, and the resolution text
- * belong to later stages; this module only decides whether a result is accepted.
+ * Cancellation and restart (TECH §6, E5.2) also invalidate, through the same
+ * single writer: `invalidateOpenDecision` for a deliberation stopped while its
+ * consultants ran, and `invalidateInterruptedDecisions` for open records left by
+ * a session that no longer exists. Nothing is relaunched. A late delivery for an
+ * invalidated record is `not-open` and is ignored, so it can never resume a
+ * stopped goal. Accounting and the resolution text belong to later stages.
  */
 
 import { Value } from "typebox/value";
@@ -79,7 +83,9 @@ export type InvalidationReason =
 	| "generation-changed"
 	| "deadline-exceeded"
 	| "consultant-failed"
-	| "schema-invalid";
+	| "schema-invalid"
+	| "cancelled"
+	| "restarted";
 
 export type AcceptanceVerdict =
 	| { kind: "accepted"; decisionId: string; childRunId: string; role: ConsultantRole; payload: ResearcherPayload | CriticPayload; mode: GoalDecisionMode }
@@ -152,9 +158,9 @@ export function acceptConsultantResult(input: AcceptanceInput): AcceptanceVerdic
 
 	const settings = readModeFreshFromDisk(input.cwd, input.env);
 	const binding = bindingProblem(input, record, settings);
-	if (binding) return invalidate(input, record, binding);
+	if (binding) return invalidate(input.storage, input.goalId, record, binding);
 	const delivered = deliveredPayload(input);
-	if (!delivered.ok) return invalidate(input, record, delivered.problem);
+	if (!delivered.ok) return invalidate(input.storage, input.goalId, record, delivered.problem);
 	return {
 		kind: "accepted",
 		decisionId: record.id,
@@ -166,8 +172,50 @@ export function acceptConsultantResult(input: AcceptanceInput): AcceptanceVerdic
 }
 
 /** Moves the open record to `invalidated` (acceptance guard is its only writer). A concurrent change is a store error, nothing else. */
-function invalidate(input: AcceptanceInput, record: DecisionRecord, problem: Problem): AcceptanceVerdict {
-	const written = setDecisionStatus(input.storage, input.goalId, record.id, "invalidated", { writer: "acceptance-guard", expectedRevision: record.revision });
+function invalidate(storage: GoalStorageContext, goalId: string, record: DecisionRecord, problem: Problem): AcceptanceVerdict {
+	const written = setDecisionStatus(storage, goalId, record.id, "invalidated", { writer: "acceptance-guard", expectedRevision: record.revision });
 	if (!written.ok) return { kind: "store-error", reason: `decision store ${written.error.code}: ${written.error.message}` };
 	return { kind: "invalidated", reason: problem.reason, detail: problem.detail };
+}
+
+/**
+ * Invalidates one deliberation that was stopped while its consultants ran (pause,
+ * interrupt, abort). Only an `open` record moves; a terminal record is `ignored`.
+ */
+export function invalidateOpenDecision(
+	storage: GoalStorageContext,
+	goalId: string,
+	decisionId: string,
+	reason: Extract<InvalidationReason, "cancelled">,
+	detail: string,
+): AcceptanceVerdict {
+	const listed = getDecisions(storage, goalId);
+	if (!listed.ok) return { kind: "store-error", reason: `decision store ${listed.error.code}: ${listed.error.message}` };
+	const record = listed.value.find((candidate) => candidate.id === decisionId);
+	if (!record) return { kind: "ignored", reason: "unknown-decision" };
+	if (record.status !== "open") return { kind: "ignored", reason: "not-open" };
+	return invalidate(storage, goalId, record, { reason, detail });
+}
+
+/**
+ * Restart (TECH §6): every open record of the goal belongs to a deliberation whose
+ * in-flight consultants died with the previous session, so each one is invalidated
+ * (`restarted`). Nothing is relaunched; a later deliberation starts fresh. Records
+ * that were consulted but not yet accepted are open too and are invalidated the
+ * same way (fail closed). Returns the ids moved, or the first store error.
+ */
+export function invalidateInterruptedDecisions(
+	storage: GoalStorageContext,
+	goalId: string,
+): { kind: "done"; invalidated: string[] } | { kind: "store-error"; reason: string } {
+	const listed = getDecisions(storage, goalId);
+	if (!listed.ok) return { kind: "store-error", reason: `decision store ${listed.error.code}: ${listed.error.message}` };
+	const invalidated: string[] = [];
+	for (const record of listed.value) {
+		if (record.status !== "open") continue;
+		const verdict = invalidate(storage, goalId, record, { reason: "restarted", detail: "the session that ran this deliberation was restarted" });
+		if (verdict.kind === "store-error") return verdict;
+		invalidated.push(record.id);
+	}
+	return { kind: "done", invalidated };
 }

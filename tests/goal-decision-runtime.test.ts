@@ -6,6 +6,8 @@ import path from "node:path";
 import type { ConsultantRole, ConsultantRunResult } from "../extensions/goal-decision-consultant.ts";
 import {
 	acceptConsultantResult,
+	invalidateInterruptedDecisions,
+	invalidateOpenDecision,
 	type AcceptanceInput,
 	type AcceptanceVerdict,
 	type ConsultantLaunchBinding,
@@ -355,6 +357,72 @@ test("the objective hash covers the raw objective, so trailing whitespace counts
 	const verdict = accept(ctx, { launch: launch(record.id), goal: goalView(record.id, { objective: `${OBJECTIVE}\n` }) });
 	assert.equal(verdict.kind, "invalidated");
 	if (verdict.kind === "invalidated") assert.equal(verdict.reason, "objective-changed");
+});
+
+test("a cancelled deliberation is invalidated; a late delivery for it is ignored and a paused goal stays paused", t => {
+	const ctx = setup(t);
+	const record = openRecord(ctx, writeMode(ctx, "bounded-auto"));
+
+	const cancelled = invalidateOpenDecision(ctx.storage, GOAL, record.id, "cancelled", "pause");
+	assert.equal(cancelled.kind, "invalidated");
+	if (cancelled.kind === "invalidated") assert.equal(cancelled.reason, "cancelled");
+	const revision = storedRecord(ctx, record.id).revision;
+
+	const late = accept(ctx, { launch: launch(record.id), goal: goalView(record.id, { status: "paused" }) });
+	assert.deepEqual(late, { kind: "ignored", reason: "not-open" });
+	assert.deepEqual(accept(ctx, { launch: launch(record.id) }), { kind: "ignored", reason: "not-open" });
+	assert.equal(storedRecord(ctx, record.id).status, "invalidated", "no decided status can follow an invalidation");
+	assert.equal(storedRecord(ctx, record.id).revision, revision, "late deliveries write nothing");
+});
+
+test("invalidateOpenDecision leaves terminal records alone and ignores unknown ids", t => {
+	const ctx = setup(t);
+	const record = openRecord(ctx, writeMode(ctx, "bounded-auto"));
+	const escalated = setDecisionStatus(ctx.storage, GOAL, record.id, "escalated", { writer: "router", expectedRevision: 0 });
+	assert.equal(escalated.ok, true);
+
+	assert.deepEqual(invalidateOpenDecision(ctx.storage, GOAL, record.id, "cancelled", "pause"), { kind: "ignored", reason: "not-open" });
+	assert.deepEqual(invalidateOpenDecision(ctx.storage, GOAL, "dec-000000000000", "cancelled", "pause"), { kind: "ignored", reason: "unknown-decision" });
+	assert.equal(storedRecord(ctx, record.id).status, "escalated");
+});
+
+test("restart invalidates every open record of the goal, keeps terminal ones, and relaunches nothing", t => {
+	const ctx = setup(t);
+	const snapshot = writeMode(ctx, "bounded-auto");
+	const inFlight = openRecord(ctx, snapshot);
+	const consulted = openRecord(ctx, snapshot, { consultants: [consultantEntry("consultant-1")] });
+	const escalated = openRecord(ctx, snapshot);
+	assert.equal(setDecisionStatus(ctx.storage, GOAL, escalated.id, "escalated", { writer: "router", expectedRevision: 0 }).ok, true);
+
+	const restarted = invalidateInterruptedDecisions(ctx.storage, GOAL);
+	assert.deepEqual(restarted, { kind: "done", invalidated: [inFlight.id, consulted.id] });
+	assert.equal(storedRecord(ctx, inFlight.id).status, "invalidated");
+	assert.equal(storedRecord(ctx, consulted.id).status, "invalidated");
+	assert.equal(storedRecord(ctx, escalated.id).status, "escalated");
+
+	const late = accept(ctx, { launch: launch(inFlight.id) });
+	assert.deepEqual(late, { kind: "ignored", reason: "not-open" }, "a result from the lost session cannot be accepted");
+	const listed = getDecisions(ctx.storage, GOAL);
+	assert.ok(listed.ok);
+	if (listed.ok) {
+		assert.equal(listed.value.length, 3, "no deliberation was started again");
+		assert.deepEqual(listed.value.find((candidate) => candidate.id === inFlight.id)?.consultants, []);
+	}
+});
+
+test("restart with no open records is a no-op", t => {
+	const ctx = setup(t);
+	assert.deepEqual(invalidateInterruptedDecisions(ctx.storage, GOAL), { kind: "done", invalidated: [] });
+});
+
+test("restart reports a store error and moves nothing when the decision store is unreadable", t => {
+	const ctx = setup(t);
+	const record = openRecord(ctx, writeMode(ctx, "bounded-auto"));
+	writeFileSync(path.join(ctx.cwd, DECISIONS_DIR, `${GOAL}.json`), "{not json", "utf8");
+
+	const restarted = invalidateInterruptedDecisions(ctx.storage, GOAL);
+	assert.equal(restarted.kind, "store-error");
+	assert.equal(record.status, "open");
 });
 
 test("an unreadable decision store is reported as a store error and nothing is accepted", t => {

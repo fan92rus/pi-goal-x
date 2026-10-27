@@ -23,6 +23,7 @@
     "./tests/goal-decision-consultant.test.ts",
     "./tests/goal-decision-policy.test.ts",
     "./tests/goal-decision-record.test.ts",
+    "./tests/goal-decision-restart.test.ts",
     "./tests/goal-decision-runtime.test.ts",
     "./tests/goal-decision.test.ts",
     "./tests/goal-deferred-archival.test.ts",

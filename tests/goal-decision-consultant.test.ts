@@ -61,8 +61,13 @@ interface FakeHarness {
 	options?: CapturedOptions;
 }
 
+interface FakeHarnessOptions {
+	/** abort() returns a promise that never settles: the child is un-cancellable. */
+	abortNeverSettles?: boolean;
+}
+
 /** Fake session whose prompt runs `script`; the script submits through the captured custom tool. */
-function fakeHarness(script: FakeScript): FakeHarness {
+function fakeHarness(script: FakeScript, harnessOptions: FakeHarnessOptions = {}): FakeHarness {
 	const harness: FakeHarness = {
 		factory: undefined as never,
 		created: 0,
@@ -86,6 +91,7 @@ function fakeHarness(script: FakeScript): FakeHarness {
 			},
 			abort: () => {
 				harness.aborts += 1;
+				return harnessOptions.abortNeverSettles ? NEVER() : undefined;
 			},
 			dispose: () => {
 				harness.disposes += 1;
@@ -248,6 +254,64 @@ describe("consultant cancellation", () => {
 		assert.equal(run.ok, false);
 		if (!run.ok) assert.equal(run.errorCode, "aborted");
 		assert.equal(harness.created, 0);
+	});
+
+	it("a cancelled child that reaches idle is not orphaned and is disposed", async () => {
+		const controller = new AbortController();
+		const harness = fakeHarness(() => {
+			controller.abort();
+			return NEVER();
+		});
+		const run = await runConsultant({ ctx: CTX, role: "critic", prompt: "Q", model: MODEL, deadlineMs: 60_000, signal: controller.signal, createSession: harness.factory });
+		assert.equal(run.ok, false);
+		if (!run.ok) {
+			assert.equal(run.errorCode, "aborted");
+			assert.equal(run.orphaned, undefined);
+		}
+		assert.equal(harness.disposes, 1);
+	});
+
+	it("a child whose abort never settles is orphaned after the grace period and is not disposed", async () => {
+		const controller = new AbortController();
+		const harness = fakeHarness(() => {
+			controller.abort();
+			return NEVER();
+		}, { abortNeverSettles: true });
+		const started = Date.now();
+		const run = await runConsultant({
+			ctx: CTX,
+			role: "critic",
+			prompt: "Q",
+			model: MODEL,
+			deadlineMs: 60_000,
+			cancelGraceMs: 20,
+			signal: controller.signal,
+			createSession: harness.factory,
+		});
+		const elapsed = Date.now() - started;
+		assert.equal(run.ok, false);
+		if (!run.ok) {
+			assert.equal(run.errorCode, "aborted");
+			assert.equal(run.orphaned, true);
+			assert.match(run.message, /orphaned/);
+		}
+		assert.equal(harness.aborts, 1);
+		assert.equal(harness.disposes, 0, "an orphaned session is not disposed while it may still run");
+		assert.ok(elapsed < 5_000, `returned after the grace period, not after the 60 s deadline (${elapsed} ms)`);
+	});
+
+	it("a submission after cancellation is refused and never becomes the result", async () => {
+		const controller = new AbortController();
+		let late: { content: Array<{ text: string }> } | undefined;
+		const harness = fakeHarness(async ({ submit }) => {
+			controller.abort();
+			await new Promise((resolve) => setTimeout(resolve, 10));
+			late = await submit(RESEARCH_OK);
+		});
+		const run = await runConsultant({ ctx: CTX, role: "researcher", prompt: "Q", model: MODEL, deadlineMs: 60_000, signal: controller.signal, createSession: harness.factory });
+		assert.equal(run.ok, false);
+		await new Promise((resolve) => setTimeout(resolve, 30));
+		assert.match(late?.content[0]?.text ?? "", /not recorded/);
 	});
 
 	it("a deadline that fires during session creation aborts and disposes the late session", async () => {

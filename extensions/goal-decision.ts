@@ -32,6 +32,10 @@
  *     consultation escalates to ask-human. The per-goal cross-route cap
  *     (maxConsultationsPerGoal, shared with the blocker oracle) is checked
  *     before each wave and reserved per real launch.
+ *   - Cancellation (TECH §6, E5.2): the injected signal is passed to every
+ *     consultant. Once it fires, no further wave or critic starts, the open
+ *     record is invalidated (`cancelled`), and the route returns `cancelled`.
+ *     A child that outlives the grace period is recorded with `orphaned`.
  *
  * This module does not register any tool (E6). It writes only through
  * goal-decision-record.ts and calls consultants only through the injected runner.
@@ -42,6 +46,7 @@ import { Value } from "typebox/value";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ConsultantModel, ConsultantRole, ConsultantRunResult, CriticPayload, ResearcherPayload, runConsultant } from "./goal-decision-consultant.ts";
 import type { GoalDecisionCriticSettings, GoalDecisionSettings } from "./goal-decision-policy.ts";
+import { invalidateOpenDecision } from "./goal-decision-runtime.ts";
 import type { ThinkingLevel } from "./goal-settings.ts";
 import {
 	createDecision,
@@ -301,6 +306,11 @@ export type DecisionResolution =
 	| { kind: "consulted"; decisionId: string; route: ConsultedRoute; routeJustification: RouteJustification; facts: string[]; risks: string[]; text: string }
 	/** Escalated: an `escalated` record was written; `text` tells the model to ask the owner. */
 	| { kind: "ask-human"; reason: string; decisionId: string; text: string }
+	/**
+	 * The deliberation was cancelled (pause, interrupt, abort; TECH §6). `decisionId` is
+	 * set when a record existed: it was invalidated, and nothing else ran.
+	 */
+	| { kind: "cancelled"; decisionId?: string; reason: string }
 	/** Escalation could not be written. */
 	| { kind: "store-error"; reason: string };
 
@@ -434,6 +444,8 @@ export type ConsultantRunner = typeof runConsultant;
 export interface ConsultationDeps {
 	ctx: ExtensionContext;
 	runConsultant: ConsultantRunner;
+	/** Cancels the deliberation and every in-flight consultant (pause, interrupt, abort). */
+	signal?: AbortSignal;
 }
 
 export type CriticModelResolution =
@@ -572,7 +584,15 @@ function consultantEntry(
 	result: ConsultantRunResult<ConsultantRole>,
 ): ConsultantResult {
 	if (!result.ok) {
-		return { role, childRunId, model, usage: "unknown", summary: clipText(`${result.errorCode}: ${result.message}`), schemaPayload: null };
+		return {
+			role,
+			childRunId,
+			model,
+			usage: "unknown",
+			summary: clipText(`${result.errorCode}: ${result.message}`),
+			schemaPayload: null,
+			...(result.orphaned ? { orphaned: true as const } : {}),
+		};
 	}
 	const usage: ConsultantResult["usage"] = result.usage?.tokens === undefined ? "unknown" : { tokens: result.usage.tokens, seconds };
 	if (role === "researcher") {
@@ -644,6 +664,7 @@ async function launchConsultant<R extends ConsultantRole>(
 			model: args.model,
 			thinkingLevel: args.thinkingLevel,
 			deadlineMs: flow.policy.limits.consultantDeadlineMs,
+			signal: flow.deps.signal,
 			beforeLaunch: () => reserveLaunch(flow),
 		});
 	} catch (error) {
@@ -681,6 +702,18 @@ function escalateConsulted(flow: ConsultationFlow, rawReason: string): DecisionR
 	return { kind: "ask-human", reason, decisionId: record.id, text: escalationText(record.id, reason, proposal) };
 }
 
+/**
+ * The deliberation was cancelled while it ran (TECH §6): the open record is
+ * invalidated through the acceptance guard, and no further consultant starts.
+ * Consultant entries already appended stay in the record.
+ */
+function cancelDeliberation(flow: ConsultationFlow): DecisionResolution {
+	const { storeCtx, record } = flow;
+	const invalidated = invalidateOpenDecision(storeCtx.storage, storeCtx.goalId, record.id, "cancelled", "the deliberation was cancelled before it completed");
+	if (invalidated.kind === "store-error") return { kind: "store-error", reason: invalidated.reason };
+	return { kind: "cancelled", decisionId: record.id, reason: "the deliberation was cancelled; the record is invalidated" };
+}
+
 function consultedResolution(flow: ConsultationFlow, risks: string[]): DecisionResolution {
 	const { record, proposal, route, routeJustification } = flow;
 	const lines = [
@@ -700,6 +733,7 @@ async function runResearch(flow: ConsultationFlow, researcher: ConsultantModel):
 	const questions = researchQuestionsOf(proposal);
 	const width = policy.limits.maxParallelConsultants;
 	for (let start = 0; start < questions.length; start += width) {
+		if (flow.deps.signal?.aborted) return cancelDeliberation(flow);
 		const wave = questions.slice(start, start + width);
 		const capped = checkCapBeforeWave(flow, wave.length);
 		if (capped !== undefined) return capped;
@@ -713,6 +747,7 @@ async function runResearch(flow: ConsultationFlow, researcher: ConsultantModel):
 			: []));
 		const stored = appendConsultants(flow, launches.map(({ entry }) => entry), findingFacts);
 		if (stored !== undefined) return { kind: "store-error", reason: stored };
+		if (flow.deps.signal?.aborted) return cancelDeliberation(flow);
 		const problem = researchProblem(launches);
 		if (problem !== undefined) return escalateConsulted(flow, problem);
 	}
@@ -731,6 +766,7 @@ function researchProblem(launches: ReadonlyArray<LaunchedConsultant<"researcher"
 
 /** Critic wave: one launch on the proposal plus the facts gathered so far (including research findings). */
 async function runCritic(flow: ConsultationFlow, critic: { model: ConsultantModel; thinkingLevel?: ThinkingLevel }): Promise<DecisionResolution> {
+	if (flow.deps.signal?.aborted) return cancelDeliberation(flow);
 	const capped = checkCapBeforeWave(flow, 1);
 	if (capped !== undefined) return capped;
 	const launch = await launchConsultant(flow, {
@@ -741,6 +777,7 @@ async function runCritic(flow: ConsultationFlow, critic: { model: ConsultantMode
 	});
 	const stored = appendConsultants(flow, [launch.entry], []);
 	if (stored !== undefined) return { kind: "store-error", reason: stored };
+	if (flow.deps.signal?.aborted) return cancelDeliberation(flow);
 	const problem = criticProblem(launch.result);
 	if (problem !== undefined) return escalateConsulted(flow, problem);
 	const risks = launch.result.ok
@@ -777,6 +814,8 @@ export async function resolveConsultations(
 	policy: GoalDecisionSettings,
 	deps: ConsultationDeps,
 ): Promise<DecisionResolution> {
+	// Cancelled before anything was written: nothing to invalidate, nothing launches.
+	if (deps.signal?.aborted) return { kind: "cancelled", reason: "the deliberation was cancelled before any consultant launched" };
 	const pre = preflight(deps, policy, proposal, route);
 	if (!pre.ok) return escalate(storeCtx, proposal, pre.reason);
 	const created = createDecision(storeCtx.storage, storeCtx.goalId, draftFor(storeCtx, proposal, route, routeJustification));
