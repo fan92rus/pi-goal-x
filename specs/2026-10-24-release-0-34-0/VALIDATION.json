@@ -1,0 +1,92 @@
+{
+  "version": "0.34.0",
+  "verifiedAtUTC": "2026-10-24T12:37:38.901Z",
+  "tag": "v0.34.0",
+  "tagCommit": "8f0c28b08a152efef9da2728e7f8e96b02455506",
+  "rankingCommit": "26e0f8b29bef982e3a0d9507e6e1c874e5f02aa3",
+  "mainAtVerification": "26e0f8b29bef982e3a0d9507e6e1c874e5f02aa3",
+  "registry": {
+    "url": "https://www.npmjs.com/package/pi-goal-x/v/0.34.0",
+    "latest": "0.34.0",
+    "integrity": "sha512-6vIeldUmY5YsHfKeNxH2fk1rvraRortp/KypxzhbQGQdV80SDYubJiveP/sbh3mApY0SOeASaaf4gUyiWLuTbQ==",
+    "shasum": "dc18a75d5b176659593bc402dfa65b84164e0111",
+    "sha256": "738f1ab383fd769524d372dc73286c321e96b8e6473fef32c1781fb690a718b6",
+    "peerDependencies": {
+      "@earendil-works/pi-ai": ">=1.4.0 <2.0.0",
+      "@earendil-works/pi-coding-agent": ">=1.4.0 <2.0.0",
+      "@earendil-works/pi-tui": ">=1.4.0 <2.0.0",
+      "typebox": "^1.3.11"
+    },
+    "node": ">=22.19.0"
+  },
+  "github": {
+    "url": "https://github.com/tmonk/pi-goal-x/releases/tag/v0.34.0",
+    "assetMatchesRegistry": true,
+    "allFiveContributorsCredited": true
+  },
+  "source": {
+    "files": 79,
+    "tagMatchedFiles": 76,
+    "rankingMatchedFiles": [
+      "README.md",
+      "assets/badge-light.svg",
+      "assets/badge-dark.svg"
+    ],
+    "removedPromptProfileAbsent": true
+  },
+  "provenance": {
+    "subjectAndDigestMatch": true,
+    "sourceCommitMatches": true,
+    "workflow": {
+      "ref": "refs/tags/v0.34.0",
+      "repository": "https://github.com/tmonk/pi-goal-x",
+      "path": ".github/workflows/publish.yml"
+    }
+  },
+  "smoke": {
+    "node": "22.19.0",
+    "pi": "1.4.0",
+    "recoveryCLI": true,
+    "goalCompleted": true,
+    "executorPrefixStable": true,
+    "externalInstructionPreserved": true,
+    "providerRequests": 9,
+    "verifiedArtifact": "verified result\n",
+    "errors": []
+  },
+  "contributors": {
+    "historyPreserved": true,
+    "sourcePRs": [
+      104,
+      97,
+      92,
+      91,
+      94
+    ]
+  },
+  "checks": {
+    "reviewedHead": "https://github.com/tmonk/pi-goal-x/actions/runs/40094160823",
+    "main": "https://github.com/tmonk/pi-goal-x/actions/runs/40094392388",
+    "publish": "https://github.com/tmonk/pi-goal-x/actions/runs/40094400667",
+    "windows": "https://github.com/tmonk/pi-goal-x/actions/runs/40092852584/job/120868921488"
+  },
+  "validation": {
+    "testsPassed": 1216,
+    "testsFailed": 0,
+    "testsSkipped": 0,
+    "cliWalkthroughsPassed": 10,
+    "benchmarkComparisonsPassed": 105,
+    "windowsChecksPassed": 15,
+    "currentCIJobs": 1,
+    "productionVulnerabilities": 0
+  },
+  "piAudit": {
+    "latestPublishedSDK": "1.4.0",
+    "installedPiModules": 7,
+    "allInstalledPiModulesMatch": true,
+    "explicitSDKImportPathsChecked": 23,
+    "brokenSDKImportPaths": 0,
+    "oldHostRuntimeAndTestPathsRemoved": true,
+    "historicalRecordsPreserved": true
+  }
+}

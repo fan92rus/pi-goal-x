@@ -20,3 +20,5 @@
 - The prepared holder passes all 14 Windows checks on 58f8d66. A final call-site audit found the pool snapshot's delta-update writer still using raw rename; routed it through the same bounded helper and cleanup, and added a native OS-lock regression for that public write path. Keep the temporary job for this final storage validation, then remove it.
 
 - Final Windows validation passes 15/15 on 3a9ed4d, including real contention on the snapshot delta writer: https://github.com/tmonk/pi-goal-x/actions/runs/40092852584/job/120868921488. Removed the temporary Windows job after that result. Runtime sources/tests are unchanged by the final CI/documentation commit; regular CI now has one Linux validation job for Pi 1.4 on Node 22.19. Contributor co-author mappings are verified on GitHub, and PR #107 links all five original contributions.
+
+- Merged #107 as 8f0c28b and released v0.34.0 after the whole-project Pi 1.4 audit. Release/main CI and published-package verification pass; contributor commits and release-note credits are preserved. See ../2026-10-24-release-0-34-0/VALIDATION.json.
