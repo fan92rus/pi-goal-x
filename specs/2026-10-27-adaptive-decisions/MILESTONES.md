@@ -78,3 +78,9 @@
 ## Pre-existing issues tracked
 
 - gx-43n.5 (reparented to gx-773): 7 Windows-environment test failures (golden paths, shell harness, lock fault-injection, path asserts, recover bin) + manifest selfcheck red on HEAD Windows.
+## 2026-10-27 — E6 (gx-443, agile_run)
+
+- gx-443.1 `goal_decision` тул: регистрация только при mode != manual и активной цели (ensureDecisionTool + applicableGoalTools на session_start/before_agent_start); bounded-auto возвращает текст решения через acceptance-guard; advisory открывает runGoalQuestionnaire с prefill; ask-human/отменённый диалог — прежняя семантика blocker-ladder; 22+5 тестов + e2e. Коммит 17d4d85.
+- gx-443.2 промпты/описания тулов, oracle-путь не тронут, ручной режим байт-в-байт. Коммит cebc576.
+- gx-443.3 проектный переключатель decisionMode (проектный слой авторитетен), переключение в manual посреди обсуждения останавливает автономную приёмку (fresh-read в guard), журнал решений + status-строка. Коммит 708f8ab.
+- Инцидент: первое ревью 443.1 умерло на schema-missing (structured_output не вызван) — движок восстановил через rework+повторное ревью; отчёт failed-ревьюера при этом содержал полный approved-вердикт.
