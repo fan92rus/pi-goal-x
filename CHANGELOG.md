@@ -4,6 +4,18 @@ All notable changes to pi-goal-x are documented here.
 
 ## [Unreleased]
 
+## [0.36.0] — 2026-10-27
+
+This release carries the adaptive-decisions work recorded under 0.35.0 and 0.35.1, which were never published.
+
+### Added
+
+- Adaptive decisions (opt-in): the project setting `decisionMode` (`manual` by default, `advisory`, or `bounded-auto`). Inside an active goal the agent can resolve a technical fork through `goal_decision` from the original request instead of asking first. Forks that need research or critique run read-only researcher and critic consultants within fixed limits (2 rounds, 2 parallel consultants, 120 s deadline, 6 per goal). Anything that lacks authority, facts, or a clean critique escalates to `goal_question`. Each decision is recorded and journaled. The modes, routes, limits, authority rules, and known limitations are documented in `docs/adaptive-decisions.md`. `manual` keeps today's behavior.
+
+### Fixed
+
+- A material decision can no longer skip its critique. A `skipJustifications.critique` entry does not waive a critique required by the route floor; such a decision now escalates. Research may still be skipped with a justification.
+
 ## [0.35.1] — 2026-10-27
 
 ### Changed

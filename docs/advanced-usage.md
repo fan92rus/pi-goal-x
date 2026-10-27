@@ -59,6 +59,10 @@ Existing producers that directly send `triggerTurn`/`followUp` messages still ru
 
 Goal state is refreshed at the request tail while the system prompt and conversation prefix stay stable. Pi retains control of provider cache settings. See [prompt caching](prompt-caching.md) for explicit-cache handling, validation, and cache invalidation boundaries.
 
+## Adaptive decisions
+
+An opt-in project setting (`decisionMode`) lets an active goal resolve a technical fork from the original request, with optional research and critique, and records the rationale. The default `manual` mode keeps today's questions. See [adaptive decisions](adaptive-decisions.md) for modes, routes, limits, and known limitations.
+
 ## Changing a token budget
 
 Use the existing tweak flow: `/goal-tweak remove the token budget` or `/goal-tweak set the token budget to 50000`. The proposal shows the current and proposed limits before confirmation. A budget is a total lifetime limit, not an additional allocation; consumed tokens and completed work are preserved. Omitting a budget change retains the current limit.

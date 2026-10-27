@@ -99,3 +99,10 @@
 - Every fault ends in a typed error, an escalation, or a rejected acceptance; none rewrites the faulty file. No production change: no fault broke an acceptance criterion. Residual risks R1–R8 (open record after a failed write, error label of a counter read failure, silent restart skip, partial usage of cancelled children) are in MATRIX.md, E7.2 section.
 - Release: `0.35.0` → `0.35.1` (`package.json`, `package-lock.json`), CHANGELOG `[0.35.1]`. 0.35.0 was never published or tagged, so the bump is a patch on top of it; the main agent decides whether E7 ships as 0.35.1 or folds into 0.35.0.
 - Gate: see the E7.2 report (`npm test`, `npm run check`, eslint, `npm pack --dry-run`); no publish, no tag.
+
+## 2026-10-27 — E7.3 (documentation + limited release, 0.36.0)
+
+- Defect found and fixed (minimal, G12 in MATRIX.md): a material decision could skip its critique with `skipJustifications.critique` (`decideRoute` accepted it). Owner decision (E7.3): critique required by the floor is not skippable; research skips with a justification stay. `decideRoute` now refuses it with `critique is mandatory for a material decision`. Tests: `tests/goal-decision.test.ts` +2 (critique waiver refused for absent and true `materialRisk`; research skip still accepted); `tests/goal-decision-acceptance.test.ts` S03 assertion moved to the new message. PRODUCT and TECH §4 updated to match.
+- Docs: `docs/adaptive-decisions.md` (modes, routes, floors, consultants, authority derivation, limits, record and journal, final residual limitations). Linked from `docs/advanced-usage.md`; `docs/adaptive-decisions.md` added to `package.json` `files`. README not expanded (AGENTS.md).
+- Release: `0.35.1` → `0.36.0` (`package.json`, `package-lock.json` via `npm version --no-git-tag-version`); CHANGELOG `[0.36.0]` states that 0.35.0 and 0.35.1 were never published. No publish, no tag.
+- Gate: `npm test` 1448/1448 (1446 before the two new cases); `npm run check` clean; eslint clean on the changed TypeScript files; `npm pack --dry-run` 0.36.0, 87 files, includes the docs page.

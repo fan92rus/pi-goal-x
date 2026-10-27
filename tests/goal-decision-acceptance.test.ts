@@ -408,7 +408,7 @@ test("S03 material risk: the critique is mandatory — a route without it is ref
 	const floor = harness(t, { mode: "bounded-auto", critic: CRITIC_SETTINGS.decisionCritic });
 	const floorText = await floor.call(proposal({ selfRoute: "direct", materialRisk: true }), 0);
 	assert.match(floorText, /escalated/);
-	assert.match(floorText, /skipping critique needs a non-empty skipJustifications\.critique/);
+	assert.match(floorText, /critique is mandatory for a material decision/);
 	assert.deepEqual(floor.log.launches, []);
 	assert.equal(floor.records()[0]?.status, "escalated");
 

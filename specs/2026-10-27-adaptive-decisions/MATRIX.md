@@ -68,7 +68,7 @@ Gaps and limits (documented, not widened in E7):
 - **G8.** The S16 oracle cap is shown through `runCountedOracle`; the oracle's own per-fingerprint limit stays covered by the existing oracle suite, not re-tested here.
 - **G9.** S18 "multiple goals" is one project with goals in sequence. Concurrent multi-goal focus is a non-goal (PRODUCT).
 - **G10.** The scripted `createSession` seam is the only fake. The production SDK session factory is not launched by any acceptance case: consulted routes through the registered tool use the real factory only in production.
-- **G11.** No user-facing `docs/` page for `decisionMode` was written; no E7 criterion requires one. The CHANGELOG entry is the only release note.
+- **G11 (closed in E7.3).** The user-facing page is `docs/adaptive-decisions.md`; see the E7.3 section for the final residual list.
 
 ## E7.2 fault-injection evidence
 
@@ -100,3 +100,8 @@ Residual risks (documented, not changed in E7.2):
 - **R6 (generation).** `generation` is a `randomUUID` (goal-scheduler-state.ts), so an A→B→A change cannot pass the generation check.
 - **R7 (injected error code).** Injected write failures are `ENOSPC`, which the atomic renamer does not retry on any platform, so the outcome is deterministic. Real Windows sharing contention (`EPERM`/`EACCES`/`EBUSY` retries) stays covered by `tests/windows/atomic-rename.test.ts`, which runs only natively on Windows.
 - **R8 (test seams).** The fault cases lower `consultantDeadlineMs` to 20 ms and `cancelGraceMs` to 20 ms through their seams so the suite stays fast. The production defaults (120 000 ms, 5 000 ms) are unchanged and are checked by S15 and the consultant unit suite.
+
+## E7.3 documentation and limited release
+
+- **G12 (defect, fixed in E7.3).** A material decision (absent or true `materialRisk`) could skip its critique through `skipJustifications.critique`. `decideRoute` now refuses it ("critique is mandatory for a material decision"); research skips with a justification are unchanged. Owner decision, recorded in MILESTONES. Evidence: `tests/goal-decision.test.ts` (material critique waiver refused; research skip accepted) and the S03 case in `tests/goal-decision-acceptance.test.ts`.
+- **Residual list (final).** The Limitations section of `docs/adaptive-decisions.md` condenses G2–G10 and R1–R8 for users; the entries above and in the E7.1 and E7.2 sections remain the evidence.

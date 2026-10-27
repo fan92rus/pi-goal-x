@@ -40,7 +40,7 @@ The mode is configured **per project** (one setting, shared by all goals and ses
 - `research`: read-only fact gathering when a specific unknown blocks the choice.
 - `critique`: an independent critic (fresh context, different model than the author of the proposal) when stakes are material.
 - `ask-human`: missing authority, user preference, or material unresolved uncertainty.
-- Skipping research/critique must be justified in the record; checking authority and recording the rationale are never skipped.
+- Skipping research must be justified in the record. Critique required by the floor (a material decision) is never skipped: a skip justification does not waive it (E7.3 owner decision). Checking authority and recording the rationale are never skipped.
 - A route may escalate mid-flight (e.g. research reveals a licensing risk → critique becomes mandatory). Material critic objections cannot be waived to keep moving; they are resolved or escalated.
 - "Material" consequence = one that is hard to reverse, affects money/data/production/security, or departs from the literal request. When unsure whether a consequence is material, treat it as material (conservative default); classification rules are fixed in TECH.md.
 - Options are compared by the goal's priorities across five criteria: correctness, safety, reversibility, cost, and maintainability. No mathematically optimal choice is promised; the record shows which criteria dominated and why.

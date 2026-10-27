@@ -284,6 +284,32 @@ test("forbidden words in the options force ask-human: spend money and api key", 
 	assert.equal(decideRoute(proposal({ options: ["store the api key in the repo", "env var"] })).ok, false);
 });
 
+test("material critique cannot be waived by a skip justification, whether materialRisk is true or absent", () => {
+	for (const materialRisk of [true, undefined]) {
+		const decided = decideRoute(proposal({
+			selfRoute: "direct",
+			materialRisk,
+			skipJustifications: { critique: "the choice is easy to undo" },
+		}));
+		assert.equal(decided.ok, false, `materialRisk ${String(materialRisk)}`);
+		if (!decided.ok) {
+			assert.equal(decided.floor, "critique");
+			assert.match(decided.detail, /critique is mandatory for a material decision/);
+		}
+	}
+});
+
+test("a research skip with justification is still accepted for a material decision that includes critique", () => {
+	const decided = decideRoute(proposal({
+		selfRoute: "critique",
+		materialRisk: true,
+		unknowns: ["write volume"],
+		skipJustifications: { research: "the unknown is answered by the repo fact list" },
+	}));
+	assert.equal(decided.ok, true);
+	if (decided.ok) assert.deepEqual(decided.routeJustification.skipped, ["research"]);
+});
+
 test("forbidden categories cannot be waived by skip justifications", () => {
 	const decided = decideRoute(proposal({
 		question: "Rotate the api key now?",
@@ -361,7 +387,7 @@ test("missing skip justification escalates with reason route floor and writes an
 	const resolved = await resolveDecision(proposal({ materialRisk: true }), policy(), ctx, noLaunchDeps());
 	assert.equal(resolved.kind, "ask-human");
 	if (resolved.kind !== "ask-human") return;
-	assert.match(resolved.reason, /^route floor: skipping critique needs a non-empty skipJustifications\.critique/);
+	assert.match(resolved.reason, /^route floor: critique is mandatory for a material decision/);
 	const [record] = storedRecords(ctx);
 	assert.equal(record?.status, "escalated");
 	assert.equal(record?.route, "critique", "escalated route is the higher of selfRoute and floor");

@@ -260,9 +260,12 @@ const NO_SKIPS: RouteJustification = { skipped: [], reasons: {} };
  *
  * - `ask-human` is accepted as submitted (the caller escalates).
  * - A forbidden category fails with floor `ask-human`. No skip can waive it.
- * - Every consultation required by the floor but missing from the self-assessed
- *   route needs a non-empty skipJustifications entry keyed by that route
- *   (`research` or `critique`). Missing justification fails with detail.
+ * - A research consultation required by the floor but missing from the self-assessed
+ *   route needs a non-empty skipJustifications.research entry. Missing justification
+ *   fails with detail.
+ * - Critique is never skippable when the floor requires it (a material decision):
+ *   skipJustifications.critique does not waive it (E7.3; PRODUCT: material
+ *   consequences require the route with critique; MATRIX S03).
  *
  * Accepted routes are recorded as submitted, with the skipped consultations and
  * their reasons in routeJustification.
@@ -274,9 +277,11 @@ export function decideRoute(proposal: DecisionProposal): RouteDecision {
 		return { ok: false, floor: floor.route, detail: `forbidden category: ${floor.forbidden.join(", ")}` };
 	}
 	const covered = ROUTE_COVERAGE[proposal.selfRoute];
-	const missing: Array<"research" | "critique"> = [];
+	const missing: Array<"research"> = [];
 	if (floor.needResearch && !covered.research) missing.push("research");
-	if (floor.needCritique && !covered.critique) missing.push("critique");
+	if (floor.needCritique && !covered.critique) {
+		return { ok: false, floor: floor.route, detail: `critique is mandatory for a material decision: route ${proposal.selfRoute} does not include it, and skipJustifications.critique cannot waive it` };
+	}
 	if (missing.length === 0) return { ok: true, route: proposal.selfRoute, routeJustification: NO_SKIPS };
 
 	const reasons: Record<string, string> = {};
