@@ -75,6 +75,7 @@
     ".tests/goal-tweak-status-persistence.test.ts",
     ".tests/goal-unfocus.test.ts",
     ".tests/goal-unfocused-banner.test.ts",
+    ".tests/goal-update-goal.test.ts",
     ".tests/goal-update-objective.test.ts",
     ".tests/goal-widget-lifetime.test.ts",
     ".tests/goal-widget.test.ts",

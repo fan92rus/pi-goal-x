@@ -1,5 +1,6 @@
+import { planUpdateGoal } from "./goal-tool-inputs.ts";
 import { commandHint } from "./goal-controls.ts";
-import { schedulerSummary, type GoalContinuation } from "./goal-scheduler-state.ts";
+import { schedulerSummary } from "./goal-scheduler-state.ts";
 import { goalDetailPage, type GoalDetailSection } from "./goal-detail.ts";
 import { taskIndex } from "./goal-task-index.ts";
 import { StringEnum, Type } from "@earendil-works/pi-ai";
@@ -527,23 +528,16 @@ pi.registerTool(defineTool({
 	}, { additionalProperties: false }),
 	executionMode: "sequential",
 	async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-		// P1-3: persist any buffered in-turn mutations now so the auditor and
-		// status transitions observe the current task/state, not the stale disk.
-		core.flushGoalTransaction(ctx);
-		if (!!params.continuation === !!params.status || (params.continuation && (params.reason !== undefined || params.attempted_actions !== undefined || params.suggested_action !== undefined || params.completion_summary !== undefined))) {
-			return { content: [{ type: "text", text: "Provide exactly one lifecycle status or continuation, without mixing their fields." }], details: {}, terminate: false };
-		}
-		if (params.continuation) return core.scheduler.declare(ctx, params.continuation as GoalContinuation);
-		if (params.status === "blocked") {
-			const attempted = Array.isArray((params as { attempted_actions?: unknown }).attempted_actions)
-				? ((params as { attempted_actions: unknown[] }).attempted_actions.filter((a): a is string => typeof a === "string"))
-				: [];
-			return runGoalBlockedFlow(ctx, params.reason, attempted);
-		}
-		if (params.status === "paused") {
-			return runGoalAgentPauseFlow(ctx, params.reason, params.suggested_action);
-		}
-		return deps.runGoalCompletionFlow(core, ctx, params.completion_summary);
+  const planned = planUpdateGoal(params);
+  if (!planned.ok) return {isError: true, content: [{type: "text", text: planned.message}], details: {}, terminate: false};
+  core.flushGoalTransaction(ctx);
+  const plan = planned.plan;
+  switch (plan.action) {
+   case "continuation": return core.scheduler.declare(ctx, plan.continuation);
+   case "blocked": return runGoalBlockedFlow(ctx, plan.reason, plan.attemptedActions);
+   case "paused": return runGoalAgentPauseFlow(ctx, plan.reason, plan.suggestedAction);
+   case "complete": return deps.runGoalCompletionFlow(core, ctx, plan.completionSummary);
+  }
 	},
 	renderCall(args, theme) {
 		return new Text(theme.fg("toolTitle", "update_goal ") + theme.fg("muted", args?.status ?? ""), 0, 0);

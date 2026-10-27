@@ -15,8 +15,8 @@ const work=fs.mkdtempSync(path.join(os.tmpdir(),'goal-wire-check-'));
 // Exercise Responses caller compatibility resolution, not merely its converter.
 const registered=[];
 goalExtension({registerTool:tool=>registered.push(tool),registerCommand(){},on(){},getActiveTools:()=>[],setActiveTools(){},appendEntry(){},registerMessageRenderer(){}});
-const responseTools=registered.filter(tool=>['create_goal','get_goal','update_goal_task','propose_goal_draft'].includes(tool.name)).map(({name,description,parameters})=>({name,description,parameters}));
-assert.equal(responseTools.length,4);
+const responseTools=registered.filter(tool=>['create_goal','get_goal','update_goal','update_goal_task','propose_goal_draft'].includes(tool.name)).map(({name,description,parameters})=>({name,description,parameters}));
+assert.equal(responseTools.length,5);
 for(const supportsStrictMode of [undefined,false,true]) {
  let payload;
  const model={id:'fixture',name:'fixture',api:'openai-responses',provider:'opencode',baseUrl:'http://127.0.0.1:1/v1',reasoning:false,input:['text'],cost:{input:0,output:0,cacheRead:0,cacheWrite:0},contextWindow:200000,maxTokens:128,...(supportsStrictMode === undefined ? {} : {compat:{supportsStrictMode}})};

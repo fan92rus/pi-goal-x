@@ -195,3 +195,11 @@ Implementation remains unstarted and the spec remains ready for review. The exis
 - Passed focused lifecycle/transaction/session-safety regressions, 73 completion/settings/ledger/status/compaction checks, installed Pi session-safety workers (including stale reload and delegated sessions), TypeScript/ESLint and the 384-scenario release cache comparison with no payload delta.
 - Added default/external-root project-switch tests, same-external-ID late callbacks/cache eviction, Escape-dialog replacement, changed-task approval rejection and real EISDIR ledger failure. Corrected the external-root fixture to include the required stored focus root; the production focus-isolation rule was preserved.
 - Native Windows validation remains a release gate; local results are macOS/Pi 1.4 evidence, not a Windows claim.
+
+## Implementation — C: classify update_goal before flushing
+
+- Both independent registered regressions failed before the fix: the verbatim #115 object never reached the auditor, and structural conflicts returned no error flag (with the pre-validation flush still present).
+- Added one pure typed planner in the existing tool-input module. It recognizes exact payload-free ready filler beside status, removes only blank optional input, names real field conflicts and preserves input objects. The executor now dispatches that plan after validation and before its existing flush; public schemas/descriptions/order are unchanged.
+- Reimplemented #117's behavior from the contract. No contributor head or source-text assertion was adopted. Meaningful wait/lifecycle conflicts and malformed/payload-bearing ready objects remain errors.
+- Passed action/planner matrices, dirty-buffer repair, strict/default actual scheduler assertions, real SDK argument validation, the existing tool-input worker and a new local Responses server. The latter sends the exact recorded arguments through Pi's installed tool path, runs the real nested independent auditor and archives in exactly two provider requests.
+- Extended Responses schema capture to include update_goal in all three strict-compatibility modes. TypeScript, ESLint, provider cross-check and the 384-scenario cache comparison pass with zero payload/schema delta.
