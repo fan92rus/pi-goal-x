@@ -210,3 +210,11 @@ Implementation remains unstarted and the spec remains ready for review. The exis
 - Corrected the existing shared walker with `total - rawComplete - rawSkipped`; no second counting path or task-status change was introduced. This is the minimal correction identified in #110/#111, independently verified and credited.
 - Added fixed-seed generated nested trees across both display and pending-collection modes, immutability and count-additivity checks, and real completion/auditor/prompt/deferred-archive positives and negatives. A pending child under a skipped parent still blocks; auditor rejection still blocks completion.
 - Extended the local Responses regression to combine the exact filler object with complete+skipped blocking tasks and the real nested auditor. All 80 focused task/auditor/SDK checks and TypeScript pass; the cache gate still reports no unrelated payload delta.
+
+## Implementation — E: keyboard focus ownership
+
+- Registered real TUI dispatch tests failed before the fix because Goal consumed Escape/remapped pause instead of delivering them to foreign focused surfaces.
+- Added one early listener guard and one narrow renderer query. Pi 1.4 exposes getFocusedComponent and publicly wires app.clear/onSubmit on its main CustomEditor, copying app wiring to replacements. This avoids private focus fields and does not mistake text accessors or non-capturing overlays for ownership.
+- Reimplemented #116's boundary for all shortcuts; no per-action guard list or generic focus framework was added. Missing focus inspection preserves the embedding fallback.
+- Passed 123 controls/widget/TUI checks, command-key and foreign-editor negatives, widget recreation and non-capturing-overlay positives. The installed Pi CLI walkthrough opens another extension's native dialog and capturing overlay, sends Escape/F6, verifies the goal stays active and proves F6 pauses after focus returns.
+- TypeScript/ESLint and the release cache gate pass with no payload delta. Added the walkthrough to ordinary CI; fixed legacy component stubs through the documented unknown-focus fallback instead of weakening real TUI assertions.

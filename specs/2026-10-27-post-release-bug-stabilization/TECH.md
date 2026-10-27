@@ -362,6 +362,8 @@ Add a narrow tri-state focus adapter: main editor, foreign focused surface, or u
 
 At the start of the terminal listener—after the existing Goal-owned modal guard and before Kitty repeat handling—return unhandled for a foreign owner. Apply the boundary to:
 
+Implementation seam verified in the installed Pi 1.4 source: `CustomEditor.actionHandlers` is public, and Pi installs `app.clear` plus `onSubmit` on its main editor, copying them when replacing it with another CustomEditor. Query `getFocusedComponent()` through the widget's actual renderer and require this host app wiring; text accessors alone do not qualify. Missing renderer/focus access retains the embedding fallback. Native dialogs, foreign text editors and capturing overlays do not have the main editor's app wiring; a non-capturing overlay leaves the main editor focused. No protected focus field or editor wrapper is needed.
+
 - pause and host-interrupt bookkeeping;
 - auditor interrupt;
 - dashboard expand/collapse and navigation;

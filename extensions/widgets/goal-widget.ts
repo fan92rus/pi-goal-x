@@ -397,6 +397,17 @@ export class GoalWidgetComponent implements Component {
 		return this.getExpanded();
 	}
 
+	/** Pi 1.4's public focus getter and main-editor app wiring survive custom editors. */
+	isMainEditorFocused(): boolean | undefined {
+		const tui = this.tui as TUI & {getFocusedComponent?: () => Component | null};
+		if (typeof tui.getFocusedComponent !== "function") return undefined;
+		const focused = tui.getFocusedComponent() as (Component & {onSubmit?: unknown; actionHandlers?: unknown}) | null;
+		// Pi copies these public app handlers when installing a replacement CustomEditor.
+		// A foreign text editor can have getText/setText without owning app actions.
+		return !!focused && typeof focused.onSubmit === "function"
+			&& focused.actionHandlers instanceof Map && focused.actionHandlers.has("app.clear");
+	}
+
 	update(): void {
 		this.tui.requestRender();
 	}

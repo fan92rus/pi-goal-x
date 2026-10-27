@@ -247,9 +247,31 @@ async function answerEditingWalkthrough(){
  }finally{await h.stop();}
 }
 
+async function foreignFocusWalkthrough(){
+ const h=await boot('foreign-focus',{keybindings:{pause:'f6'}},'foreign-focus');
+ try{
+  await h.send('/goal-direct Create greeting.txt and verify its content.\r');
+  await until(()=>h.requests().length===1,'active goal request');
+  for(const mode of ['native','overlay']){
+   await h.send(`/foreign-focus ${mode}\r`);
+   await h.expect(mode==='native'?'Foreign native dialog owns keyboard':'Foreign overlay owns keyboard');
+   await h.send(F6);
+   assert.equal(h.goals()[0]?.status,'active',`${mode}: foreign F6 cannot pause`);
+   assert.notEqual(h.goals()[0]?.scheduler?.phase,'interrupted',`${mode}: foreign key cannot interrupt`);
+   await h.send(ESC);
+   assert.equal(h.goals()[0]?.status,'active',`${mode}: closing Escape cannot pause`);
+   await h.capture(`foreign-${mode}-closed`);
+  }
+  await h.send(F6);
+  await until(()=>h.goals()[0]?.status==='paused','main-editor pause restored');
+  return {case:'foreign-focus',passed:true,sdk:piVersion,directory:path.relative(repository,h.cwd),checks:['native-focus','capturing-overlay','foreign-text-accessors','remapped-pause','closing-escape','editor-focus-restored']};
+ }finally{await h.stop();}
+}
+
 // Each case owns its Pi process, provider, sessions and both settings layers.
 // Two terminals at a time keeps the walkthrough bounded on two-core CI runners.
 const available=[['controls-ui',controlsWalkthrough],['settings-paths',settingsPathsWalkthrough],['editor-controls',editorWalkthrough],['command-shortcuts',commandShortcutWalkthrough],['together',()=>pauseWalkthrough('together')],['goal-first',()=>pauseWalkthrough('goal-first')],['goal-first-finish',()=>pauseWalkthrough('goal-first',true)],['native-interrupt',nativeInterruptWalkthrough],['dialog-keys',dialogKeysWalkthrough],['answer-editing',answerEditingWalkthrough]];
+available.push(['foreign-focus',foreignFocusWalkthrough]);
 const requested=process.argv.slice(2);
 assert.ok(requested.every(name=>available.some(([id])=>id===name)),'Unknown walkthrough case');
 const cases=available.filter(([name])=>!requested.length||requested.includes(name));

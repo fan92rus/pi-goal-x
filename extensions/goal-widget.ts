@@ -125,6 +125,7 @@ export function syncTerminalInputPause(core: GoalCore, ctx: ExtensionContext): v
 		core.terminalInputUnsubscribe = ctx.ui.onTerminalInput((data) => {
 			// The active dialog owns every key, including key capture and Escape.
 			if (core.goalModalDepth > 0) return undefined;
+			if (core.goalWidgetComponentRef.current?.isMainEditorFocused?.() === false) return undefined;
 			const settings = loadGoalSettings(goalCwd);
 			const matches = (path: string): boolean => {
 				const action = KEY_ACTION_BY_PATH.get(path)!;
