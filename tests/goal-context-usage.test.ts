@@ -4,7 +4,7 @@ import { contextUsageLine, modelBudgetLine } from "../extensions/goal-accounting
 import { createGoal } from "../extensions/goal-record.ts";
 import { goalPromptParts } from "../extensions/prompts/goal-prompts.ts";
 import { LiveTailRetention } from "../extensions/goal-live-retention.ts";
-import {stabilizationHarness} from "./stabilization-utils.ts";
+import {stabilizationHarness, deferred} from "./stabilization-utils.ts";
 import {mutateSettingsLayer, effectiveSettingsReport, loadGoalSettings} from "../extensions/goal-settings.ts";
 import {readFileSync, existsSync} from "node:fs";
 import path from "node:path";
@@ -32,10 +32,21 @@ test("context display defaults off and explicit true preserves the existing coun
  assert.doesNotMatch(goalPromptParts(goal).counters, /Context snapshot:/);
 });
 
-test("registered context toggles append snapshots, hidden occupancy adds nothing and retries preserve the prefix", async () => {
- const h = stabilizationHarness();
+for (const mode of ["ordinary", "audit", "wait"]) test(`registered context toggles preserve the prefix and pending ${mode} state`, async () => {
+ const pending = deferred<any>(), started = deferred<any>();
+ const h = stabilizationHarness(async () => {started.resolve(null); return pending.promise;});
+ let completion: Promise<any> | undefined;
  try {
   await h.start();
+  if (mode === "audit") {completion = h.call("update_goal", {status: "complete"}); await started.promise;}
+  if (mode === "wait") {
+   mutateSettingsLayer({scope: "project", cwd: h.cwd, mutation: {op: "set", path: ["strictExecutionContract"], value: true}});
+   h.core.updateFocusedGoal({...h.core.state.goal!, autoContinue: true}, h.ctx);
+   h.core.scheduler.begin(h.ctx);
+   assert.equal(h.core.scheduler.declare(h.ctx, {kind: "wait", reason: "External producer", deadline: new Date(Date.now() + 60000).toISOString()}).terminate, true);
+   assert.equal(h.core.state.goal?.scheduler?.phase, "waiting");
+  }
+  const audit = h.core.activeAudit, animation = h.core.auditAnimationTimer;
   const base = [{role: "user", content: "history", timestamp: 1}];
   const capture = async () => (await h.event("context_with_system", {messages: base})).messages;
   const first = await capture();
@@ -56,8 +67,11 @@ test("registered context toggles append snapshots, hidden occupancy adds nothing
   assert.equal(h.toolInstalls, installs);
   assert.deepEqual(h.core.state.goal, goal);
   assert.deepEqual(h.ledger(), ledger);
+  assert.equal(h.core.activeAudit, audit);
+  assert.equal(h.core.auditAnimationTimer, animation);
+  assert.equal(audit?.controller.signal.aborted ?? false, false);
   assert.equal(h.sent.length, 0);
- } finally {await h.cleanup();}
+ } finally {pending.resolve({approved: false, output: "More verification needed."}); await completion; await h.cleanup();}
 });
 
 test("display on/off preserves registered accounting, budgets and compaction state", async () => {
