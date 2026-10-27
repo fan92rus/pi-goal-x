@@ -17,6 +17,7 @@ test("nested counts agree with an independent flat reference for every display m
   const complete = flat.filter(t => t.status === "complete").length;
   const skipped = flat.filter(t => t.status === "skipped").length;
   const pending = flat.filter(t => t.status === "pending");
+  assert.equal(countTaskSubtree(tasks).pending, tasks.reduce((sum, task) => sum + countTaskSubtree([task]).pending, 0));
   for (const doneIncludesSkipped of [false, true]) for (const collectPending of [false, true]) {
    const counts = countTaskSubtree(tasks, {doneIncludesSkipped, collectPending});
    assert.equal(counts.total, flat.length);

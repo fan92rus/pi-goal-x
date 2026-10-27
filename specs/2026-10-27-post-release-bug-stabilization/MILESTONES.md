@@ -234,3 +234,11 @@ Implementation remains unstarted and the spec remains ready for review. The exis
 - The existing bounded index now pins the newest start, its matching current outcome and the last settled result needed for historical rejection context. Indexing, reconstruction and readers share the same attempt-matching predicate. Reloaded duplicate event objects are removed from the bounded view without scanning the full ledger.
 - Derived checkpoint format advances from 3 to 4 and rebuilds once from the unchanged authoritative JSONL. This necessary local-cache refresh does not clear provider retention or migrate goal files/ledger records. Focused checkpoint/lifecycle tests pass, including a completed long audit followed by another session's late outcome.
 - Also fenced before-provider callbacks whose session manager is no longer the owner, preserving the context/provider pairing across sessions.
+
+## Implementation — G: measured cache disposition
+
+- Independently reproduced #108's exact deterministic shape: task setup plus three completions cause four prefix breaks in ten follow-up requests; ordinary work transitions preserve the prefix.
+- The composed state changes active task instructions and completion gates, so an append-only facts redesign is not accepted for this patch. No speculative optimization, alternate production mode or stale instruction path ships. Live-provider trials are not claimed; they are conditional on adopting that redesign.
+- Added the measured transition/cost trace to the shared release report, with reset-classification, lost-reuse and redundant-counter negative controls. The 1,000-transition bounded corpus now includes large text and image content.
+- An 80-request occupancy-only control appends 79 counters and hits two ordinary capacity resets when visible (328,188 cumulative request bytes). With visibility off it appends zero counters, causes zero resets and sends 155,280 cumulative bytes. These synthetic byte measurements are not provider token prices or measured cache-hit percentages.
+- Release comparison still requires stable system/tools/options and exact approved counter deltas; explicit true remains the old-output control. Dependency fingerprints ensure baseline/candidate use the same locked dependencies, allowing only release-version metadata to differ.

@@ -9,6 +9,8 @@ import {execFileSync} from 'node:child_process';
 import {ModelRuntime, convertToLlm} from '@earendil-works/pi-coding-agent';
 import {cacheGoalHistory} from '../../extensions/goal-prompt-cache.ts';
 import {LiveTailRetention} from '../../extensions/goal-live-retention.ts';
+import {createGoal} from '../../extensions/goal-record.ts';
+import {goalPromptParts} from '../../extensions/prompts/goal-prompts.ts';
 import {captureOne} from './capture-context.mjs';
 import {FIXTURES, userMessage, assistantMessage} from './fixtures.mjs';
 
@@ -43,6 +45,14 @@ export function compareReports(baseline, candidate) {
  assert.equal(candidate.version,baseline.version);
  assert.ok(baseline.rows.length>0,'empty baseline');
  assert.deepEqual(candidate.rows.map(r=>r.id),baseline.rows.map(r=>r.id),'missing/reordered scenario');
+ if(baseline.corpus) assert.deepEqual(candidate.corpus,baseline.corpus,'retention bounds/reset frequency changed');
+ if(baseline.dependencies) assert.equal(candidate.dependencies,baseline.dependencies,'comparison dependencies differ');
+ if(baseline.investigation) {
+  assert.deepEqual(candidate.investigation.stateChanges.map(({kind,prefixBreak})=>({kind,prefixBreak})),baseline.investigation.stateChanges.map(({kind,prefixBreak})=>({kind,prefixBreak})),'state reset classification changed');
+  assert.equal(candidate.investigation.occupancy[1].breaks,0,'hidden occupancy invalidated retention');
+  assert.equal(candidate.investigation.occupancy[1].appendedCounters,0,'hidden occupancy added redundant counters');
+  for(const [n,step] of candidate.investigation.stateChanges.entries()) assert.ok(step.reusableBlocks>=baseline.investigation.stateChanges[n].reusableBlocks,'unchanged workflow lost reusable history');
+ }
  const differences=[];
  for(let i=0;i<baseline.rows.length;i++) {
   const a=baseline.rows[i], b=candidate.rows[i];
@@ -72,6 +82,43 @@ export function compareReports(baseline, candidate) {
   }
  }
  return {scenarios:candidate.rows.length,approvedDifferences:differences};
+}
+
+/** Reproduce #108's four breaks in ten state/task transitions; keep safety resets. */
+export function investigateCache() {
+ let goal=createGoal({objective:'Complete three verified tasks',autoContinue:true,sisyphus:false},0);
+ goal.id='cache-investigation';
+ const history=[userMessage('Begin')], retention=new LiveTailRetention();
+ let previous=retention.apply('state-workflow',history,goalPromptParts(goal)).messages;
+ const kinds=['work','set-tasks','work','complete-1','work','complete-2','work','complete-3','work','work'];
+ const stateChanges=[];
+ for(const [n,kind] of kinds.entries()) {
+  if(kind==='set-tasks') goal={...goal,taskList:{tasks:[1,2,3].map(i=>({id:`t${i}`,title:`Required task ${i}`,status:'pending'})),blockCompletion:true,proposedAt:'1970-01-01T00:00:00Z'}};
+  else if(kind.startsWith('complete')) goal={...goal,taskList:{...goal.taskList,tasks:goal.taskList.tasks.map(task=>task.id===`t${kind.at(-1)}`?{...task,status:'complete',evidence:'verified'}:task)}};
+  history.push(assistantMessage(`Work ${n}`),userMessage('Continue'));
+  const next=retention.apply('state-workflow',history,goalPromptParts(goal)).messages;
+  let shared=0;while(shared<previous.length && JSON.stringify(previous[shared])===JSON.stringify(next[shared]))shared++;
+  const prefixBreak=shared!==previous.length;
+  assert.equal(prefixBreak,kind!=='work',`${kind}: unexplained reset/reuse`);
+  stateChanges.push({kind,prefixBreak,reusableBlocks:shared,reusableBytes:Buffer.byteLength(JSON.stringify(previous.slice(0,shared))),requestBytes:Buffer.byteLength(JSON.stringify(next))});
+  previous=next;
+ }
+ assert.equal(stateChanges.filter(step=>step.prefixBreak).length,4);
+ const occupancy=[];
+ for(const showContextUsage of [true,false]) {
+  const retained=new LiveTailRetention();
+  const base=[userMessage('Unchanged history')];
+  let prior,breaks=0,appendedCounters=0,totalRequestBytes=0;
+  for(let n=0;n<80;n++) {
+   const result=retained.apply('occupancy',base,goalPromptParts(goal,{showContextUsage},{tokens:n+1,contextWindow:1000}));
+   if(prior && JSON.stringify(result.messages.slice(0,prior.length))!==JSON.stringify(prior))breaks++;
+   if(prior && JSON.stringify(result.messages)!==JSON.stringify(prior))appendedCounters++;
+   totalRequestBytes+=Buffer.byteLength(JSON.stringify(result.messages));
+   prior=result.messages;
+  }
+  occupancy.push({showContextUsage,requests:80,breaks,appendedCounters,totalRequestBytes});
+ }
+ return {stateChanges,occupancy,decision:'retain policy resets; task progress changes active task instructions and completion gates'};
 }
 
 export async function buildReport() {
@@ -126,7 +173,7 @@ export async function buildReport() {
   }
   // Long deterministic corpus: current bounds and reset counts, including image content.
   const retention=new LiveTailRetention();
-  const history=[userMessage('bounded history')];
+  const history=[userMessage('bounded history'),{role:'user',timestamp:1,content:[{type:'text',text:'tool output '.repeat(4096)},{type:'image',mimeType:'image/png',data:'a'.repeat(16384)}]}];
   let last, breaks=0;
   for(let n=0;n<1000;n++) {
    const fresh={state:'unchanging policy',counters:`Goal snapshot: ${n}`};
@@ -140,7 +187,9 @@ export async function buildReport() {
   assert.ok(breaks>2 && breaks<40,'unexpected reset frequency');
   let source='archived-release';
   try {source=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim();} catch { /* Gate assigns the pinned archive SHA. */ }
-  return {version:1,source,node:process.version,lockfile:digest(readFileSync(path.join(root,'package-lock.json'))),sdk:JSON.parse(readFileSync(path.join(root,'node_modules/@earendil-works/pi-coding-agent/package.json'),'utf8')).version,corpus:{transitions:1000,breaks},rows,samples};
+  const lockfile=readFileSync(path.join(root,'package-lock.json'));
+  const locked=JSON.parse(lockfile);delete locked.version;delete locked.packages[''].version;
+  return {version:1,source,node:process.version,lockfile:digest(lockfile),dependencies:digest(locked),sdk:JSON.parse(readFileSync(path.join(root,'node_modules/@earendil-works/pi-coding-agent/package.json'),'utf8')).version,corpus:{transitions:1000,breaks},investigation:investigateCache(),rows,samples};
  } finally {rmSync(work,{recursive:true,force:true});}
 }
 
