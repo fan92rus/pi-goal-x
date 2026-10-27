@@ -242,3 +242,22 @@ Implementation remains unstarted and the spec remains ready for review. The exis
 - Added the measured transition/cost trace to the shared release report, with reset-classification, lost-reuse and redundant-counter negative controls. The 1,000-transition bounded corpus now includes large text and image content.
 - An 80-request occupancy-only control appends 79 counters and hits two ordinary capacity resets when visible (328,188 cumulative request bytes). With visibility off it appends zero counters, causes zero resets and sends 155,280 cumulative bytes. These synthetic byte measurements are not provider token prices or measured cache-hit percentages.
 - Release comparison still requires stable system/tools/options and exact approved counter deltas; explicit true remains the old-output control. Dependency fingerprints ensure baseline/candidate use the same locked dependencies, allowing only release-version metadata to differ.
+
+## Implementation — H: release candidate and integrated validation
+
+Prepared package/lock metadata for 0.34.1 and consolidated user-facing changes in Unreleased. README and the historical untracked spec remain untouched. Added an installed-tarball gate that installs pinned peers into an isolated project, proves the extension is not linked/imported from the checkout, repeats lifecycle/input/task/focus/context regressions and runs the real Responses/auditor archival path. CI keeps successful cache/package evidence and adds focused native Windows sharing/persistence/session tests on Node 22.19/Pi 1.4; publication validation now includes the cache gate.
+
+### Contributor hunk disposition at integration
+
+All reviewed source heads are pinned in TECH §1.4. No source PR head was merged or cherry-picked.
+
+| Source | File/hunk disposition | Replacement and independent boundary |
+| --- | --- | --- |
+| #109 | Rewrite completion/state/events/readers; replace surrogate controller and incomplete reader tests. No unchanged runtime hunk retained. | `1a49f52`, `e089dff`; real pending audit, project/root ownership, modal/timer races, bounded-index/checkpoint reload and installed Pi workers. |
+| #111 | Keep the independently verified counting expression only; replace/extend contributor tests and changelog fragment. | `0bc8acc`; flat-reference nested invariants, real completion/auditor/prompt/archive and combined Responses call. |
+| #112 | Adapt existing boolean settings/rendering pattern, rewrite default/render condition, reporting/docs and tests; reject README hunk. | `3e43a76`; both scopes/save/reset/provenance, actual menu, usage/budget/compaction and four real adapter shapes/three cache tiers. |
+| #116 | Rewrite the three-action/private-overlay boundary as one early guard using public Pi app/focus wiring; replace mock-focus tests. | `eddef67`; real TUI delivery, non-capturing overlay, foreign text accessors and installed CLI native/custom dialog walkthrough. |
+| #117 | Rewrite planner/executor integration before flush, explicit error result and actual boundary tests; schema unchanged. | `5acd25f`; dirty transaction, immutable input/conflicts, real SDK validation and local Responses server with the real nested auditor. |
+| #96 | Reject every feature hunk from this campaign. | Deferred; no command/message-delivery feature enters 0.34.1. |
+
+Each runtime track reuses an existing boundary and removes superseded logic. There is no extra cache/visibility/session framework or new production dependency. Audit identity and the bounded index fields are required by failing cross-session/long-history regressions; the task correction and focus guard remain local. Baseline/candidate cache gates have passed after each track; final CI, package, benchmark and deliberate broken-variant results are recorded below as they complete.

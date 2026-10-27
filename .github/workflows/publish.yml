@@ -71,6 +71,7 @@ jobs:
       - run: npm run test:all -- --selfcheck
       - run: npm run context:gate
       - run: npm run context:provider-check
+      - run: npm run context:cache-gate
       - run: npm audit --omit=dev
       - run: npm run bench:gate:naf
       - name: Download release ranking

@@ -4,6 +4,17 @@ All notable changes to pi-goal-x are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Complete session cleanup after Pi invalidates a context, keep outgoing writes in their original project, and settle interrupted completion audits once against the audited goal. A newer unfinished audit no longer shows an older verdict (#113, #109).
+- Accept provider-filled empty `update_goal` arguments and payload-free ready filler alongside lifecycle status. Report real field conflicts as tool errors before flushing pending work (#115, #117).
+- Exclude skipped tasks from pending counts so complete-and-skipped task trees can reach the independent completion auditor (#110, #111).
+- Leave every Goal shortcut to a focused Pi dialog or foreign capturing overlay, including Escape and remapped pause keys (#114, #116).
+
+### Changed
+
+- Hide context-window occupancy in new goal prompt snapshots by default. Enable `showContextUsage` in `/goal-settings` to display it; accounting, budgets, compaction and retained prompt prefixes keep their existing behavior (#112).
+
 ## [0.34.0] — 2026-10-24
 
 Includes #107.

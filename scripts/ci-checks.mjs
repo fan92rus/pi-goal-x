@@ -44,10 +44,13 @@ export async function runChecks(checks, {directory, cwd=process.cwd(), concurren
 if(process.argv[1]===fileURLToPath(import.meta.url)) {
  const directory=process.env.PI_GOAL_CI_LOG_DIR??mkdtempSync(path.join(tmpdir(),'pi-goal-ci-'));
  console.log(`Validation logs: ${directory}`);
- const results=await runChecks([
+ const checks=process.argv.includes('--windows') ? [
+  {name:'windows-persistence',args:['--experimental-strip-types','--test','tests/windows/atomic-rename.test.ts','tests/goal-stabilization-lifecycle.test.ts','tests/goal-turn-transaction.test.ts','tests/goal-storage-root.test.ts'],noSkippedTests:true},
+ ] : [
   {name:'tests',args:['scripts/run-unit-tests.mjs','all','--selfcheck'],noSkippedTests:true},
   {name:'controls-cli',args:['experiments/controls/cli-walkthrough.mjs']},
   {name:'lifecycle-cli',args:['scripts/live-session-check.mjs']},
- ],{directory});
+ ];
+ const results=await runChecks(checks,{directory});
  process.exitCode=results.every(result=>result.passed)?0:1;
 }

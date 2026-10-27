@@ -56,6 +56,11 @@ jobs:
       - name: Package dry run
         if: steps.changes.outputs.runtime == 'true'
         run: npm pack --dry-run
+      - name: Installed package regressions
+        if: steps.changes.outputs.runtime == 'true'
+        env:
+          PI_GOAL_PACKAGE_EVIDENCE: ${{ runner.temp }}/pi-goal-validation/package
+        run: node scripts/package-stabilization-check.mjs
       - name: Production dependency audit
         if: steps.changes.outputs.runtime == 'true'
         run: npm audit --omit=dev
@@ -91,5 +96,38 @@ jobs:
           path: |
             ${{ runner.temp }}/pi-goal-validation/
             experiments/runs/goal-controls/
+          retention-days: 5
+          if-no-files-found: ignore
+
+  persistence-windows:
+    name: persistence-windows
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Determine affected checks
+        id: changes
+        run: node scripts/ci-scope.mjs
+      - uses: actions/setup-node@v4
+        if: steps.changes.outputs.runtime == 'true'
+        with:
+          node-version: 22.19.0
+          cache: npm
+      - name: Install dependencies
+        if: steps.changes.outputs.runtime == 'true'
+        run: npm ci --no-audit --no-fund
+      - name: Native sharing, persistence and session ownership
+        if: steps.changes.outputs.runtime == 'true'
+        env:
+          PI_GOAL_CI_LOG_DIR: ${{ runner.temp }}/pi-goal-windows
+        run: node scripts/ci-checks.mjs --windows
+      - name: Save Windows evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-persistence
+          path: ${{ runner.temp }}/pi-goal-windows/
           retention-days: 5
           if-no-files-found: ignore
